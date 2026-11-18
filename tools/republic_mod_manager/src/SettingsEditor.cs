@@ -22,7 +22,7 @@ namespace TesmioAutoload
         {
             description.Text=presentation.Description;
             Theme.DisposeChildren(tabStrip); refreshing=true;
-            string note=session.SwitchMode=="loader"?language.T(session.BridgeActive?"switch_note_bridge":"switch_note_loader"):session.SwitchMode=="ini"?language.T("switch_note_ini"):language.T("switch_note_sml_only");
+            string note=language.T("switch_note_loader");
             ShowSwitch(session.SwitchMode!="none" && session.Package.Visible,session.Package.Visible?note:""); header.PerformLayout();
             refreshing=false; SyncActivation();
             if(!session.Package.Visible) { Theme.DisposeChildren(content); ShowInfo(language.T("hidden")); UpdateStatus(); return; }
@@ -48,37 +48,10 @@ namespace TesmioAutoload
             foreach(Button button in tabStrip.Controls) { bool active=(string)button.Tag==id; button.ForeColor=active?Color.White:Theme.Ink; button.BackColor=active?Theme.SelectionBlue:Theme.Frame; button.FlatAppearance.MouseOverBackColor=active?Theme.SelectionBlue:Theme.TabHover; }
             tabStrip.PerformLayout(); foreach(Button button in tabStrip.Controls) if((string)button.Tag==id) tabStrip.ScrollControlIntoView(button); tabStrip.Invalidate();
             Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
-            // 0.5.9: Soviet Mod Loader has this plugin's job, so nothing here reaches the game. The
-            // warning stands on every tab and stays white; the rest of the page goes grey and dead
-            // below it, and "Trotzdem bearbeiten" opens it for the day SML is switched off.
-            Card pausedCard=null;
-            if(RuntimeStatus.Blocked(session.Package,state.Build))
-            {
-                pausedCard=BeginCard(780);
-                AddNotice(pausedCard,language.Format(pausedUnlocked?"sml_replaced":"sml_replaced_locked",session.Package.Name,language.T("content_kind_"+session.Package.ReplacedBySml)),"warning");
-                if(!pausedUnlocked)
-                {
-                    var layout=(CardLayout)pausedCard.Tag;
-                    var unlock=Theme.Button(language.T("sml_replaced_unlock"),()=>Run(()=>{pausedUnlocked=true;BuildEditor();}),false);
-                    unlock.AccessibleName="sml:unlock";unlock.Margin=new Padding(0,2,8,4);
-                    var flow=new FlowLayoutPanel{Dock=DockStyle.Top,AutoSize=true,WrapContents=true,Margin=new Padding(0,0,0,4),Padding=Padding.Empty};
-                    flow.Controls.Add(unlock);AddRow(layout.Inner,flow);
-                }
-            }
             // The notices card belongs to the first tab only ("Allgemein"); the other tabs start with their groups.
             if(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id) AddNotices();
             if(presentation.Links.Count>0&&(presentation.LinksTab.Length==0?(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id):presentation.LinksTab==id)) AddPresentationLinks();
             foreach(var group in presentation.Groups.Where(g=>g.Tab==id)) AddGroup(group);
-            // 0.5.9: Soviet Mod Loader has this plugin's job, so nothing here reaches the game. The
-            // same picture as in the keyed editors: the warning stays white, the rest goes grey and
-            // dead, and "Trotzdem bearbeiten" opens it up for the day SML is switched off.
-            if(pausedCard!=null&&!pausedUnlocked)
-                foreach(Control card in content.Controls)
-                {
-                    if(ReferenceEquals(card,pausedCard))continue;
-                    var box=card as Card;if(box!=null){box.Dimmed=true;box.BackColor=Theme.Dim;}
-                    LockInputs(card);DimCard(card);
-                }
             ResizeCards(); UpdateStatus(); SaveView();
         }
         Card BeginCard(int minimumWidth,string header="")
@@ -109,21 +82,7 @@ namespace TesmioAutoload
         void ShowInfo(string message) { var card=BeginCard(0); AddText(card,message,11,false,Theme.Muted); ResizeCards(); }
         // 0.4.55: an entry that cannot be shown gets a red box instead of grey text.
         void ShowProblem(string message) { var card=BeginCard(0); AddNotice(card,message,"error"); ResizeCards(); }
-        // 0.5.1: resources, deposits, needs and buildings are built into Soviet Mod Loader.
-        // No DLL of their own, and their plugins\<name>.ini is generated at every start - so
-        // this is a blue notice about who is in charge, not a red box about missing files.
-        void ShowSmlHosted(LocalEditorSpec spec)
-        {
-            string name=spec.LocalizedName(language);
-            var card=BeginCard(0,language.Format("sml_hosted",name));
-            AddNotice(card,language.Format("sml_hosted_notice",name,spec.Plugin),"info");
-            AddText(card,language.Format("sml_hosted_generated",spec.ConfigName),10,false,Theme.Ink);
-            AddText(card,language.T("sml_hosted_wait"),10,true,Theme.Ink);
-            AddText(card,language.T("sml_hosted_how"),10,false,Theme.Ink);
-            AddText(card,language.Format("sml_hosted_back",spec.Plugin,spec.ConfigName),10,false,Theme.Muted);
-            ResizeCards();
-        }
-        // 0.4.80: the page of a content package - its state, what it carries and which plugin takes each part.
+        // The page of a content package - its state, what it carries and which plugin takes each part.
         void BuildContentPage()
         {
             Theme.DisposeChildren(tabStrip); Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
@@ -136,30 +95,16 @@ namespace TesmioAutoload
                 if(changes.Length>0)text+="  "+language.Format("update_changes",c.Package.Version,changes);
                 AddNotice(notes,text,"info");
             }
-            else
-            {
-                // 0.5.3: under SML the entries are in the game without a receipt of ours - say that
-                // instead of "not provided yet", which the green dot would already contradict.
-                bool byLoader=!c.Provided&&ContentSession.MergedByLoader(state.Build,c.Package);
-                AddText(notes,c.Provided?language.Format("content_state_provided",c.ProvidedVersion):byLoader?language.T("content_state_sml"):language.T("content_state_absent"),10,false,c.Provided||byLoader?Color.FromArgb(26,132,61):Theme.Muted);
-            }
+            else AddText(notes,c.Provided?language.Format("content_state_provided",c.ProvidedVersion):language.T("content_state_absent"),10,false,c.Provided?Color.FromArgb(26,132,61):Theme.Muted);
             foreach(string note in c.Notes) AddNotice(notes,language.Localize(note),"warning");
-            // 0.5.1: Soviet Mod Loader reads a package with content itself and merges it into its
-            // own generated INIs. Providing it a second time from here would write into a file SML
-            // rewrites at the next start, so the page says who is in charge and the switch stays away.
-            if(SmlOwnsContent(c)) AddNotice(notes,language.Format("sml_content",c.Package.Name),"info");
             foreach(var pair in c.Skipped) if(pair.Value.Count>0) AddNotice(notes,language.Format("content_skipped",language.T("content_kind_"+pair.Key.ToLowerInvariant()),String.Join(", ",pair.Value)),"info");
-            // 0.4.87: an id that already exists elsewhere blocks the package. Red, with the name
-            // of the entry in the way and what to do about it - saving would fail with the same text.
-            // 0.5.9: not while Soviet Mod Loader owns the content. It merges the package itself,
-            // there is no switch to press here, and the entry it "clashes" with is usually the one
-            // SML built from this very package - a red box would only make RMM look broken.
-            if(!SmlOwnsContent(c))
-                foreach(var clash in c.Conflicts(SessionFor))
-                {
-                    string plugin; c.Targets.TryGetValue(clash.Key,out plugin);
-                    AddNotice(notes,language.Format("content_conflict",c.Package.Name,String.Join(", ",clash.Value),plugin??"",language.T("content_kind_"+clash.Key.ToLowerInvariant())),"error");
-                }
+            // An id that already exists elsewhere blocks the package. Red, with the name of the
+            // entry in the way and what to do about it - saving would fail with the same text.
+            foreach(var clash in c.Conflicts(SessionFor))
+            {
+                string plugin; c.Targets.TryGetValue(clash.Key,out plugin);
+                AddNotice(notes,language.Format("content_conflict",c.Package.Name,String.Join(", ",clash.Value),plugin??"",language.T("content_kind_"+clash.Key.ToLowerInvariant())),"error");
+            }
             var contents=BeginCard(0,language.T("content_card_contents"));
             foreach(string key in ContentTargets.Keys)
             {
@@ -179,13 +124,8 @@ namespace TesmioAutoload
         {
             if(session==null) return;
             var problems=new List<string>(); var notes=new List<string>(); var warnings=new List<string>();
-            // 0.5.3: the package says SML replaces it, and SML really has that capability. Amber,
-            // because nothing is broken - the plugin simply waits, and the page says what to do
-            // if the player wants this one instead.
-            // 0.5.9: the "SML has this job" warning is no longer one line among the notices - it now
-            // has its own card above every tab and greys the page out, so it must not stand twice.
-            // 0.4.27: found is not enough - a dependency that is present but not switched on
-            // gets a yellow box, an active one a quiet line; both name the package.
+            // Found is not enough - a dependency that is present but not switched on gets a
+            // yellow box, an active one a quiet line; both name the package.
             foreach(Dependency d in session.Package.Dependencies)
             {
                 if(!d.Found||!d.VersionOk){problems.Add(language.Localize(d.Note));continue;}
@@ -193,13 +133,13 @@ namespace TesmioAutoload
                 if(RuntimeGuard.Provisioned(session,d)) notes.Add(language.Format("dep_active",name,d.Version));
                 else warnings.Add(language.Format("dep_inactive",name,d.Version,session.Package.Name));
             }
-            if(session.SmlActive&&!session.Package.Installed&&File.Exists(session.LocalDll)) problems.Add(language.Format("duplicate_dll",session.Package.Name+" (plugins\\"+session.Package.Target+".dll)"));
-            if(session.ForeignLocalDll) problems.Add(language.Format("duplicate_dll_bridge",session.Package.Name+" (plugins\\"+session.Package.Target+".dll)"));
-            // 0.4.53: the bridge and this manager must walk the same folder, or the package list means nothing.
-            if(Bridge.Present(state.Build)&&(session.Package.Target==Bridge.Name||session.BridgeActive&&!session.Package.Installed))
+            AddPairNotices(current,warnings,notes);
+            // The loader and this manager must walk the same Workshop folder, or the list shows
+            // plugins the game never loads.
+            if(current!=null&&!current.Installed)
             {
-                string bridgeRoot=Bridge.Root(state.Build),ownRoot=Catalog.NormalizeRoot(state.WorkshopRoot);
-                if(bridgeRoot.Length>0&&ownRoot.Length>0&&!Catalog.NormalizeRoot(bridgeRoot).Equals(ownRoot,StringComparison.OrdinalIgnoreCase))problems.Add(language.Format("bridge_root_mismatch",bridgeRoot,ownRoot));
+                string loaderRoot=LoaderFiles.WorkshopRoot(state.Build),ownRoot=Catalog.NormalizeRoot(state.WorkshopRoot);
+                if(ownRoot.Length>0&&!(loaderRoot.Length>0&&Catalog.NormalizeRoot(loaderRoot).Equals(ownRoot,StringComparison.OrdinalIgnoreCase)))problems.Add(language.Format("workshop_root_mismatch",loaderRoot.Length>0?loaderRoot:"-",ownRoot));
             }
             // The update notice gets its own blue box above everything else; it is
             // gone after the next save, when the receipt matches the package again.
@@ -212,23 +152,22 @@ namespace TesmioAutoload
                 string changes=Startup.Changes(session.Package.Root,session.Update.CurrentVersion,language.Code);
                 if(changes.Length>0) update+="  "+language.Format("update_changes",session.Update.CurrentVersion,changes);
             }
-            // Load path, file location and the last game start moved to the status bar below the tabs (0.4.12).
-            if(session.RemoveOwnDll) notes.Add(language.Format("bridge_remove_copy","plugins\\"+session.Package.Target+".dll"));
             // 0.4.88: saved games that still need this plugin - the line that makes the switch-off
             // question below no surprise.
             var usedBy=SavesUsingCurrent();
             if(usedBy.Count>0) notes.Add(language.Format("saves_used_by",usedBy.Count,SaveGames.Names(usedBy,3,language.T("saves_and_more"))));
             // The overlay hint is a blue box of its own (0.4.19); the other package hints stay plain lines.
-            string overlay=session.Package.Hints.Where(h=>Msg.KeyOf(h)=="hint_overlay").Select(language.Localize).FirstOrDefault()??"";
-            notes.AddRange(session.Package.Hints.Where(h=>Msg.KeyOf(h)!="hint_overlay").Select(language.Localize));
-            notes.AddRange(session.Notes.Where(n=>{string k=Msg.KeyOf(n);return k=="note_first_import"||k=="note_collection_kept";}).Select(language.Localize));
+            string overlay=session.Package.Hints.Where(h=>Msg.KeyOf(h)=="hint_overlay"||Msg.KeyOf(h)=="hint_effective").Select(language.Localize).FirstOrDefault()??"";
+            notes.AddRange(session.Package.Hints.Where(h=>Msg.KeyOf(h)!="hint_overlay"&&Msg.KeyOf(h)!="hint_effective").Select(language.Localize));
+            notes.AddRange(session.Notes.Where(n=>{string k=Msg.KeyOf(n);return k=="note_first_import"||k=="note_collection_kept"||k=="note_local_ini_removed";}).Select(language.Localize));
+            warnings.AddRange(session.Notes.Where(n=>Msg.KeyOf(n)=="note_local_ini_shadows").Select(language.Localize));
             problems=problems.Distinct().ToList(); notes=notes.Distinct().ToList(); warnings=warnings.Distinct().ToList();
             // The package-wide notice comes from the presentation schema or, for list/section editors, from the local spec.
             // An active list/section editor wins: LoadDraft also builds a presentation for such packages, but that one carries no notice.
             string packageNotice=localSpec!=null?localSpec.LocalizedNotice(language):presentation!=null?presentation.Notice:"";
             bool packageWarning=localSpec!=null?localSpec.NoticeStyle=="warning":presentation!=null&&presentation.NoticeStyle=="warning";
             string packageInfo=localSpec!=null?localSpec.LocalizedInfo(language):presentation!=null?presentation.Info:"";   // [launcher] info (0.4.10)
-            if(update==null&&problems.Count==0&&notes.Count==0&&warnings.Count==0&&overlay.Length==0&&!session.LocalCopyOffered&&packageNotice.Length==0&&packageInfo.Length==0) return;
+            if(update==null&&problems.Count==0&&notes.Count==0&&warnings.Count==0&&overlay.Length==0&&packageNotice.Length==0&&packageInfo.Length==0) return;
             var card=BeginCard(0,language.T("notices"));
             AddNotice(card,update,false);
             AddNotice(card,packageNotice,packageWarning);
@@ -237,16 +176,17 @@ namespace TesmioAutoload
             foreach(string w in warnings) AddNotice(card,w,true);
             foreach(string p in problems) AddNotice(card,p,"error");
             foreach(string n in notes) AddText(card,n,9.5f,false,Theme.Muted);
-            if(session.LocalCopyOffered)
-            {
-                // "Dateien nur lokal": copy the package into plugins\ instead of loading it
-                // from the Workshop through the bridge. Applied on save, after a confirmation.
-                var row=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=2,Margin=new Padding(0,10,0,0)};row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,70));
-                var title=Theme.Label(language.T("local_copy"),10,true);var note=Theme.Label(language.T(session.PreferLocal?"local_copy_on_note":"local_copy_note"),9,false);note.ForeColor=Theme.Muted;note.MaximumSize=new Size(640,0);note.AutoSize=true;
-                var textBox=new TableLayoutPanel{Dock=DockStyle.Top,AutoSize=true,ColumnCount=1,Margin=Padding.Empty};textBox.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));AddRow(textBox,title);AddRow(textBox,note);
-                var toggle=new ToggleSwitch{Checked=session.PreferLocal,AccessibleName="local-copy",Margin=new Padding(6,4,0,0)};toggle.CheckedChanged+=(s,e)=>{if(!refreshing)Run(()=>SetPreferLocal(toggle.Checked));};
-                row.Controls.Add(textBox,0,0);row.Controls.Add(toggle,1,0);AddRow(((CardLayout)card.Tag).Inner,row);
-            }
+        }
+        // What the list knows about an entry beyond its own package: a plugin of the same key
+        // the loader passes over, the plugin it replaces, and a replacement that is switched on.
+        void AddPairNotices(CatalogEntry entry,List<string> warnings,List<string> notes)
+        {
+            if(entry==null) return;
+            warnings.AddRange(entry.Hints.Where(h=>Msg.KeyOf(h)=="hint_same_key").Select(language.Localize));
+            notes.AddRange(entry.Hints.Where(h=>Msg.KeyOf(h)=="hint_replaces").Select(language.Localize));
+            if(entry.Key.Length==0) return;
+            foreach(CatalogEntry other in entries.Where(e=>e!=entry&&e.Supported&&e.Key.Length>0&&e.Replaces.Equals(entry.Key,StringComparison.OrdinalIgnoreCase)))
+                if(LoaderFiles.Enabled(state.Build,other.Key)) warnings.Add(language.Format("replaced_by_on",other.Name,entry.Name));
         }
         // The package's guides as buttons, one per UI language when the schema says so.
         void AddPresentationLinks()
@@ -261,26 +201,6 @@ namespace TesmioAutoload
             }
             AddRow(((CardLayout)card.Tag).Inner,row);
         }
-        void SetPreferLocal(bool on)
-        {
-            if(session==null||session.PreferLocal==on) return;
-            Collect(); var kept=new Dictionary<string,string>(session.Overrides,StringComparer.OrdinalIgnoreCase);
-            session=new Session(session.Package,state.Build,on);
-            session.Overrides.Clear(); foreach(var pair in kept) session.Overrides[pair.Key]=pair.Value;
-            lastAction="ready"; RebuildPresentation(); BuildEditor();
-        }
-        // The confirmation before a local copy is made or removed: every file by name.
-        string LocalCopyText()
-        {
-            string target=session.Build+"\\plugins";
-            if(session.PreferLocal) return language.Format("local_copy_confirm_on",target)+"\n\n"+String.Join("\n",session.LocalCopyFiles())+"\n\nSHA-256 ("+session.Package.Target+".dll): "+SafeFiles.Hash(session.Package.Dll)+"\n\n"+language.T("trust_question");
-            var present=session.AssetTargets.Where(File.Exists).Select(x=>x.Substring(session.Build.Length+1)).ToList();if(File.Exists(session.LocalDll))present.Insert(0,"plugins\\"+session.Package.Target+".dll");
-            return language.Format("local_copy_confirm_off",target)+"\n\n"+String.Join("\n",present)+"\n\n"+language.T("trust_question");
-        }
-        internal Func<string,DialogResult> LocalCopyPrompt=null;
-        internal bool PreferLocal{get{return session!=null&&session.PreferLocal;}}
-        internal bool LocalCopyOffered{get{return session!=null&&session.LocalCopyOffered;}}
-        internal void TestSetPreferLocal(bool on){SetPreferLocal(on);}
         // 0.4.56: a schema [folder_list:] - one row per subfolder found under the list's paths: the name,
         // a short text from the language file, and whether it lives in the package, locally, or both.
         void AddFolderList(CardLayout layout,FolderListSpec list)
@@ -316,19 +236,11 @@ namespace TesmioAutoload
             string command=action.Command;var button=Theme.Button(action.Button,()=>Run(()=>RunAction(command)),false);button.Anchor=AnchorStyles.Left|AnchorStyles.Top;button.Margin=new Padding(0,5,0,0);button.AccessibleName="action:"+action.Id;
             table.Controls.Add(text,0,row);table.Controls.Add(button,1,row);
         }
-        // The commands behind [action:] rows. bridge_prune: drop [packages] entries of the Workshop Bridge
-        // whose package is no longer in this manager's list; the player decides when (0.4.53).
+        // The commands behind [action:] rows. No schema command exists at the moment; the row
+        // type stays, and an unknown command is refused when the schema is read.
         void RunAction(string command)
         {
-            if(command!="bridge_prune")throw new InvalidOperationException(Msg.Key("err_unbekannte_aktion",command));
-            if(!ResolvePending())return;
-            var known=new HashSet<string>(entries.Where(e=>!e.Installed&&!String.IsNullOrEmpty(e.Root)).Select(e=>Path.GetFileName(e.Root.TrimEnd('\\','/'))),StringComparer.OrdinalIgnoreCase);
-            var stale=Bridge.PackageKeys(state.Build).Where(k=>!known.Contains(k)).ToList();
-            if(stale.Count==0){MessageWindow.Show(this,language,language.T("bridge_prune_title"),language.T("bridge_prune_clean"),MessageWindow.Kind.Info,DialogResult.OK);return;}
-            if(MessageWindow.Show(this,language,language.T("bridge_prune_title"),language.Format("bridge_prune_question",stale.Count,String.Join(", ",stale)),MessageWindow.Kind.Question,DialogResult.OK,DialogResult.Cancel)!=DialogResult.OK)return;
-            List<string> removed;string backup=Bridge.Prune(state.Build,k=>known.Contains(k),()=>RuntimeGuard.NoGameRunning(state.Build),out removed);
-            Report(language.Format("bridge_prune_done",removed.Count,String.Join(", ",removed))+(backup.Length>0?"  "+backup:""));
-            ShowEntry(current);
+            throw new InvalidOperationException(Msg.Key("err_unbekannte_aktion",command));
         }
         void AddGroup(GroupSpec group)
         {

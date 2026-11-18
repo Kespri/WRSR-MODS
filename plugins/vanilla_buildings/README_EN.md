@@ -1,8 +1,8 @@
-# 🏗️ Vanilla Buildings 0.4.4
+# 🏗️ Vanilla Buildings 0.4.5
 
 **TesmioLoader plugin for temporary changes to building files**
 
-Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Republic* 1.1.1.9 without modifying a single original file: every game start generates temporary copies with the wanted lines, and only the game's read calls are redirected to them. Typical use: give new materials such as road salt, gravel or sand a storage in the technical services so they are delivered and accepted.
+Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Republic* 1.1.1.13 without modifying a single original file: every game start generates temporary copies with the wanted lines, and only the game's read calls are redirected to them. Typical use: give new materials such as road salt, gravel or sand a storage in the technical services so they are delivered and accepted.
 
 ---
 
@@ -26,12 +26,13 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.9 (reference version; after a game update original lines may change, rules that no longer match are then rejected safely)
-- TesmioLoader API 4
-- No dependency on other plugins. Resources a rule refers to (for example `road_salt`) must exist in the game, for example through the Resources plugin.
+- WRSR 1.1.1.13 (reference version; after a game update original lines may change, rules that no longer match are then rejected safely)
+- TesmioLoader b0.3.7 or newer (API 4)
+- Localization (0.4.0 or newer): the plugin itself needs it only for translated building names (`name` with a translation key) and runs without it otherwise.
+- Resources a rule refers to (for example `road_salt`) must exist in the game, for example through Resources Plus or Resources.
 
 ### In three steps
-1. **Choose one installation method** (see below) and enable the plugin.
+1. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
 2. **Set up rule sets:** the shipped INI contains one disabled example, `[example_plastics_factory]` with every command. In Republic Mod Manager you add your own rule set with +, for example grit storages for the technical services as shown below; a typed name such as "Technical Service Storage" becomes the section name technical_service_storage.
 3. **Restart the game completely.** The log shows `[overlay-opened]` per target as soon as the game reads the changed file.
 
@@ -49,7 +50,7 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 ### 🆕 New in 0.4.0
 - ✅ Every Republic Mod Manager text in player style: warning only in the Notes card, one header switch, Troubleshooting card, notice box and multi-line field texts on the Buildings tab.
 - ✅ **`insert` with a position:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it.
-- ✅ **INI beside the DLL:** when `plugins\vanilla_buildings.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The plugin runs straight from the Steam subscription.
+- ✅ **INI beside the DLL:** when `tesmioloader\plugins\vanilla_buildings.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package. The plugin runs straight from the Steam subscription.
 - ✅ The chosen configuration file is logged at start.
 - ✅ Editor schema for Republic Mod Manager in the package: rule sets with targets and commands as a list, German and English.
 
@@ -57,70 +58,47 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 
 ## 💾 Installation
 
-Choose **one** of the four methods. The same DLL must never be loaded twice.
+Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ---
 
-### Method 1️⃣: Classic TesmioLoader
+### Method 1️⃣: Steam Workshop (recommended)
 
 ```
-1. Copy vanilla_buildings.dll and vanilla_buildings.ini from hooks\
-   → tesmioloader\build\plugins\
-
-2. Enable vanilla_buildings in TesmioLauncher
-3. Enable or add rule sets in the INI, restart the game completely
+1. Subscribe to the Workshop item
+2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+   by itself on the next game start – nothing is copied
+3. The DLL finds the INI next to itself in the package
+4. Steam updates apply from the next game start
 ```
+
+A newly found plugin is switched on. You switch it off and on in TesmioLauncher or with "Plugin active" in Republic Mod Manager.
 
 ---
 
-### Method 2️⃣: Soviet Mod Loader (SML)
+### Method 2️⃣: By hand into the loader folder
 
 ```
-1. Subscribe to the Workshop item – SML reads subscribed packages by itself
-2. SML loads the DLL through soviet.mod.ini from the package, the INI sits beside it
-3. Remove or disable a local vanilla_buildings.dll in plugins\ first
+1. Copy vanilla_buildings.dll and vanilla_buildings.ini from plugins\
+   → <game>\tesmioloader\plugins\
+
+2. Enable or add rule sets in the INI, restart the game completely
 ```
 
----
-
-### Method 3️⃣: Workshop Bridge (without SML)
-
-```
-1. Select the package in Republic Mod Manager
-2. Switch "Plugin active" on
-3. workshop_bridge loads the DLL straight from the package
-4. Steam updates apply immediately
-```
-
----
-
-### Method 4️⃣: Republic Mod Manager with "Files local only"
-
-```
-1. Select the package in Republic Mod Manager, set up rule sets, Save
-2. "General" tab, "Notes" card: switch "Files local only" on
-3. Confirmation with file list → DLL and INI are copied to
-   tesmioloader\build\plugins\ on save
-4. The Workshop Bridge skips the package from then on
-```
-
-**"Files local only" in detail**
-- For everyone who wants to keep using the plugin without the Steam subscription
-- With local files, Steam updates apply only after saving again (yellow "Update" badge)
-- Switching it off removes only the files Republic Mod Manager copied
+For everyone who wants to use the plugin without the Steam subscription. A DLL in `tesmioloader\plugins` takes priority over the one of the same name from the Workshop; you then copy updates yourself.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager shows Vanilla Buildings in two tabs, German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Vanilla Buildings in two tabs, German and English:
 
-- **General:** notes, "Files local only", the button for this guide and the plugin switches (plugin active, detailed log)
+- **General:** notes, the button for this guide and the Troubleshooting card (detailed log); the plugin is switched on and off with "Plugin active" in the header
 - **Buildings:** one row per rule set with its switch, its name, the first target file and the buttons Change and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (the target files) and **Lines** (the line editor: pick the target file at the top, click its lines on the left, and turn them into Append/Replace/Before/After/Remove; two views, **Original** and **Result** – the result shows, read only, the file the game will read and marks every line a command adds or replaces; connections are handled as blocks, clicking a point line takes the whole connection; a command that does not fit this file is red with the reason, and while one is red the plugin writes nothing at all for that file; the box "Check against every target file" below the buttons says in how many targets a command fits). Every row in a field is one INI line; the count sits below the field, which can be dragged open at its grip. "Choose buildings…" opens the list of every building of the game, the DLCs and the subscribed Workshop items, grouped by kind with search and filters; checked buildings are entered as target lines
 
 **Renaming is a deliberate act, not a side effect.** Republic Mod Manager offers no field for it: Vanilla Buildings changes existing buildings and the game's names should stay; a building of your own is what Buildings Plus is for. If you do want to rename one, do it on the Lines tab with a replace, for example `$NAME 6218` → `$NAME_STR "Salt store"`. That only works in a rule set with **exactly that one** target file: the old line differs in every file, in the other targets the command would not find its anchor, and one failing command discards the whole rule set there. The box "Check against every target file" shows it right away.
 
-Original rule sets from the package can be hidden or overridden line by line. Personal changes live in `user_config\vanilla_buildings.editor.ini`, the effective file is `plugins\vanilla_buildings.ini`; the INI in the package stays untouched. If you prefer editing the INI by hand, everything else is below.
+Original rule sets from the package can be hidden or overridden line by line. Personal changes live in `user_config\vanilla_buildings.editor.ini`, the effective file is `tesmioloader\plugins\vanilla_buildings.ini`; the INI in the package stays untouched. If you prefer editing the INI by hand, everything else is below.
 
 ---
 
@@ -129,8 +107,8 @@ Original rule sets from the package can be hidden or overridden line by line. Pe
 ### Main file: `vanilla_buildings.ini`
 
 The DLL reads in this order:
-- **First:** `tesmioloader\build\plugins\vanilla_buildings.ini` if it exists (classic installation, "Files local only", or the effective INI written by Republic Mod Manager)
-- **Otherwise:** the INI beside the DLL, in the package `hooks\vanilla_buildings.ini` (Soviet Mod Loader, Workshop Bridge)
+- **First:** `tesmioloader\plugins\vanilla_buildings.ini` if it exists (installed by hand, or the effective INI written by Republic Mod Manager)
+- **Otherwise:** the INI beside the DLL, in the Workshop package `plugins\vanilla_buildings.ini`
 
 ⚠️ **Comments only on their own lines with `;` or `#`.** The file must be UTF-8 without BOM. Section and key names are case-insensitive, game directives and searched lines must match the original exactly. Every command sits on one physical line; `|` separates its fields. Changes take effect after a complete game restart.
 
@@ -170,6 +148,15 @@ Paths pick their root by themselves: `buildings_types\...` and `dlcN\buildings\.
 
 The same target file may appear only once across enabled rule sets; all changes to one file belong in one rule set. Existing saved buildings are not retrofitted: new storages appear on newly built ones.
 
+**Changing the building name:** `name = …` gives every target of the rule set a new name in the build menu. Just write the text, without quotes, at most 128 characters. The plugin replaces whatever `$NAME` or `$NAME_STR` line the target file carries, so you do not have to know the old line. `name` may stand only once per rule set, and a target without exactly one name line is rejected and named in the log. If the value looks like a translation key (at least one dot, otherwise only letters, digits, dot, underscore and hyphen), the plugin gets the text through the Localization plugin: in the game language if the text pack carries it, otherwise in the pack's fallback language. Without Localization, or with a key it does not know, it uses the part after the last dot and writes a warning to the log.
+
+```ini
+; plain text: gives $NAME_STR "Medicine Factory"
+name = Medicine Factory
+; translation key: gives $NAME with the number from the text pack
+name = localization.lang.medicine
+```
+
 ---
 
 ## 🛠️ Commands
@@ -200,6 +187,12 @@ Whitespace at the start and end of a line is ignored, differences inside the lin
 
 A point is three numbers, for example `14.5 0 2`; the comparison is numeric, `0` and `0.0000` are equal. The two points must differ and follow the order of the original file. Occupied points and new `*_ALLOWPASS` connections are rejected.
 
+Example with six fields: the connection of the plastics factory stays a `$CONNECTION_CONNECTION` but sits one metre higher afterwards.
+
+```ini
+replace_connection = $CONNECTION_CONNECTION | -17.7 0.0 -15.38 | -17.7 0.0 -13.38 | $CONNECTION_CONNECTION | -17.7 1.0 -15.38 | -17.7 1.0 -13.38
+```
+
 Complete example with every command, shipped as `[example_plastics_factory]` with `enabled = 0`:
 
 ```ini
@@ -208,7 +201,6 @@ enabled = 0
 target = buildings_types\plastics_factory.ini
 replace = $PRODUCTION plastics 0.11 | $PRODUCTION plastics 0.20
 replace_connection = $CONNECTION_CONNECTION | 14.5 0.0 23.3 | 14.5 0.0 21.3 | $CONNECTION_WATERPIPE_INPUT
-replace_connection = $CONNECTION_CONNECTION | -19.12 0.36 -27.02 | -19.12 0.36 -23.32 | $CONNECTION_WATERPIPE_INPUT | -19.12 -2.15 -27.02 | -19.12 -2.15 -23.32
 remove = $CONSUMPTION_PER_SECOND eletric 0.26
 remove_connection = $CONNECTION_CONNECTION | -23.4 0.0 15.9 | -21.4 0.0 15.9
 add = $PRODUCTION glass 0.45
@@ -227,6 +219,7 @@ insert = 0 | $COST_WORK SOVIET_CONSTRUCTION_STEEL_LAYING 1.0 | $COST_RESOURCE_AU
 | Target files in total | at most 256 |
 | Commands per rule set | at most 512 |
 | Section name | at most 128 bytes |
+| `name` | at most 128 characters, no quotes |
 | Target path | at most 220 bytes |
 | Active configuration line | at most 4096 bytes |
 | Plugin INI and every original file | at most 4 MiB |
@@ -253,9 +246,10 @@ Errors in `[general]`, ambiguous section boundaries, a wrong encoding or exceede
 The plugin changes building definitions, not saved buildings. New storages apply to new constructions; existing buildings need a separate retrofit. Savegames and files in the game folder stay untouched.
 
 ### Other plugins
-Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials this plugin provides the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories.
+Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials you can add the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories with this plugin; the shipped INI has no ready-made rule set for it.
 
 ### Version compatibility
+- **0.4.5:** loaded from the Workshop, the plugin now also reads the finished INI Republic Mod Manager writes to `tesmioloader\plugins\vanilla_buildings.ini`; before, it stayed with the INI in the package
 - **0.4.4:** new per-section key `name`: replaces the existing `$NAME` or `$NAME_STR` line of every target without you knowing the old one; with dots in it a translation key through the Localization plugin
 - **0.4.3:** one-point connections such as `$CONNECTION_ROAD_DEAD` can be edited with `add_connection`, `replace_connection` and `remove_connection` (token | point)
 - **0.4.2:** `replace_connection` optionally takes two new points after the new token and moves the connection
@@ -281,7 +275,7 @@ Other plugins that replace the same building file are not merged with these chan
 ### Logging
 
 All messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.vanilla_buildings.log`, with level (INFO, DEBUG, WARN, ERROR, FATAL) and rule name. Every rejected target gets a `WARN [target-rejected]` message even without debug, with section, target, cause and, for command errors, the INI line.
-- In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
+- In **Republic Mod Manager** the log icon in the sidebar opens the log view with filter and sender.
 
 Look for:
 - `Configuration file` → which INI the DLL chose
@@ -293,10 +287,10 @@ Look for:
 
 ## 📦 File structure
 
-**Workshop package** (Steam subscription, SML, Workshop Bridge)
+**Workshop package** (Steam subscription)
 ```
-vanilla_buildings\
-├── hooks\
+<Workshop item>\
+├── plugins\
 │   ├── vanilla_buildings.dll       (plugin)
 │   └── vanilla_buildings.ini       (original INI, examples disabled)
 ├── config\                         (editor schema for Republic Mod Manager)
@@ -304,22 +298,25 @@ vanilla_buildings\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (manifest for SML, Bridge and Republic Mod Manager)
+├── rmm.mod.ini                     (manifest for Republic Mod Manager)
 ├── workshopconfig.ini              (Steam Workshop entry)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader folder** (method 1 by hand or "Files local only")
+**Loader folder** (only with method 2 or with Republic Mod Manager)
 ```
-tesmioloader\build\
+<game>\tesmioloader\
 ├── plugins\
-│   ├── vanilla_buildings.dll
+│   ├── vanilla_buildings.dll       (method 2 only)
 │   └── vanilla_buildings.ini       (effective INI)
 └── user_config\
     └── vanilla_buildings.editor.ini (personal rule sets from Republic Mod Manager)
 ```
+
+Loaded from the Workshop, the DLL stays in the package; `tesmioloader\plugins` then holds only the effective INI, once you have saved in Republic Mod Manager.
 
 The temporary copies live under `%TEMP%\TesmioLoader\vanilla_buildings\<process id>-<start id>-<attempt>\`; every start creates a new folder, old ones can be deleted safely.
 
@@ -352,5 +349,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 0.4.4  
-**For:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Last update:** Vanilla Buildings 0.4.5  
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

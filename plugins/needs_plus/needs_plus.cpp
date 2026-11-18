@@ -77,12 +77,14 @@
 // demand is cloned from that resource's demand, and the storage slot is added
 // to exactly those storages that already stock it.
 //
-// Everything here is addresses for SOVIET64.exe v1.1.1.9. See docs/11-needs.md.
+// The addresses the plugin uses are those of SOVIET64.exe v1.1.1.13, each code
+// address checked against its bytes before use. Other addresses named in
+// comments are notes taken on earlier builds. See docs/11-needs.md.
 
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "needs_plus"
-#define PLUGIN_VERSION "0.1.1"
+#define PLUGIN_VERSION "0.1.3"
 
 // The DLL's own folder (RMM package or a local copy), resolved in DllMain,
 // and the INI actually read: plugins\needs_plus.ini.
@@ -141,6 +143,79 @@ static void SmlStateDir(char* out, size_t size)
     else _snprintf_s(out, size, _TRUNCATE, "%s\\%s", g_baseDir, dir);
 }
 
+// The INI of the original plugin when the loader takes its DLL from a Workshop
+// item. The loader finds plugin DLLs in <loader>\plugins and, in any depth,
+// below the Workshop folder; a DLL in plugins\ wins, and of several in the
+// Workshop the one with the smallest path. The Workshop folder is
+// tesmioloader.ini [tesmioloader] workshop_path when that is set, otherwise
+// <...>\steamapps\workshop\content\784150, found by walking up from the loader
+// folder. Republic Mod Manager seeds the list file by the same rule (ForkSeed).
+// `out` stays empty when the original is not there, lies in plugins\ (then its
+// INI is plugins\<ini>, which the caller has looked at already), or has no INI
+// beside it.
+static void SmallestDllBelow(const char* dir, int depth, const char* dllName, char* best, size_t bestSize)
+{
+    char pattern[MAX_PATH];
+    if (_snprintf_s(pattern, sizeof(pattern), _TRUNCATE, "%s\\*", dir) < 0) return;
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do
+    {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) continue;
+        char path[MAX_PATH];
+        if (_snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", dir, fd.cFileName) < 0) continue;
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            if (depth < 8 && strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0)
+                SmallestDllBelow(path, depth + 1, dllName, best, bestSize);
+            continue;
+        }
+        if (_stricmp(fd.cFileName, dllName) != 0) continue;
+        if (!best[0] || strcmp(path, best) < 0) strncpy_s(best, bestSize, path, _TRUNCATE);
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+}
+
+static void FindOriginalIniInWorkshop(const char* key, char* out, size_t outSize)
+{
+    out[0] = 0;
+    char dllName[64], local[MAX_PATH];
+    _snprintf_s(dllName, sizeof(dllName), _TRUNCATE, "%s.dll", key);
+    _snprintf_s(local, sizeof(local), _TRUNCATE, "%s\\plugins\\%s", g_baseDir, dllName);
+    if (FileExists(local)) return;                       // the loader takes that one
+
+    char root[MAX_PATH] = "", loaderIni[MAX_PATH];
+    _snprintf_s(loaderIni, sizeof(loaderIni), _TRUNCATE, "%s\\tesmioloader.ini", g_baseDir);
+    GetPrivateProfileStringA("tesmioloader", "workshop_path", "", root, sizeof(root), loaderIni);
+    if (!root[0])
+    {
+        char dir[MAX_PATH];
+        strncpy_s(dir, sizeof(dir), g_baseDir, _TRUNCATE);
+        for (;;)
+        {
+            char* slash = strrchr(dir, '\\');
+            if (_stricmp(slash ? slash + 1 : dir, "steamapps") == 0)
+            {
+                _snprintf_s(root, sizeof(root), _TRUNCATE, "%s\\workshop\\content\\784150", dir);
+                break;
+            }
+            if (!slash) break;
+            *slash = 0;
+        }
+    }
+    if (!root[0]) return;
+
+    char dll[MAX_PATH] = "";
+    SmallestDllBelow(root, 0, dllName, dll, sizeof(dll));
+    size_t len = strlen(dll);
+    if (len < 5) return;
+    char ini[MAX_PATH];
+    strncpy_s(ini, sizeof(ini), dll, _TRUNCATE);
+    memcpy(ini + len - 3, "ini", 3);
+    if (FileExists(ini)) strncpy_s(out, outSize, ini, _TRUNCATE);
+}
+
 // Finds plugins\needs_plus.ini, and creates it once when it is missing:
 //
 //   1. from plugins\needs.ini, the original plugin's file, unless its first
@@ -149,7 +224,9 @@ static void SmlStateDir(char* out, size_t size)
 //      packages again on its own, so they would appear twice;
 //   2. in that case from <sml state>\base\needs.ini, the player's own list
 //      before the packages;
-//   3. otherwise from needs_plus.template.ini (or needs_plus.ini in a package
+//   3. from needs.ini beside the original's DLL in the Workshop folder, when
+//      the loader takes the original from there;
+//   4. otherwise from needs_plus.template.ini (or needs_plus.ini in a package
 //      folder) beside the DLL, the shipped template.
 //
 // The source is only read, never changed or deleted; the copy gets a header
@@ -185,6 +262,12 @@ static void ResolveIniPath()
         else if (FileExists(base)) { strncpy_s(source, base, _TRUNCATE); why = "Soviet Mod Loader's baseline (plugins\\needs.ini is generated output with the packages merged in)"; }
     }
     if (!source[0] && FileExists(base)) { strncpy_s(source, base, _TRUNCATE); why = "Soviet Mod Loader's baseline"; }
+    if (!source[0])
+    {
+        char workshop[MAX_PATH];
+        FindOriginalIniInWorkshop("needs", workshop, sizeof(workshop));
+        if (workshop[0]) { strncpy_s(source, workshop, _TRUNCATE); why = "the original plugin's file in the Workshop folder"; }
+    }
     if (!source[0] && beside[0] && FileExists(beside))   { strncpy_s(source, beside, _TRUNCATE);  why = "the template beside the DLL"; }
     if (!source[0] && beside2[0] && FileExists(beside2)) { strncpy_s(source, beside2, _TRUNCATE); why = "the template beside the DLL"; }
     if (!source[0])
@@ -278,13 +361,26 @@ static bool AnotherNeedsPluginRuns()
 {
     // The original: same hook sites, same behaviour. Both at once would give
     // every citizen each need twice.
+    //
+    // The loader finds plugins in its own plugins\ folder and anywhere below
+    // the Steam Workshop folder and inits them in name order, so an original
+    // that is switched on is already in the process when "needs_plus" is
+    // asked, wherever its DLL lies: the module handle is the answer for both
+    // places. The original unloads itself when it has nothing declared, and
+    // then it is not in the way. The export test keeps a stranger that merely
+    // shares the file name out of it; the file test covers a loader that
+    // orders differently.
     {
         char upstream[MAX_PATH];
         _snprintf_s(upstream, sizeof(upstream), _TRUNCATE, "%s\\plugins\\needs.dll", g_baseDir);
-        if (FileExists(upstream) && H->configInt("tesmioloader.ini", "plugins", "needs", 1) != 0)
+        HMODULE original = GetModuleHandleA("needs.dll");
+        bool loaded  = original && GetProcAddress(original, "TsmPluginInit") != NULL;
+        bool present = FileExists(upstream) && H->configInt("tesmioloader.ini", "plugins", "needs", 1) != 0;
+        if (loaded || present)
         {
-            Logf("needs_plus  idle - plugins\\needs.dll is present and enabled in tesmioloader.ini; "
-                 "switch needs off (Republic Mod Manager: \"Plugin aktiv\") to use needs_plus");
+            Logf("needs_plus  idle - the original needs.dll is %s; switch needs off "
+                 "(Republic Mod Manager or the launcher) to use needs_plus",
+                 loaded ? "loaded" : "present in plugins\\ and enabled in tesmioloader.ini");
             return true;
         }
     }
@@ -316,11 +412,12 @@ static bool AnotherNeedsPluginRuns()
 
 // ---------------------------------------------------------------- the game
 
-#define P_PERSON_PLAN_RVA   0x836B40   // v1.1.1.9; was 0x836960
-#define P_STORAGE_BUILD_RVA 0x0E40F0   // FUN_1400e40f0(parser, storage, class, cap, res)
-#define P_SHOP_TICK_RVA     0x171E10   // v1.1.1.9; was 0x171DA0. Building type 3
-#define P_TYPE_LOAD_RVA     0x11D800   // v1.1.1.9; was 0x11D810 - one of the few
-                                       // sites that moved DOWN, see docs/02-findings.md
+// v1.1.1.13. Each of the four was compared with its 1.1.1.9 body (512-640
+// bytes): the same function, only call targets and RIP-relative operands differ.
+#define P_PERSON_PLAN_RVA   0x836CE0   // was 0x836B40 in v1.1.1.9, 0x836960 before
+#define P_STORAGE_BUILD_RVA 0x0E40F0   // unchanged. (parser, storage, class, cap, res)
+#define P_SHOP_TICK_RVA     0x171E30   // was 0x171E10 in v1.1.1.9, 0x171DA0 before. Building type 3
+#define P_TYPE_LOAD_RVA     0x11D800   // unchanged since v1.1.1.9; was 0x11D810 before
 #define P_BUILDING_TYPES    0x9E6A30   // the vector<TYPE> that function fills
 // Not a vector of pointers - a vector of the objects themselves, stride 0xBE8.
 // The clear() at 0x1FF240 walks it with `lVar2 = lVar2 + 0xbe8`, and a live
@@ -1248,7 +1345,7 @@ static void h_TypeLoad(void* a, void* b, void* c)
 static void FixOtherGoodsBucket(BYTE* game)
 {
     ResVector* other = (ResVector*)(game + G_GOODS_BUCKET_OTHER);
-    if (!ReadablePtr(other, sizeof(*other))) return;
+    if (!o_SlotPush || !ReadablePtr(other, sizeof(*other))) return;
 
     size_t have = (other->begin && other->end > other->begin)
                 ? (size_t)(other->end - other->begin) : 0;
@@ -1273,7 +1370,7 @@ static void FixOtherGoodsBucket(BYTE* game)
     if (InterlockedExchange(&said, 1) == 0)
         Logf("needs_plus  the \"other goods\" purchase bucket at game+0x%X holds %zu of the "
              "%zu entries the others do - filling it, or the first citizen to buy a "
-             "modded good faults at 0x198868",
+             "modded good faults in the purchase code",
              G_GOODS_BUCKET_OTHER, have / SLOT_SIZE, want / SLOT_SIZE);
 
     for (size_t at = have; at < want; at += SLOT_SIZE)
@@ -1843,7 +1940,29 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
 {
     if (!g_enabled) return 1;
 
-    o_SlotPush     = (t_SlotPush)(g_exeBase + P_SLOT_PUSH_RVA);
+    // std::vector<Slot>::push_back is called, not hooked, so nothing checks its
+    // bytes for us. A different game build has a different function there, and
+    // calling into that with a shop's storage would be the crash the hooks
+    // avoid - so without it the storage half stays off and only the demand
+    // half runs.
+    {
+        static const BYTE kSlotPushPrologue[] = {
+            0x48, 0x89, 0x5C, 0x24, 0x08,                // mov  [rsp+8],rbx
+            0x57,                                        // push rdi
+            0x48, 0x83, 0xEC, 0x20,                      // sub  rsp,0x20
+            0x48, 0x8B, 0x41, 0x08                       // mov  rax,[rcx+8]
+        };
+        BYTE* pushSite = g_exeBase + P_SLOT_PUSH_RVA;
+        if (ReadablePtr(pushSite, sizeof(kSlotPushPrologue)) &&
+            memcmp(pushSite, kSlotPushPrologue, sizeof(kSlotPushPrologue)) == 0)
+            o_SlotPush = (t_SlotPush)pushSite;
+        else if (g_doStorage)
+        {
+            Logf("needs_plus  push_back at rva 0x%X does not look like v1.1.1.13 - shops are "
+                 "not stocked with the declared goods this session", (unsigned)P_SLOT_PUSH_RVA);
+            g_doStorage = 0;
+        }
+    }
 
     // The citizen's daily plan. Post-hook: the game rebuilds the whole list, we
     // append to what it settled on.

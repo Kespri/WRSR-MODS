@@ -1,6 +1,6 @@
 # Weather Roads – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.9, GPL v3. Build: the standard line of the root
+TesmioLoader plugin (API 4) for WRSR 1.1.1.13 (PE stamp 0x6A8D4087, engine 0x6A8B496D), GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `weather_roads.cpp`;
 it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer side of the
 `tss.grit_spreader` service of Technical Service Storage) and the two persistence headers
@@ -9,6 +9,36 @@ it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer si
 verified SOVIET64.exe / C3DDLL64.dll build. User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.3.5 (2026-11-18)
+
+Texts only. No behaviour change: no hook, address, INI key or default was touched.
+
+- Two startup INFO lines carried a version tag from before the first published version. Both now
+  say the same without it: the road-snow clearing observer line ends with "these sites are kept
+  for diagnostics only", and the visible plow after-effect line reads "that trajectory is bound
+  to one vehicle across the render/update thread boundary and only its still-open brush interval
+  is finalised with Sand, Gravel or dry".
+- The same tags are gone from six source comments (file head, `VisibleBrushCapture`, the 16 ms
+  coalesced pass, the event-driven visible correction, the EditMask channel note,
+  `ApplyTreatmentToPendingVisibleBrushes`).
+- Version in the source, the INI head comment, both READMEs and the package manifest.
+
+## 0.3.4 (2026-11-16)
+
+Ported to WRSR 1.1.1.13; 1.1.1.9 is refused by the PE stamps. No behaviour change.
+
+- Weather call site 0x30D9D8 -> 0x30D958 and weather tick 0x333BD0 -> 0x333B50 (-0x80).
+- Road-snow clearing 0x6BC210 -> 0x6BC3B0 (+0x1A0): body 0x6BC3B9, the four zero stores
+  0x6BC440 / 0x6BC510 / 0x6BC5E0 / 0x6BC680.
+- Road-snow adjust 0x42AF60 -> 0x42AEF0, both weather return addresses 0x5D0797 / 0x5D0885,
+  road geometry 0x56AE30 -> 0x56ADC0 and the save-close call 0x42EE32 -> 0x42EDC2 (-0x70).
+- Global mask update 0x40E7E0 -> 0x40E720 and the EditMask flush return 0x40ED81 (-0xC0).
+- The save-close signature carries a displacement and was re-read (`FF 15 50 F2 43 00`).
+- C3DDLL64.dll was rebuilt (stamp 0x6A8B496D, same image size). The texel writer 0x19100, its
+  caller 0xFBC83 and the texture vtable 0x187BF0 (slots 16, 17, 18 and 23) are where they were;
+  only the expected engine stamp changed.
+- Method: `my_plugins\tests\portmap.pl` with the 1.1.1.9 bytes of every site; 0 changed
+  instructions, only rel32 / RIP-relative operands differ.
 ## 0.3.3 (2026-09-09)
 
 - 2026-09-11, version unchanged: the detail log `tesmioloader.weather_roads.log` is written to `<loader>\logs\`

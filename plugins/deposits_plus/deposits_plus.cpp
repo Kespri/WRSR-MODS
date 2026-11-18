@@ -23,7 +23,7 @@
 // deposits_plus.ini declared - and carry its own per-deposit keys in the same file.
 // `depletion` does both.
 //
-// Everything here is addresses for SOVIET64.exe v1.1.1.9. See
+// Everything here is addresses for SOVIET64.exe v1.1.1.13. See
 // docs/05-deposits.md.
 
 #include "../../src/tesmio_plugin.h"
@@ -36,8 +36,11 @@ static char g_selfDir[MAX_PATH];
 static bool g_generationEnabled = true;
 static bool g_generationConfigInvalid = false;
 static bool g_generateLegacyEmpty = true;
+// Fewer non-zero cells than this in an old terrain channel are not adopted as a
+// deposit when a save without metadata is first loaded (0 adopts anything).
+static unsigned g_legacyAdoptMinCells = 500;
 static float g_generationGap = 40, g_generationShore = 40, g_generationClearance = 2;
-// 0.4.4: the terrain mask's gravel/rock layer counts as an occupied deposit only on request. Mountain
+// The terrain mask's gravel/rock layer counts as an occupied deposit only on request. Mountain
 // maps (Siberia, Asia) paint it over most of the land, which left no room for anything else.
 static bool g_generationBlockGravel = false;
 static uint64_t g_generationSeed = 0;
@@ -57,7 +60,7 @@ static bool InstallGeneration();
 // name resolve without either plugin knowing about the other - if `resources`
 // is installed its hook is on that address, and if it is not, the base game's
 // own lookup answers and a mod icon simply has no record.
-#define P_RESOURCEGET   0x2AA830   // v1.1.1.9; was 0x2AA7C0. Independent of
+#define P_RESOURCEGET   0x2AA7B0   // v1.1.1.13; was 0x2AA830. Independent of
                                    // plugins/resources' own copy of this same
                                    // address - see docs/02-findings.md
 typedef unsigned __int64 (*t_ResourceGet)(void*, void*, void*, void*);
@@ -135,7 +138,7 @@ struct DepositDef
     bool generationInvalid;
     unsigned generationFrequency, generationSize;   // presets; 0 = default (3 regions, size class 2)
     bool independentMap;
-    bool desertFill;       // 0.4.1: on a $TYPE_DESERT map the whole land is this deposit
+    bool desertFill;       // on a $TYPE_DESERT map the whole land is this deposit
     bool desertFillRelief; // 0.4.6: richness falls with terrain height, 0 at the highest land
     unsigned desertFillMin, desertFillMax;   // 0.4.6: richness band (percent) at the lowest land
     int legacyTerrainComponent;
@@ -171,11 +174,11 @@ struct DepositDef
 static DepositDef g_dep[MAX_DEPOSITS];
 static int        g_depCount;
 
-// 0.4.1: [sand_tile:<id>] sections - which sand pair the sand surface blends over
+// [sand_tile:<id>] sections - which sand pair the sand surface blends over
 // which base texture of the terrain (folder included, so tiles_siberia/grass2.dds and
 // tiles_normal/grass2.dds stay apart). Read here, used by deposit_visual_runtime.inl.
 #define MAX_SAND_TILES 16
-struct SandTile { char id[32]; char base[128]; char color[128]; char normal[128]; };   // 0.4.2: color/normal may carry a set folder
+struct SandTile { char id[32]; char base[128]; char color[128]; char normal[128]; };   // color/normal may carry a set folder
 static SandTile g_tiles[MAX_SAND_TILES];
 static int      g_tileCount;
 
@@ -184,14 +187,17 @@ static int      g_tileCount;
 // averages over an empty set: the building window then shows quality of source
 // as -2147483648, a NaN cast to int. Naming them rather than taking a number
 // means a mod deposit tracks the game's own value if a patch ever changes it.
+// v1.1.1.13: every address is the operand of its branch in the radius function
+// (0x1DCA60), values read back 130, 210, 50, 30, 250, 170, 150. The table had
+// kept the addresses of the build before 1.1.1.9 and read 0x18 past each one.
 static const struct { const char* name; DWORD rva; } kRadiusSources[] = {
-    { "oil",          0x90ABFC },   // type 0
-    { "ore",          0x90AD50 },   // types 1, 2, 6 - iron, coal and uranium share it
-    { "bauxite",      0x90AA40 },   // type 7
-    { "gravel",       0x90A9B8 },   // type 3
-    { "wood",         0x90ADD0 },   // type 4
-    { "water",        0x90AC9C },   // type 8
-    { "watersurface", 0x90AC38 },   // type 9
+    { "oil",          0x90ABF4 },   // type 0
+    { "ore",          0x90AD48 },   // types 1, 2, 6 - iron, coal and uranium share it
+    { "bauxite",      0x90AA38 },   // type 7
+    { "gravel",       0x90A9B0 },   // type 3
+    { "wood",         0x90ADC8 },   // type 4
+    { "water",        0x90AC94 },   // type 8
+    { "watersurface", 0x90AC30 },   // type 9
 };
 
 static bool KeyIs(const char* line, const char* want) { return _stricmp(line, want) == 0; }
@@ -208,6 +214,7 @@ static bool GenerationSetting(DepositDef* d,const char* key,const char* value)
     if(!d) {
         if(KeyIs(key,"generation")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) g_generationEnabled=n!=0; }
         else if(KeyIs(key,"generate_existing_empty")) { valid=GenerationNumber(value,0,1,&n) && n==floor(n); if(valid) g_generateLegacyEmpty=n!=0; }
+        else if(KeyIs(key,"legacy_adopt_min_cells")) { valid=GenerationNumber(value,0,1048576,&n) && n==floor(n); if(valid) g_legacyAdoptMinCells=(unsigned)n; }
         else if(KeyIs(key,"generation_gap_m")) { valid=GenerationNumber(value,0,500,&n); if(valid) g_generationGap=(float)n; }
         else if(KeyIs(key,"generation_shore_m")) { valid=GenerationNumber(value,0,500,&n); if(valid) g_generationShore=(float)n; }
         else if(KeyIs(key,"generation_water_clearance_m")) { valid=GenerationNumber(value,0,50,&n); if(valid) g_generationClearance=(float)n; }
@@ -256,6 +263,313 @@ static bool UsesWorkingVehicles(const DepositDef& d)
            d.type >= 10 && d.type <= 127;
 }
 
+// ---------------------------------------------------------------- deposits of the original plugin
+//
+// A player who comes from the original deposits plugin may have added deposits
+// of his own to its deposits.ini. Their type numbers and tokens are part of his
+// saves, and this plugin's own list does not know them. So when the loader
+// folder has no deposits_plus.ini yet, the list file is created once: the INI
+// that ships beside this DLL, plus every deposit section of the original's
+// file that the shipped list does not have. Nothing is created when there is
+// nothing to take over - the shipped INI is then read directly, as before, and
+// keeps following the package.
+//
+// Where the original's file is: <loader>\plugins\deposits.ini (the only place the
+// original itself reads), otherwise deposits.ini beside the original's DLL in
+// the Workshop folder, by the loader's own discovery rule - the same order
+// Resources Plus and Needs Plus use for their lists.
+//
+// A section is left out, with a log line, when the shipped list already uses
+// its type number or its token. Republic Mod Manager takes the sections of a
+// file made here over as the player's own entries the next time it opens.
+#include <string>
+#include <vector>
+
+struct AdoptSection
+{
+    std::string name;      // lower case
+    std::string text;      // the block as it stands, leading comment lines included
+    std::string type, token;
+};
+
+static bool AdoptRead(const char* path, std::string& out)
+{
+    out.clear();
+    HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER size = {};
+    bool ok = GetFileSizeEx(h, &size) && size.QuadPart >= 0 && size.QuadPart <= 1024 * 1024;
+    if (ok)
+    {
+        out.resize((size_t)size.QuadPart);
+        DWORD got = 0;
+        ok = size.QuadPart == 0 || (ReadFile(h, &out[0], (DWORD)size.QuadPart, &got, NULL) && got == (DWORD)size.QuadPart);
+    }
+    CloseHandle(h);
+    if (ok && out.size() >= 3 && (BYTE)out[0] == 0xEF && (BYTE)out[1] == 0xBB && (BYTE)out[2] == 0xBF) out.erase(0, 3);
+    return ok;
+}
+
+static std::string AdoptTrim(const std::string& s)
+{
+    size_t a = 0, b = s.size();
+    while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r')) a++;
+    while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r')) b--;
+    return s.substr(a, b - a);
+}
+
+static std::string AdoptLower(std::string s)
+{
+    for (size_t i = 0; i < s.size(); i++) if (s[i] >= 'A' && s[i] <= 'Z') s[i] = (char)(s[i] + 32);
+    return s;
+}
+
+// Splits an INI into its sections. The comment lines right above a header
+// belong to that header's block; `eol` is put behind every line.
+static void AdoptSplit(const std::string& text, const char* eol, std::vector<AdoptSection>& out)
+{
+    std::vector<std::string> lead;      // comment/blank lines not yet given to a section
+    AdoptSection* cur = NULL;
+    size_t pos = 0;
+    while (pos <= text.size())
+    {
+        size_t nl = text.find('\n', pos);
+        std::string raw = text.substr(pos, nl == std::string::npos ? std::string::npos : nl - pos);
+        pos = nl == std::string::npos ? text.size() + 1 : nl + 1;
+        if (!raw.empty() && raw[raw.size() - 1] == '\r') raw.erase(raw.size() - 1);
+        std::string line = AdoptTrim(raw);
+
+        if (!line.empty() && line[0] == '[')
+        {
+            size_t end = line.find(']');
+            if (end == std::string::npos) { if (cur) lead.push_back(raw); continue; }
+            // The comment lines directly above the header move down to it; what stands
+            // before the last blank line stays with the section before.
+            size_t first = lead.size();
+            while (first > 0 && !AdoptTrim(lead[first - 1]).empty()) first--;
+            if (!out.empty())
+                for (size_t i = 0; i < first; i++) out.back().text += lead[i] + eol;
+            out.push_back(AdoptSection());
+            cur = &out.back();
+            cur->name = AdoptLower(AdoptTrim(line.substr(1, end - 1)));
+            for (size_t i = first; i < lead.size(); i++) cur->text += lead[i] + eol;
+            cur->text += raw + eol;
+            lead.clear();
+            continue;
+        }
+        if (line.empty() || line[0] == ';' || line[0] == '#') { lead.push_back(raw); continue; }
+        if (!cur) continue;
+        // A key line: the comments gathered since the last key line belong here.
+        for (size_t i = 0; i < lead.size(); i++) cur->text += lead[i] + eol;
+        lead.clear();
+        cur->text += raw + eol;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = AdoptLower(AdoptTrim(line.substr(0, eq))), value = AdoptTrim(line.substr(eq + 1));
+        if (key == "type") cur->type = value;
+        else if (key == "token") cur->token = value;
+    }
+}
+
+static bool AdoptIsDeposit(const std::string& name)
+{
+    return !name.empty() && name != "deposits" && name != "deposits_plus" && name.compare(0, 10, "sand_tile:") != 0;
+}
+
+// The original's DLL in the Workshop folder, looked for only where a TesmioLoader
+// package keeps a plugin: <item>\<dll>, <item>\plugins\<dll> and
+// <item>\plugins\<folder>\<dll>. This runs at every game start for as long as
+// there is nothing to take over - the usual case, because most players do not
+// have the original at all - so it must not walk the whole Workshop tree: with
+// several hundred subscribed items that is every file of every mod. The loader's
+// own search goes to any depth; a copy buried deeper than this is not found here,
+// and its deposits are then taken over by Republic Mod Manager alone.
+static void AdoptConsider(const char* path, char* best, size_t bestSize)
+{
+    DWORD a = GetFileAttributesA(path);
+    if (a == INVALID_FILE_ATTRIBUTES || (a & FILE_ATTRIBUTE_DIRECTORY)) return;
+    if (!best[0] || strcmp(path, best) < 0) strncpy_s(best, bestSize, path, _TRUNCATE);
+}
+
+// Calls `each` for every real subfolder of `dir`.
+template <class F> static void AdoptEachFolder(const char* dir, F each)
+{
+    char pattern[MAX_PATH];
+    if (_snprintf_s(pattern, sizeof(pattern), _TRUNCATE, "%s\\*", dir) < 0) return;
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do
+    {
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
+        if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) continue;
+        char path[MAX_PATH];
+        if (_snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", dir, fd.cFileName) < 0) continue;
+        each(path);
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+}
+
+static void AdoptFindDllInWorkshop(const char* root, const char* dllName, char* best, size_t bestSize)
+{
+    AdoptEachFolder(root, [&](const char* item)
+    {
+        char path[MAX_PATH], plugins[MAX_PATH];
+        if (_snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", item, dllName) >= 0) AdoptConsider(path, best, bestSize);
+        if (_snprintf_s(plugins, sizeof(plugins), _TRUNCATE, "%s\\plugins", item) < 0) return;
+        DWORD a = GetFileAttributesA(plugins);
+        if (a == INVALID_FILE_ATTRIBUTES || !(a & FILE_ATTRIBUTE_DIRECTORY)) return;
+        if (_snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", plugins, dllName) >= 0) AdoptConsider(path, best, bestSize);
+        AdoptEachFolder(plugins, [&](const char* sub)
+        {
+            char deep[MAX_PATH];
+            if (_snprintf_s(deep, sizeof(deep), _TRUNCATE, "%s\\%s", sub, dllName) >= 0) AdoptConsider(deep, best, bestSize);
+        });
+    });
+}
+
+// deposits.ini of the original: in the loader's plugins folder, else beside the
+// original's DLL in the Workshop folder (not searched when deposits.dll lies in
+// plugins\ - the loader takes that one, and its INI is the first place).
+static void AdoptFindOriginalIni(char* out, size_t outSize)
+{
+    out[0] = 0;
+    char local[MAX_PATH];
+    _snprintf_s(local, sizeof(local), _TRUNCATE, "%s\\plugins\\deposits.ini", g_baseDir);
+    if (GetFileAttributesA(local) != INVALID_FILE_ATTRIBUTES) { strncpy_s(out, outSize, local, _TRUNCATE); return; }
+    _snprintf_s(local, sizeof(local), _TRUNCATE, "%s\\plugins\\deposits.dll", g_baseDir);
+    if (GetFileAttributesA(local) != INVALID_FILE_ATTRIBUTES) return;
+
+    char root[MAX_PATH] = "", loaderIni[MAX_PATH];
+    _snprintf_s(loaderIni, sizeof(loaderIni), _TRUNCATE, "%s\\tesmioloader.ini", g_baseDir);
+    GetPrivateProfileStringA("tesmioloader", "workshop_path", "", root, sizeof(root), loaderIni);
+    if (!root[0])
+    {
+        char dir[MAX_PATH];
+        strncpy_s(dir, sizeof(dir), g_baseDir, _TRUNCATE);
+        for (;;)
+        {
+            char* slash = strrchr(dir, '\\');
+            if (_stricmp(slash ? slash + 1 : dir, "steamapps") == 0)
+            {
+                _snprintf_s(root, sizeof(root), _TRUNCATE, "%s\\workshop\\content\\784150", dir);
+                break;
+            }
+            if (!slash) break;
+            *slash = 0;
+        }
+    }
+    if (!root[0]) return;
+    char dll[MAX_PATH] = "";
+    AdoptFindDllInWorkshop(root, "deposits.dll", dll, sizeof(dll));
+    size_t len = strlen(dll);
+    if (len < 5) return;
+    memcpy(dll + len - 3, "ini", 3);
+    if (GetFileAttributesA(dll) != INVALID_FILE_ATTRIBUTES) strncpy_s(out, outSize, dll, _TRUNCATE);
+}
+
+// `target` is <loader>\plugins\deposits_plus.ini. Does nothing when it exists.
+static void AdoptOriginalDeposits(const char* target)
+{
+    if (GetFileAttributesA(target) != INVALID_FILE_ATTRIBUTES || !g_selfDir[0]) return;
+
+    char shipped[MAX_PATH], original[MAX_PATH];
+    if (_snprintf_s(shipped, sizeof(shipped), _TRUNCATE, "%s\\deposits_plus.ini", g_selfDir) < 0) return;
+    if (_stricmp(shipped, target) == 0) return;
+    AdoptFindOriginalIni(original, sizeof(original));
+    if (!original[0]) return;
+
+    std::string ownText, theirText;
+    if (!AdoptRead(shipped, ownText) || !AdoptRead(original, theirText)) return;
+    const char* eol = ownText.find("\r\n") != std::string::npos ? "\r\n" : "\n";
+
+    std::vector<AdoptSection> own, theirs;
+    AdoptSplit(ownText, eol, own);
+    AdoptSplit(theirText, eol, theirs);
+
+    std::string added, names;
+    int count = 0;
+    std::vector<const AdoptSection*> taken;
+    for (size_t i = 0; i < theirs.size(); i++)
+    {
+        const AdoptSection& s = theirs[i];
+        if (!AdoptIsDeposit(s.name)) continue;
+        bool known = false;
+        const char* clash = NULL;
+        std::string with;
+        for (size_t k = 0; k < own.size() + taken.size() && !known && !clash; k++)
+        {
+            const AdoptSection& o = k < own.size() ? own[k] : *taken[k - own.size()];
+            if (!AdoptIsDeposit(o.name)) continue;
+            if (o.name == s.name) { known = true; break; }
+            if (!s.type.empty() && o.type == s.type) { clash = "type number"; with = o.name; }
+            else if (!s.token.empty() && _stricmp(o.token.c_str(), s.token.c_str()) == 0) { clash = "token"; with = o.name; }
+        }
+        if (known) continue;
+        if (clash)
+        {
+            Logf("deposits_plus  WARN  deposit \"%s\" of the original plugin is NOT taken over: its %s is already used by \"%s\"",
+                 s.name.c_str(), clash, with.c_str());
+            continue;
+        }
+        taken.push_back(&s);
+        // One empty line between the blocks; a block may bring trailing blank lines of its own.
+        while (added.size() >= 2 * strlen(eol) && added.compare(added.size() - 2 * strlen(eol), std::string::npos, std::string(eol) + eol) == 0)
+            added.erase(added.size() - strlen(eol));
+        added += eol;
+        added += s.text;
+        if (count++) names += ", ";
+        names += s.name;
+    }
+    if (!count) return;
+
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    char head[1400];
+    _snprintf_s(head, sizeof(head), _TRUNCATE,
+        "; deposits_plus.ini - created by deposits_plus on %04d-%02d-%02d %02d:%02d%s"
+        "; from %s%s"
+        "; plus %d deposit(s) of the original plugin from %s:%s"
+        "; %s. Neither source was changed.%s"
+        "; From now on this file is the one that counts. Republic Mod Manager takes the%s"
+        "; added deposits over as your own entries the next time it opens.%s%s",
+        st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, eol,
+        shipped, eol, count, original, eol, names.c_str(), eol, eol, eol, eol);
+
+    std::string all = head;
+    all += ownText;
+    if (all.empty() || all[all.size() - 1] != '\n') all += eol;
+    all += eol;
+    all += "; ----------------------------------------------------------------------------";
+    all += eol;
+    all += "; Deposits taken over from the original plugin's deposits.ini.";
+    all += eol;
+    all += added;
+
+    char tmp[MAX_PATH];
+    if (_snprintf_s(tmp, sizeof(tmp), _TRUNCATE, "%s.tmp", target) < 0) return;
+    HANDLE h = CreateFileA(tmp, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE)
+    {
+        Logf("deposits_plus  WARN  could not create %s (%lu) - the deposits of the original plugin are not taken over",
+             target, GetLastError());
+        return;
+    }
+    DWORD wrote = 0;
+    bool ok = WriteFile(h, all.data(), (DWORD)all.size(), &wrote, NULL) != 0 && wrote == (DWORD)all.size();
+    CloseHandle(h);
+    if (ok) ok = MoveFileExA(tmp, target, 0) != 0;
+    if (!ok)
+    {
+        DWORD err = GetLastError();
+        DeleteFileA(tmp);
+        Logf("deposits_plus  WARN  could not write %s (%lu) - the deposits of the original plugin are not taken over", target, err);
+        return;
+    }
+    Logf("deposits_plus  created plugins\\deposits_plus.ini: the shipped list plus %d deposit(s) of the original plugin from %s (%s)",
+         count, original, names.c_str());
+}
+
 // Hand-parsed rather than through GetPrivateProfileString, for the same reason
 // resources.ini is: the profile API is ANSI and would mangle anything a caption
 // or a comment puts outside the codepage.
@@ -263,14 +577,26 @@ static void LoadDepositRegistry()
 {
     char path[MAX_PATH];
     _snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\plugins\\deposits_plus.ini", g_baseDir);
+    AdoptOriginalDeposits(path);
+    // <loader>\plugins\deposits_plus.ini when it exists (installed by hand, or the finished
+    // INI Republic Mod Manager writes), otherwise the INI beside this DLL: a DLL the loader
+    // takes straight from a Workshop item has no file in the loader folder to begin with.
+    if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES && g_selfDir[0])
+    {
+        char beside[MAX_PATH];
+        if (_snprintf_s(beside, sizeof(beside), _TRUNCATE, "%s\\deposits_plus.ini", g_selfDir) > 0 &&
+            GetFileAttributesA(beside) != INVALID_FILE_ATTRIBUTES)
+            strncpy_s(path, sizeof(path), beside, _TRUNCATE);
+    }
 
     HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (h == INVALID_HANDLE_VALUE)
     {
-        Logf("deposits_plus  no plugins\\deposits_plus.ini - no mod deposit types");
+        Logf("deposits_plus  no deposits_plus.ini in the loader's plugins folder or beside the DLL - no mod deposit types");
         return;
     }
+    Logf("deposits_plus  deposit list from %s", path);
 
     LARGE_INTEGER length={};
     if(!GetFileSizeEx(h,&length) || length.QuadPart<0 || length.QuadPart>1024*1024) {
@@ -308,7 +634,7 @@ static void LoadDepositRegistry()
             // of the plugin is the one name a deposit may not have.
             if (_stricmp(line + 1, "deposits_plus") == 0) { globalSection=true; continue; }
 
-            // 0.4.1: [sand_tile:<id>] is a texture pair of the sand surface, not a deposit.
+            // [sand_tile:<id>] is a texture pair of the sand surface, not a deposit.
             if (_strnicmp(line + 1, "sand_tile:", 10) == 0)
             {
                 if (g_tileCount >= MAX_SAND_TILES) { Logf("sand surface \"%s\" ignored - only %d tiles fit", line + 1, MAX_SAND_TILES); continue; }
@@ -337,7 +663,7 @@ static void LoadDepositRegistry()
             d->component    = -1;
             d->buildingType = 7;
             d->map          = DEP_MAP_2;
-            d->radiusRva    = 0x90AD50;
+            d->radiusRva    = 0x90AD48;
             d->wantMinimap  = 1;
             d->desertFillRelief = true; d->desertFillMin = 60; d->desertFillMax = 100;
             continue;
@@ -559,7 +885,7 @@ static void ValidateDeposits()
                 Logf("generation WARN [%s] independent map unavailable: no free channel; terrain left unchanged",d->name);
             }
         }
-        // Resolve presets after parsing the WHOLE section. Since 0.4.0 (the rework that followed 1.8.1) the presets
+        // Resolve presets after parsing the WHOLE section. The presets
         // are the only way to size the generation: generation_count and the
         // radius keys are no longer read, an absent preset keeps the defaults.
         if(d->generationFrequency && !DG::ApplyFrequency(d->generation,d->generationFrequency)) d->generationInvalid=true;
@@ -676,7 +1002,7 @@ static void ValidateDeposits()
 // runtime base, so only the rvas are hard-coded - and those are verified byte
 // for byte before a single byte is written.
 
-// v1.1.1.9 rvas throughout this file; old values noted per line, derivation in
+// v1.1.1.13 rvas throughout this file; the v1.1.1.9 values noted per line, derivation in
 // docs/02-findings.md. The parser site's own bytes include a rip-relative
 // displacement to $TYPE_MINE_BAUXITE, which is why kParserOrig below is not
 // simply the old bytes: the string did not move, so the displacement had to
@@ -684,15 +1010,15 @@ static void ValidateDeposits()
 #define P_PARSER_SITE      0x10EAB8   // was 0x10EAC8. LEA RDX,[$TYPE_MINE_BAUXITE]
 #define P_PARSER_NEXT      0x10EAE8   // was 0x10EAF8. next token check
 #define P_PARSER_DONE      0x118805   // was 0x118815. shared exit
-#define P_STRCMP           0x84F520   // was 0x84F340
+#define P_STRCMP           0x84F6C0   // was 0x84F520
 #define P_STR_BAUXITE      0x8895C0   // unchanged - .rdata string, not in the float pool
 #define P_PARSER_TOKEN     0x49A0     // [rbp+..] the token just read
 #define P_PARSER_BTYPE     0x1E10     // [rbp+..] building type
 #define P_PARSER_DTYPE     0x1E18     // [rbp+..] deposit type
 
-#define P_DISPATCH_SITE    0x1DD7E3   // was 0x1DD773. CMP [RSI+0x368],6
-#define P_DISPATCH_BODY6   0x1DD7EC   // was 0x1DD77C. body of the type 6 case
-#define P_DISPATCH_TAIL    0x1DD826   // was 0x1DD7B6. CMP [RSI+0x368],7
+#define P_DISPATCH_SITE    0x1DD763   // was 0x1DD7E3. CMP [RSI+0x368],6
+#define P_DISPATCH_BODY6   0x1DD76C   // was 0x1DD7EC. body of the type 6 case
+#define P_DISPATCH_TAIL    0x1DD7A6   // was 0x1DD826. CMP [RSI+0x368],7
 #define P_GAMEOBJ          0x9941F0   // unchanged - .data does not move in this build
 #define P_SAMPLER          0x8360
 #define P_DEP_TYPE_FIELD   0x368      // building object, the deposit type
@@ -710,8 +1036,8 @@ static void ValidateDeposits()
 //   1DCADA  C3                    RET
 //   1DCADB  0F 57 C0              XORPS XMM0,XMM0
 //   1DCADE  C3                    RET
-#define P_RADIUS_SITE      0x1DCB3D   // was 0x1DCACD
-#define P_RADIUS_WATERSURF 0x90AC20   // was 0x90AC38 - the constant the type 9 branch returns
+#define P_RADIUS_SITE      0x1DCABD   // was 0x1DCB3D
+#define P_RADIUS_WATERSURF 0x90AC30   // was 0x90AC20 - the constant the type 9 branch returns
 
 // The terrain's own material mask, and the two sites that bracket it.
 //
@@ -731,10 +1057,10 @@ static void ValidateDeposits()
 // and 1DDE08 is the same five instructions with MaskTextureClose. Opening it
 // per sample point instead would be a GPU Map/Unmap per point - the mistake
 // docs/07-pitfalls.md already records - so both are patched, or neither.
-#define P_MASK_OPEN_SITE   0x1DD509   // was 0x1DD499
-#define P_MASK_OPEN_NEXT   0x1DD526   // was 0x1DD4B6 - where its JNZ lands
-#define P_MASK_CLOSE_SITE  0x1DDE78   // was 0x1DDE08
-#define P_MASK_CLOSE_NEXT  0x1DDE95   // was 0x1DDE25
+#define P_MASK_OPEN_SITE   0x1DD489   // was 0x1DD509
+#define P_MASK_OPEN_NEXT   0x1DD4A6   // was 0x1DD526 - where its JNZ lands
+#define P_MASK_CLOSE_SITE  0x1DDDF8   // was 0x1DDE78
+#define P_MASK_CLOSE_NEXT  0x1DDE15   // was 0x1DDE95
 #define P_MASK_OPEN_IAT    0x86CF38   // C3D_TERRAIN::MaskTextureOpen
 #define P_MASK_CLOSE_IAT   0x86CF30   // C3D_TERRAIN::MaskTextureClose
 #define P_TERRAIN_OFF      0xED8      // gameobj -> C3D_TERRAIN
@@ -766,10 +1092,10 @@ static void ValidateDeposits()
 // Both sites are heads of their block and reached by fall-through only. The
 // cave puts our types in front of the displaced check, exactly as the mask
 // bracket does; the rejoin re-reads the type, so a clobbered EAX costs nothing.
-#define P_MAP_OPEN_SITE    0x1DD4C8   // was 0x1DD458
-#define P_MAP_OPEN_NEXT    0x1DD4E4   // was 0x1DD474 - the types 6-7 check, which re-reads EAX
-#define P_MAP_CLOSE_SITE   0x1DDE95   // was 0x1DDE25
-#define P_MAP_CLOSE_NEXT   0x1DDEB5   // was 0x1DDE45 - the types 6-7 close check
+#define P_MAP_OPEN_SITE    0x1DD448   // was 0x1DD4C8
+#define P_MAP_OPEN_NEXT    0x1DD464   // was 0x1DD4E4 - the types 6-7 check, which re-reads EAX
+#define P_MAP_CLOSE_SITE   0x1DDE15   // was 0x1DDE95
+#define P_MAP_CLOSE_NEXT   0x1DDE35   // was 0x1DDEB5 - the types 6-7 close check
 #define P_TEX_OPEN         0x80       // TextureAccessOpen,  vtable slot 16
 #define P_TEX_CLOSE        0x90       // TextureAccessClose, vtable slot 18
 
@@ -786,9 +1112,9 @@ static const BYTE kMaskOrig[]     = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x03 }
 // v1.1.1.9. Same reasoning as kParserOrig: the gameobj displacement is
 // recomputed from the new site even though P_GAMEOBJ (0x9941F0) is unchanged.
 static const BYTE kMapOpenOrig[]  = { 0x83, 0xF8, 0x02, 0x77, 0x17,
-                                      0x48, 0x8B, 0x05, 0x1C, 0x6D, 0x7B, 0x00 };
+                                      0x48, 0x8B, 0x05, 0x9C, 0x6D, 0x7B, 0x00 };
 static const BYTE kMapCloseOrig[] = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x02, 0x77, 0x17,
-                                      0x48, 0x8B, 0x05, 0x4B, 0x63, 0x7B, 0x00 };
+                                      0x48, 0x8B, 0x05, 0xCB, 0x63, 0x7B, 0x00 };
 
 // ---------------------------------------------------------------- maps past the engine's two
 //
@@ -850,7 +1176,7 @@ static const BYTE kMapCloseOrig[] = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x02, 
 // The call site moved with everything around it; found again by its
 // address-independent `mov rdx,r15` immediately before the call.
 #define P_WORLD_SAVE_RVA   0x7C20     // FUN_140007c20(self, folder) - SaveToDDS x4
-#define P_WORLD_SAVE_CALL  0x42CDAE   // was 0x42CD0E - the only `call 0x7C20` in the executable
+#define P_WORLD_SAVE_CALL  0x42CD3E   // was 0x42CDAE - the only `call 0x7C20` in the executable
 
 #define TEX_LOAD2D         2          // vtbl+0x10   Load2DFromFile(path,0,0,0,0)
 #define TEX_INIT_TEMP      19         // vtbl+0x98   TextureAccessInitTempResource
@@ -1468,7 +1794,7 @@ static bool PatchDepositType()
         memcmp(dispatchSite, kDispatchOrig, sizeof(kDispatchOrig)) != 0 ||
         memcmp(radiusSite,   kRadiusOrig,   sizeof(kRadiusOrig))   != 0)
     {
-        Logf("patch  site bytes differ from build v1.1.1.7 - refusing to patch");
+        Logf("patch  site bytes differ from build 1.1.1.13 - refusing to patch");
         return false;
     }
 
@@ -1482,7 +1808,7 @@ static bool PatchDepositType()
         (memcmp(mapOpenSite,  kMapOpenOrig,  sizeof(kMapOpenOrig))  != 0 ||
          memcmp(mapCloseSite, kMapCloseOrig, sizeof(kMapCloseOrig)) != 0))
     {
-        Logf("patch  resource-map bracket bytes differ from build v1.1.1.7 - "
+        Logf("patch  resource-map bracket bytes differ from build 1.1.1.13 - "
              "%d map deposit(s) dropped", g_mapCount);
         int kept = 0;
         for (int i = 0; i < g_depCount; i++)
@@ -1501,7 +1827,7 @@ static bool PatchDepositType()
         (memcmp(maskOpenSite,  kMaskOrig, sizeof(kMaskOrig)) != 0 ||
          memcmp(maskCloseSite, kMaskOrig, sizeof(kMaskOrig)) != 0))
     {
-        Logf("patch  terrain-mask bracket bytes differ from build v1.1.1.7 - "
+        Logf("patch  terrain-mask bracket bytes differ from build 1.1.1.13 - "
              "%d mask deposit(s) dropped", g_terrainCount);
         int kept = 0;
         for (int i = 0; i < g_depCount; i++)
@@ -1741,14 +2067,14 @@ static const BYTE kVehicleArrivalGuard[] = {
     0x41,0x83,0xFE,0x07, 0x0F,0x85,0xA4,0,0,0, 0x8B,0x86,0x68,0x03,0,0
 };
 static const WorkingVehicleSite kWorkingVehicleSites[] = {
-    { 0x176DF8, kVehiclePower, sizeof(kVehiclePower), 3, true, 0xB8,
-      0x176E1E, 0x176E03, 0x176DE4, kVehiclePowerGuard, sizeof(kVehiclePowerGuard), "mine work sum" },
-    { 0x1B169A, kVehicleTick, sizeof(kVehicleTick), 4, false, 0xBF,
-      0x1B16C0, 0x1B16A5, 0x1B1693, kVehicleTickGuard, sizeof(kVehicleTickGuard), "alternate mine work sum" },
-    { 0x3E3AF9, kVehicleEligibility, sizeof(kVehicleEligibility), 4, false, 0xBD,
-      0x3E3B04, 0x3E3B5A, 0x3E3A94, kVehicleEligibilityGuard, sizeof(kVehicleEligibilityGuard), "purchase/assignment eligibility" },
-    { 0x66E628, kVehicleArrival, sizeof(kVehicleArrival), 3, false, 0xBE,
-      0x66E636, 0x66E6C6, 0x66E618, kVehicleArrivalGuard, sizeof(kVehicleArrivalGuard), "quarry vehicle arrival" }
+    { 0x176E18, kVehiclePower, sizeof(kVehiclePower), 3, true, 0xB8,
+      0x176E3E, 0x176E23, 0x176E04, kVehiclePowerGuard, sizeof(kVehiclePowerGuard), "mine work sum" },
+    { 0x1B161A, kVehicleTick, sizeof(kVehicleTick), 4, false, 0xBF,
+      0x1B1640, 0x1B1625, 0x1B1613, kVehicleTickGuard, sizeof(kVehicleTickGuard), "alternate mine work sum" },
+    { 0x3E3A39, kVehicleEligibility, sizeof(kVehicleEligibility), 4, false, 0xBD,
+      0x3E3A44, 0x3E3A9A, 0x3E39D4, kVehicleEligibilityGuard, sizeof(kVehicleEligibilityGuard), "purchase/assignment eligibility" },
+    { 0x66E6C8, kVehicleArrival, sizeof(kVehicleArrival), 3, false, 0xBE,
+      0x66E6D6, 0x66E766, 0x66E6B8, kVehicleArrivalGuard, sizeof(kVehicleArrivalGuard), "quarry vehicle arrival" }
 };
 static const size_t kWorkingVehicleSiteCount = sizeof(kWorkingVehicleSites) / sizeof(kWorkingVehicleSites[0]);
 static BYTE* g_workingVehicleCave;
@@ -1820,7 +2146,7 @@ static bool InstallWorkingVehiclePatch()
             !VehicleSiteMatches(site.guardRva, site.guard, site.guardSize) ||
             site.acceptRva >= g_exeSize || site.rejectRva >= g_exeSize)
         {
-            Logf("vehicles WARN %s at RVA 0x%lX differs from WRSR 1.1.1.9 "
+            Logf("vehicles WARN %s at RVA 0x%lX differs from WRSR 1.1.1.13 "
                  "or is unreadable. All working-vehicle extensions disabled; no vehicle gates changed",
                  site.label, site.rva);
             return false;
@@ -1961,8 +2287,8 @@ static bool InstallWorkingVehiclePatch()
 // and the region outlines, so it sits on top of them where the base game's own
 // layers sit underneath.
 
-#define P_MINIMAP_DRAW_RVA 0x4BDE80   // was 0x4BDDE0. FUN_1404bdde0 - draws the coloured overlay
-#define P_MINIMAP_ROW_RVA  0x4BFF40   // was 0x4BFEA0. FUN_1404bfea0 - draws + handles the button row
+#define P_MINIMAP_DRAW_RVA 0x4BDE10   // was 0x4BDE80. FUN_1404bdde0 - draws the coloured overlay
+#define P_MINIMAP_ROW_RVA  0x4BFED0   // was 0x4BFF40. FUN_1404bfea0 - draws + handles the button row
 
 static const BYTE kMinimapDrawPrologue[] = {
     0x48, 0x8B, 0xC4,                                 // mov rax,rsp
@@ -1983,6 +2309,10 @@ static const BYTE kMinimapRowPrologue[] = {
 };
 #define MINIMAP_ROW_STOLEN (sizeof(kMinimapRowPrologue))
 
+// v1.1.1.13: .data is where it was once more; the .rdata pool moved by +0x8,
+// +0xC or +0x10 depending on the constant, so every address below was taken
+// from the instruction that loads it (my_plugins/tests/portmap.pl). What
+// follows is the note of the port before.
 // Globals the vanilla functions already use. v1.1.1.9 did not move .data at
 // all (confirmed for the game object, the resource vector and others via the
 // lea sites that resolve them - docs/02-findings.md), so every plain object
@@ -1994,7 +2324,7 @@ static const BYTE kMinimapRowPrologue[] = {
 #define G_GAMEOBJ         0x9941F0   // +0xED8 terrain, +0xF08 resourcemap2
 #define G_PANEL           0x9BE060   // the one C3D_PANEL2D the whole minimap draws through
 #define G_TECHNIQUE       0x9EAD08   // current shader technique, set by the last BeginDraw
-#define G_PANEL_FULLSIZE  0x909F58   // was 0x909F70. w/h passed to every Draw() call in this UI
+#define G_PANEL_FULLSIZE  0x909F64   // was 0x909F58. w/h passed to every Draw() call in this UI
 #define G_SLOT_BG_TEX     0x9DFF38   // background box texture, shared by every button
 #define G_SLOT_SEL_TEX    0x9E03E8   // "selected" badge texture, shared by every button
 #define G_CLICK_FLAG      0xA54E91   // nonzero for one frame on a real click
@@ -2003,19 +2333,19 @@ static const BYTE kMinimapRowPrologue[] = {
 #define G_RES_VECTOR      0x9E11C0   // the resource vector records live in: begin, end, capacity
 #define G_CLIP_HELPER_OBJ 0x9DFCC0   // passed to the per-icon clip-rect helper
 #define G_DPI             0x992088
-#define G_ROW_X0          0x90A988   // was 0x90A9A0
-#define G_ROW_STEP        0x90AA44   // was 0x90AA5C
-#define G_ROW_Y0          0x90AB18   // was 0x90AB30
-#define G_ICON_SCALE      0x909E54   // was 0x909E6C
-#define G_HITBOX_HALF     0x90A6A8   // was 0x90A6C0
-#define G_BADGE_OFFSET    0x909CD8   // was 0x909CF0
+#define G_ROW_X0          0x90A998   // was 0x90A988
+#define G_ROW_STEP        0x90AA54   // was 0x90AA44
+#define G_ROW_Y0          0x90AB28   // was 0x90AB18
+#define G_ICON_SCALE      0x909E5C   // was 0x909E54
+#define G_HITBOX_HALF     0x90A6B8   // was 0x90A6A8
+#define G_BADGE_OFFSET    0x909CE0   // was 0x909CD8
 // 0.5f. The vanilla code loads this one constant for two unrelated jobs: the
 // inset of the overlay quad inside the minimap panel, and the size of the
 // "selected" badge. Both uses below read it from here.
-#define G_HALF            0x909DDC   // was 0x909DF4
-#define G_COLOR_IDLE      0x90C100   // was 0x90C120. float4 tint, not hovered
-#define G_COLOR_HOVER     0x90C4C0   // was 0x90C4E0. float4 tint, hovered
-#define G_COLOR_OVERLAY   0x90C2D0   // was 0x90C2F0. float4 (1,0,0,1) - the red every deposit layer is drawn in
+#define G_HALF            0x909DE4   // was 0x909DDC
+#define G_COLOR_IDLE      0x90C110   // was 0x90C100. float4 tint, not hovered
+#define G_COLOR_HOVER     0x90C4D0   // was 0x90C4C0. float4 tint, hovered
+#define G_COLOR_OVERLAY   0x90C2E0   // was 0x90C2D0. float4 (1,0,0,1) - the red every deposit layer is drawn in
 
 // The minimap's hover text, and it needed no unexported formatter after all.
 // Every vanilla layer does exactly this when its icon is hovered:
@@ -2037,7 +2367,7 @@ static const BYTE kMinimapRowPrologue[] = {
 #define G_PANEL_PAD       0x9BE2F8
 #define G_PANEL_SIZE      0x9BE2E8   // 2 floats: w,h of the next Draw()
 #define G_PANEL_COLOR     0x9BE30C   // 4 floats: tint of the next Draw()
-#define P_CLIP_HELPER     0x4461F0   // was 0x446150. FUN_140446150 - not exported, internal only
+#define P_CLIP_HELPER     0x446180   // was 0x4461F0. FUN_140446150 - not exported, internal only
 
 #define G_TECH_GET_HANDLE 0x50       // technique vtbl+0x50  GetConstantHandle(name)->handle
 #define G_TECH_SET_VEC    0x68       // technique vtbl+0x68  SetVectorConstant(handle, float4*)
@@ -2427,7 +2757,7 @@ static void h_MM_DrawOverlay(void* param_1)
     o_MM_DrawOverlay(param_1);
     if (!g_minimapPatch) return;
 
-    // 0.4.5: a hovered button previews its layer the way the vanilla five do, and
+    // A hovered button previews its layer the way the vanilla five do, and
     // wins over the selected one for as long as the mouse rests on it; otherwise
     // the selected layer draws. At most one is selected - every path that sets a
     // layer to 2 clears every other - so this is one pass, not a stack of them.
@@ -2549,20 +2879,20 @@ static void InstallMinimapPatch()
 // Icons are loaded explicitly from "editor/tool_<name>.png", so a brush needs
 // nothing but two PNGs in the VFS named after its `editor` key.
 
-// v1.1.1.9 rvas throughout; old values noted per line. The first four are
+// v1.1.1.13 rvas throughout; the v1.1.1.9 values noted per line. The first four are
 // re-verified by their prologue at load. The last three are not - taken as raw
 // function pointers with no check, same as cities' P_RENUMBER/P_SLIDER - so
 // each was picked as the single unambiguous .pdata function start at the
 // local shift, and P_ED_TOOL_FIND's is additionally unchanged, sitting early
 // enough in .text that this update's growth all lands after it.
-#define P_ED_PANEL_RVA    0x233180   // was 0x233110. FUN_140233110 - draws the Resources tab
-#define P_ED_DISPATCH_RVA 0x30D1A0   // was 0x30D100. FUN_14030d100 - applies the active tool, every frame
-#define P_ED_CURSOR_RVA   0x2F0F10   // was 0x2F0E70. FUN_1402f0e70 - decides which tools get the round cursor
-#define P_ED_TEXELS_RVA   0x238B70   // was 0x238B00. FUN_140238b00 - the generic deposit texel writer
+#define P_ED_PANEL_RVA    0x233100   // was 0x233180. FUN_140233110 - draws the Resources tab
+#define P_ED_DISPATCH_RVA 0x30D120   // was 0x30D1A0. FUN_14030d100 - applies the active tool, every frame
+#define P_ED_CURSOR_RVA   0x2F0E90   // was 0x2F0F10. FUN_1402f0e70 - decides which tools get the round cursor
+#define P_ED_TEXELS_RVA   0x238AF0   // was 0x238B70. FUN_140238b00 - the generic deposit texel writer
 
 #define P_ED_TOOL_FIND    0x03AAA0   // unchanged. FUN_14003aaa0 - tool lookup by name
-#define P_ED_DRAW_BUTTON  0x382760   // was 0x3826C0. FUN_1403826c0 - draws one tool button
-#define P_ED_PAINT        0x235140   // was 0x2350D0. FUN_1402350d0 - one brush tick for one deposit
+#define P_ED_DRAW_BUTTON  0x3826A0   // was 0x382760. FUN_1403826c0 - draws one tool button
+#define P_ED_PAINT        0x2350C0   // was 0x235140. FUN_1402350d0 - one brush tick for one deposit
 
 // Editor object fields.
 #define ED_ACTIVE_TOOL    0xD428     // char* - the descriptor of the selected tool
@@ -2594,7 +2924,7 @@ static void InstallMinimapPatch()
 // 0x383BD0 before it returns, which is before an appended hook has drawn
 // anything, and our accumulator went nowhere. Calling the consumer ourselves,
 // once, after our own buttons, is the whole fix.
-#define P_ED_TOOLTIP      0x383C70   // was 0x383BD0. FUN_140383bd0(editorSelf, hoveredTool)
+#define P_ED_TOOLTIP      0x383BB0   // was 0x383C70. FUN_140383bd0(editorSelf, hoveredTool)
 
 // Engine globals and vtable slots the icon needs.
 #define G_MIDDLEPOINT     0x9EACD0   // C3D_MIDDLEPOINT the button drawer creates textures through
@@ -2602,16 +2932,16 @@ static void InstallMinimapPatch()
 
 // Resources-tab layout, all floats in .rdata, all read from the game so a
 // patch release that moves the grid moves our buttons with it.
-// v1.1.1.9; .rdata layout pool moved -0x18, each value confirmed at its new
-// address. Old addresses: 0x90AA40, 0x90AB2C, 0x90ADD0, 0x90AB14, 0x909EEC,
-// 0x90AB44, 0x90AB9C respectively.
-#define G_ED_X_A          0x90AA28   // 50
-#define G_ED_X_B          0x90AB14   // 85
-#define G_ED_Y_BASE       0x90ADB8   // 250
-#define G_ED_Y_CAPTION    0x90AAFC   // 80
-#define G_ED_BUTTON       0x909ED4   // 0.85, the size argument every button is drawn with
-#define G_ED_ROW_STEP     0x90AB2C   // 90, paint row to erase row
-#define G_ED_COL_STEP     0x90AB84   // 105, resource to resource
+// v1.1.1.13; the pool moved +0x10 (0.85: +0x8), each value confirmed at its new
+// address. v1.1.1.9 addresses: 0x90AA28, 0x90AB14, 0x90ADB8, 0x90AAFC, 0x909ED4,
+// 0x90AB2C, 0x90AB84 respectively.
+#define G_ED_X_A          0x90AA38   // 50
+#define G_ED_X_B          0x90AB24   // 85
+#define G_ED_Y_BASE       0x90ADC8   // 250
+#define G_ED_Y_CAPTION    0x90AB0C   // 80
+#define G_ED_BUTTON       0x909EDC   // 0.85, the size argument every button is drawn with
+#define G_ED_ROW_STEP     0x90AB3C   // 90, paint row to erase row
+#define G_ED_COL_STEP     0x90AB94   // 105, resource to resource
 
 #define ED_IDX_BAUXITE    4          // 0x2350D0's index, not the channel
 #define ED_CH_BAUXITE     6          // what that index becomes by the time it reaches 0x238B00
@@ -2632,18 +2962,18 @@ static void InstallMinimapPatch()
 // Two functions, one constant apart, and the channel encoding is the deposit
 // brush's: channel = (component + 1) & 3. So rock paints component 2, which is
 // exactly the component gravel is mined from.
-#define P_ED_ROCKS_PANEL  0x22EEA0   // was 0x22EE30. FUN_14022ee30 - draws the Rocks tab
-#define P_ED_PAINT_ROCK   0x235370   // was 0x235300. FUN_140235300 - one rock brush tick
+#define P_ED_ROCKS_PANEL  0x22EE20   // was 0x22EEA0. FUN_14022ee30 - draws the Rocks tab
+#define P_ED_PAINT_ROCK   0x2352F0   // was 0x235370. FUN_140235300 - one rock brush tick
 #define ED_CH_ROCK        3          // the EditMask channel that call passes
 
 // Rocks-tab layout, all read from the game for the same reason the Resources
 // tab's are. x = DPI*(50 + 85), y = DPI*(250 + 80), one button 0.85 wide, and
 // 85 apart across; the mod row sits one 90-step below the vanilla one.
-// v1.1.1.9; same -0x18 pool as the Resources tab above.
-#define G_ED_ROCK_X_A     0x90AA28   // 50
-#define G_ED_ROCK_X_B     0x90AB14   // 85 - and the step between buttons
-#define G_ED_ROCK_Y_BASE  0x90ADB8   // 250
-#define G_ED_ROCK_Y_CAP   0x90AAFC   // 80
+// v1.1.1.13; same pool as the Resources tab above.
+#define G_ED_ROCK_X_A     0x90AA38   // 50
+#define G_ED_ROCK_X_B     0x90AB24   // 85 - and the step between buttons
+#define G_ED_ROCK_Y_BASE  0x90ADC8   // 250
+#define G_ED_ROCK_Y_CAP   0x90AB0C   // 80
 
 static const BYTE kEdPanelPrologue[] = {
     0x48, 0x8B, 0xC4,                                  // mov rax,rsp
@@ -2779,9 +3109,40 @@ static bool ReplaceInlineString(BYTE* tool, size_t at, const char* to, const cha
 //
 // Doing it here needs no assumption about the descriptor at all: both calls
 // take the path as a plain argument, so the string can be ours.
+//
+// A picture that is not there must not be asked for at all: CreateManagedTexture
+// hands out a texture object whatever happens, Load2DFromFile reports nothing,
+// and the button then shows whatever the texture last held - in the game that
+// was the picture of the brush loaded just before. So the file is looked for
+// first, the way the engine would find it (its own file check sees the loader's
+// VFS), and directly in the VFS folder and in media_soviet as a second opinion.
+static bool ToolIconFileExists(const char* path)
+{
+    if (o_FileExists && o_FileExists(path, false, true)) return true;
+
+    char full[MAX_PATH];
+    if (g_vfsRoot && _snprintf_s(full, sizeof(full), _TRUNCATE, "%s\\media_soviet\\%s", g_vfsRoot, path) >= 0 &&
+        GetFileAttributesA(full) != INVALID_FILE_ATTRIBUTES) return true;
+
+    char exe[MAX_PATH];
+    DWORD n = GetModuleFileNameA(g_exe, exe, MAX_PATH);
+    if (n > 0 && n < MAX_PATH)
+    {
+        char* slash = strrchr(exe, '\\');
+        if (slash)
+        {
+            *slash = 0;
+            if (_snprintf_s(full, sizeof(full), _TRUNCATE, "%s\\media_soviet\\%s", exe, path) >= 0 &&
+                GetFileAttributesA(full) != INVALID_FILE_ATTRIBUTES) return true;
+        }
+    }
+    return false;
+}
+
 static void* LoadToolIcon(const char* path)
 {
     if (!o_ED_CreateManagedTexture) return NULL;
+    if (!ToolIconFileExists(path)) return NULL;
     void* tex = o_ED_CreateManagedTexture(g_exeBase + G_MIDDLEPOINT, path);
     if (!ReadablePtr(tex, sizeof(void*))) return NULL;
 
@@ -2799,6 +3160,39 @@ static void* LoadToolIcon(const char* path)
 // resource came from plugins/resources.ini its caption is already a private id
 // the resources plugin answers, and if it is a base-game resource the id is the
 // game's own. 0 leaves the donor's text, which is a wrong name but not a crash.
+//
+// A deposit that names no resource, or one that does not exist, has no caption
+// to borrow. Its brush then gets the deposit's own name under a text id of this
+// plugin, answered in h_DepGetString - the donor's "Bauxite" under a nickel brush
+// is a wrong name, and two buttons called the same are worse than a plain one.
+// The ids sit above the ones the resources plugin mints (1000000 + its index).
+#define DEP_TEXT_ID_BASE 1100000
+static wchar_t g_depCaption[MAX_DEPOSITS][40];
+
+typedef wchar_t* (*t_DepGetString)(void*, int);
+static t_DepGetString o_DepGetString;
+
+static wchar_t* h_DepGetString(void* self, int id)
+{
+    if (id >= DEP_TEXT_ID_BASE && id < DEP_TEXT_ID_BASE + MAX_DEPOSITS && g_depCaption[id - DEP_TEXT_ID_BASE][0])
+        return g_depCaption[id - DEP_TEXT_ID_BASE];
+    return o_DepGetString(self, id);
+}
+
+// The id for deposit `k`'s own name, 0 when the caption hook is not in place.
+static int OwnCaptionId(int k)
+{
+    if (!o_DepGetString || k < 0 || k >= MAX_DEPOSITS || !g_dep[k].name[0]) return 0;
+    wchar_t* text = g_depCaption[k];
+    if (!text[0])
+    {
+        if (!MultiByteToWideChar(CP_UTF8, 0, g_dep[k].name, -1, text, 40)) { text[39] = 0; }
+        if (text[0] >= L'a' && text[0] <= L'z') text[0] = (wchar_t)(text[0] - 32);
+        if (!text[0]) return 0;
+    }
+    return DEP_TEXT_ID_BASE + k;
+}
+
 static int DepositCaptionId(const DepositDef* d)
 {
     if (!d->icon[0]) return 0;
@@ -2885,7 +3279,9 @@ static bool BuildDepositTools(void* self)
             // brush. The record's caption id is the deposit's own name in
             // whatever language the game is running in, and 0 means the entry
             // named no resource - in which case the donor's text stands.
-            if (int caption = DepositCaptionId(d)) *(int*)(tool + TOOL_CAPTION) = caption;
+            int caption = DepositCaptionId(d);
+            if (!caption) caption = OwnCaptionId(k);
+            if (caption) *(int*)(tool + TOOL_CAPTION) = caption;
 
             void* tex = LoadToolIcon(icon);
             // Falling back to bauxite's texture is deliberate: a button that
@@ -3132,7 +3528,7 @@ static void h_ED_Cursor(void* self)
 #define P_ED_TERRAIN_RVA  0xAEE0     // unchanged in v1.1.1.9. FUN_14000aee0 - contour lines and the resource overlay
 #define G_OVL_FLAGS       0x23       // gameobj, six bytes, one per paintable channel
 #define G_OVL_COUNT       6
-#define G_OVL_VEC_C2      0x90BDD0   // was 0x90BDF0 - the float4 the +0x23 branch passes: (0,0,1,0).
+#define G_OVL_VEC_C2      0x90BDE0   // was 0x90BDD0 - the float4 the +0x23 branch passes: (0,0,1,0).
                                      // A further .rdata cluster, confirmed at -0x20 rather than
                                      // the -0x18 above - see G_COLOR_OVERLAY
 
@@ -3288,11 +3684,90 @@ static void h_ED_EditMask(void* terrain, float* pos, int channel,
     o_ED_EditMask(terrain, pos, channel, innerR, outerR, delta, limit, on);
 }
 
+// The two pictures of a brush are asked for as "editor/tool_<verb>_<name>.png",
+// and the one place the loader serves such a path from is its own VFS folder.
+// A DLL the loader takes from a Workshop item has no way to lay a file there,
+// so the pictures travel beside the DLL (deposits_plus\editor) and are copied
+// into the VFS here, once, for every brush that has none of that name yet. A
+// file that is already there is never replaced: it may be the player's own
+// picture or one a content package brought. Without a picture on either side
+// the button keeps bauxite's icon, as before.
+static bool ToolIconNameOk(const char* s)
+{
+    if (!s[0]) return false;
+    for (; *s; s++)
+        if (!((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9') || *s == '_'))
+            return false;
+    return true;
+}
+
+static void ProvideToolIcons()
+{
+    // Same root as BlankMapPath: the loader's real VFS folder, baseDir\vfs only
+    // against a host that does not tell.
+    char rootBuf[MAX_PATH];
+    const char* root = g_vfsRoot;
+    if (!root)
+    {
+        _snprintf_s(rootBuf, sizeof(rootBuf), _TRUNCATE, "%s\\vfs", g_baseDir);
+        root = rootBuf;
+    }
+
+    static const char* kVerb[2] = { "paint", "erase" };
+    bool dirReady = false;
+    int  copied = 0;
+    for (int k = 0; k < g_depCount; k++)
+    {
+        const DepositDef* d = &g_dep[k];
+        if (d->editorColumn < 0 || !ToolIconNameOk(d->editor)) continue;
+
+        for (int i = 0; i < 2; i++)
+        {
+            char file[80], dst[MAX_PATH], src[MAX_PATH];
+            _snprintf_s(file, sizeof(file), _TRUNCATE, "tool_%s_%s.png", kVerb[i], d->editor);
+            if (_snprintf_s(dst, sizeof(dst), _TRUNCATE, "%s\\media_soviet\\editor\\%s", root, file) < 0) continue;
+            if (GetFileAttributesA(dst) != INVALID_FILE_ATTRIBUTES) continue;
+
+            bool have = g_selfDir[0] &&
+                        _snprintf_s(src, sizeof(src), _TRUNCATE, "%s\\deposits_plus\\editor\\%s", g_selfDir, file) >= 0 &&
+                        GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES;
+            if (!have)
+                have = _snprintf_s(src, sizeof(src), _TRUNCATE, "%s\\plugins\\deposits_plus\\editor\\%s", g_baseDir, file) >= 0 &&
+                       GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES;
+            if (!have) continue;
+
+            if (!dirReady)
+            {
+                // CreateDirectoryA is not recursive; an existing folder is fine.
+                char dir[MAX_PATH];
+                CreateDirectoryA(root, NULL);
+                _snprintf_s(dir, sizeof(dir), _TRUNCATE, "%s\\media_soviet", root);
+                CreateDirectoryA(dir, NULL);
+                _snprintf_s(dir, sizeof(dir), _TRUNCATE, "%s\\media_soviet\\editor", root);
+                CreateDirectoryA(dir, NULL);
+                dirReady = true;
+            }
+
+            if (CopyFileA(src, dst, TRUE))
+            {
+                // A Workshop file may be read-only; the copy must stay replaceable.
+                SetFileAttributesA(dst, FILE_ATTRIBUTE_NORMAL);
+                copied++;
+            }
+            else Logf("editor   WARN  could not copy %s into the loader's vfs (%lu)", file, GetLastError());
+        }
+    }
+    if (copied)
+        Logf("editor   %d brush picture(s) copied into %s\\media_soviet\\editor", copied, root);
+}
+
 static void InstallEditorPatch()
 {
     int brushes = 0;
     for (int i = 0; i < g_depCount; i++) if (g_dep[i].editorColumn >= 0) brushes++;
     if (brushes == 0) { Logf("editor   no deposit declares a brush - not hooking"); return; }
+
+    ProvideToolIcons();
 
     // Not fatal on its own: without it the buttons fall back to bauxite's
     // icon, which is cosmetic, so this only warns.
@@ -3300,6 +3775,18 @@ static void InstallEditorPatch()
                               "?CreateManagedTexture@C3D_MIDDLEPOINT@@QEAAPEAVC3DAPI_TEXTURE@@PEBD@Z");
     if (slot) o_ED_CreateManagedTexture = (t_ED_CreateManagedTexture)*slot;
     else      Logf("editor   WARN  no import slot for CreateManagedTexture - buttons keep bauxite's icon");
+
+    // The engine's file check, for brush pictures that are not there (PrepareExtraMaps
+    // takes the same slot, but only when there are extra maps).
+    if (!o_FileExists)
+        if (void** check = FindIatSlot(g_exe, DLL_ENGINE, "?C3DHelp_CheckIfFileExist@@YA_NPEBD_N1@Z"))
+            o_FileExists = (t_FileExists)*check;
+
+    // Captions for brushes whose deposit names no resource. Not fatal: without the
+    // slot such a brush keeps the donor's caption, as before.
+    if (!PatchIat(g_exe, DLL_ENGINE, "?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z",
+                  (void*)h_DepGetString, (void**)&o_DepGetString, "C3D_LANGUAGE::GetString (deposits_plus)"))
+        Logf("editor   WARN  no import slot for C3D_LANGUAGE::GetString - a brush without a resource keeps the donor's caption");
 
     struct { DWORD rva; void* detour; void** tramp; const BYTE* expect; size_t stolen; const char* label; }
     hooks[] = {
@@ -3421,23 +3908,32 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.10";
+    info->version = "0.4.17";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the
     // additive hooks and refuse the type patch, so when plugins\deposits.dll
     // exists and the launcher has it switched on, this plugin steps aside before
-    // it touches anything - nothing is hooked yet, so unloading is legal. The
-    // check runs whether the DLL was loaded from plugins\ or from a Workshop
-    // package through workshop_bridge.
+    // it touches anything - nothing is hooked yet, so unloading is legal.
+    //
+    // The loader finds plugin DLLs in <loader>\plugins and, in any depth, in the
+    // Steam Workshop folder and inits them in name order, so an original that is
+    // switched on is already in the process when "deposits_plus" is asked,
+    // wherever its DLL lies: the module handle is the answer for both places.
+    // The export test keeps a stranger that merely shares the file name out of
+    // it. The file test covers a loader that orders differently.
     {
         char upstream[MAX_PATH];
         _snprintf_s(upstream, sizeof(upstream), _TRUNCATE, "%s\\plugins\\deposits.dll", g_baseDir);
-        if (GetFileAttributesA(upstream) != INVALID_FILE_ATTRIBUTES &&
-            H->configInt("tesmioloader.ini", "plugins", "deposits", 1) != 0)
+        HMODULE original = GetModuleHandleA("deposits.dll");
+        bool loaded  = original && GetProcAddress(original, "TsmPluginInit") != NULL;
+        bool present = GetFileAttributesA(upstream) != INVALID_FILE_ATTRIBUTES &&
+                       H->configInt("tesmioloader.ini", "plugins", "deposits", 1) != 0;
+        if (loaded || present)
         {
-            Logf("deposits_plus  idle - plugins\\deposits.dll is present and enabled in tesmioloader.ini; "
-                 "switch deposits off (Republic Mod Manager: \"Plugin aktiv\") to use deposits_plus");
+            Logf("deposits_plus  idle - the original deposits.dll is %s; switch deposits off "
+                 "(Republic Mod Manager or the launcher) to use deposits_plus",
+                 loaded ? "loaded" : "present in plugins\\ and enabled in tesmioloader.ini");
             return 1;
         }
     }

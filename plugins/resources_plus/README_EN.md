@@ -1,8 +1,8 @@
-# 📦 Resources Plus 0.1.2
+# 📦 Resources Plus 0.1.5
 
 **Extension of the TesmioLoader plugin resources**
 
-Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.9: new goods with an icon, cargo models, a price and trade at the customs house, all from one INI.
+Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.13: new goods with an icon, cargo models, a price and trade at the customs house, all from one INI.
 
 ---
 
@@ -26,13 +26,13 @@ Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.9: new goods
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
+- WRSR 1.1.1.13
+- TesmioLoader b0.3.7 or newer (API 4)
 
 ### In three steps
-1. **Install:** through the Republic Mod Manager package (`Install-RMM.bat`). The installer switches Resources Plus on and an existing original resources plugin off, and says both in its output.
-2. **Start the game once:** Resources Plus creates `plugins\resources_plus.ini` and takes over your existing `plugins\resources.ini` unchanged. Your resources are there right away.
-3. **Keep editing:** in Republic Mod Manager under "Resources Plus", or directly in `plugins\resources_plus.ini`.
+1. **Subscribe:** Resources Plus is part of the Workshop item Republic Mod Manager. The TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
+2. **Switch the original off:** if you also have the resources plugin by MaxLegend, switch it off. Republic Mod Manager does that by itself on saving; in TesmioLauncher clear the checkbox of resources. Unsubscribing is not necessary.
+3. **Start the game:** Resources Plus creates `tesmioloader\plugins\resources_plus.ini` and takes over your existing `tesmioloader\plugins\resources.ini` unchanged. From then on you edit the list in Republic Mod Manager under "Resources Plus", or directly in the file.
 
 ---
 
@@ -43,7 +43,7 @@ Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.9: new goods
 - ✅ Icon, cargo models, transport class, price kind and market values per resource
 - ✅ Prices from the production chain, `[base_price]` and `[price]` to override them
 - ✅ Customs houses pick up new resources as trade slots, even ones built earlier
-- ✅ Any number of entries; the plugin grows the game's resource table itself
+- ✅ Up to 256 entries; the plugin grows the game's resource table itself
 
 ### 🆕 Improvements (new in Resources Plus)
 
@@ -51,66 +51,87 @@ Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.9: new goods
 The original crashed the game on exit as soon as more than six own resources were declared (Windows reported `ucrtbase.dll`, code `c0000409`). Saves were never affected, but every exit left a crash report behind. Resources Plus allocates the enlarged table the way the game releases it on exit.
 
 #### 2️⃣ **Its own file, taken over automatically**
-Resources Plus reads `plugins\resources_plus.ini`. If it is missing, it is created at the first start from what you already have: from the original plugin's `plugins\resources.ini`, in the same order, with a header line saying where it came from. The original is only read, never changed. If that `resources.ini` was written by Soviet Mod Loader (which rewrites it at every game start with all packages merged in), Resources Plus takes SML's baseline instead, so no package resource appears twice.
+Resources Plus reads `tesmioloader\plugins\resources_plus.ini`, also when the DLL comes from the Workshop. If it is missing, it is created at the first start from what you already have: from the original plugin's `tesmioloader\plugins\resources.ini`, in the same order, with a header line saying where it came from. The original is only read, never changed. If that `resources.ini` was written by Soviet Mod Loader (which rewrites it at every game start with all packages merged in), Resources Plus takes SML's baseline instead, so no package resource appears twice. With neither a `resources.ini` nor SML's baseline, the plugin takes the INI next to its DLL.
 
 #### 3️⃣ **Duplicate names are refused**
 If a name is listed twice in `[list]`, the first one counts and the second is skipped with a log line. The original would have registered it twice.
 
 #### 4️⃣ **Steps aside by itself**
-While the original is enabled or Soviet Mod Loader is running, Resources Plus stays idle and writes one line to the log. There are never two plugins registering the same resource.
+While the original is loaded or Soviet Mod Loader is running, Resources Plus stays idle and writes one line to the log. It recognises the original also when it is loaded from the Workshop folder. There are never two plugins registering the same resource.
+
+#### 5️⃣ **Names in the game language**
+A section `[names:German]` gives a resource a name of its own for the German game, `[names:French]` for the French one, and so on. A German game then shows "Kabel" instead of "Cable": in the customs house, in storages, on vehicles and on the brush of Deposits Plus. The plugin learns the running language from the game itself at start.
 
 ---
 
 ## 💾 Installation
 
-Resources Plus and the original plugin resources never run at the same time. The installer of the Republic Mod Manager package handles that for you; by hand it works the same way.
+Choose **one** of the two methods. The same DLL must never be loaded twice, and Resources Plus and the original resources plugin never run at the same time.
 
-### Method 1️⃣: Republic Mod Manager (package, recommended)
+### ⚠️ Important: switch the original plugin off
 
-```
-1. Subscribe to the Republic Mod Manager package and run Install-RMM.bat
-2. resources_plus.dll and the template resources_plus.template.ini land in
-   tesmioloader\build\plugins\ (an existing resources_plus.ini is left untouched)
-3. The installer sets in tesmioloader.ini: resources_plus=1 and, if
-   plugins\resources.dll exists, resources=0 - and tells you so
-4. Start the game: the list from plugins\resources.ini is taken over
-```
+If you also have the resources plugin by MaxLegend (subscribed or in `tesmioloader\plugins`):
+- **Republic Mod Manager:** switches resources off by itself on saving as soon as Resources Plus is switched on
+- **TesmioLauncher:** clear the checkbox of resources
+- **Unsubscribing or deleting is not necessary** – while the original is loaded, Resources Plus stays idle by itself (log line `resources_plus  idle`)
 
-**Back to the original:** switch Resources Plus off and resources on in Republic Mod Manager, or set `resources=1` and `resources_plus=0` in `tesmioloader.ini`. `Uninstall-RMM.bat` does the same. The original's DLL is never deleted or overwritten.
+**Back to the original:** switch resources on in Republic Mod Manager (Resources Plus then goes off by itself), or tick resources and clear resources_plus in TesmioLauncher. The original's DLL is never deleted or overwritten.
 
-### Method 2️⃣: By hand
+### Method 1️⃣: Steam Workshop (recommended)
 
 ```
-1. Copy resources_plus.dll → tesmioloader\build\plugins\
-2. Enable resources_plus in TesmioLauncher (or resources_plus=1 in tesmioloader.ini)
-3. Disable the original plugin resources (resources=0)
-4. Start the game: plugins\resources_plus.ini is created from your resources.ini;
-   without a resources.ini the plugin uses the template resources_plus.template.ini beside the DLL
+1. Subscribe to the Workshop item Republic Mod Manager – Resources Plus
+   sits in its folder plugins\resources_plus
+2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+   by itself on the next game start – nothing is copied
+3. At the first start the plugin creates your list:
+   <game>\tesmioloader\plugins\resources_plus.ini
+4. Steam updates apply from the next game start
 ```
 
-### Method 3️⃣: Soviet Mod Loader (SML)
+A newly found plugin is switched on. You switch it off and on in TesmioLauncher or with "Plugin active" in Republic Mod Manager.
 
-⚠️ **While SML runs, Resources Plus stays idle.** SML carries its own copy of the original plugin and ends the game if a second plugin registers resources. If you want Resources Plus, switch `soviet_mod_loader` off in `tesmioloader.ini` (the "Plugin active" switch in Republic Mod Manager) and use method 1 or 2. At the next start Resources Plus takes your list over from SML's baseline; Republic Mod Manager provides the packages afterwards.
+### Method 2️⃣: By hand into the loader folder
+
+```
+1. Copy resources_plus.dll from plugins\resources_plus\
+   → <game>\tesmioloader\plugins\
+2. Only if there is no resources.ini of the original in that folder yet:
+   copy resources_plus.ini there as well
+3. With a resources.ini, leave resources_plus.ini out – the plugin
+   creates it from your resources.ini at the first start
+```
+
+For everyone who wants to use the plugin without the Steam subscription. A DLL in `tesmioloader\plugins` takes priority over the one of the same name from the Workshop; you then copy updates yourself.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-- The entry **Resources Plus** edits `plugins\resources_plus.ini`: list, template, display name, transport class, price kind, market values. If the file does not exist yet, RMM creates it when the page opens, by the same rule the plugin uses, and says so in a blue box. The old entry "Resources" stays in the list as a switched-off plugin, the way "Deposits" sits next to Deposits Plus.
-- **Content packages** from the Workshop (`[content] resources`) go into `plugins\resources_plus.ini` once it exists, and can be taken back.
+- The entry **Resources Plus** edits `tesmioloader\plugins\resources_plus.ini`: list, template, display name, transport class, price kind, market values. Republic Mod Manager (version 0.6.3 and later) brings the settings page itself. If the file does not exist yet, RMM creates it when the page opens: from the original's list (also when that lies only in the Workshop folder next to the original's DLL), otherwise from the INI next to the DLL of Resources Plus. A blue notice names the source.
+- In RMM, Resources Plus and resources are a **replacement pair**: when you switch one on, RMM switches the other one off on saving. While both are switched on, the original shows **orange** ("Being replaced"). Both entries stay in the list.
+- **Content packages** from the Workshop (resources without a DLL of their own) are entered into `resources_plus.ini` by RMM with "Provide in the game" and taken out again when you switch them off.
 - The **"Plugin active"** switch for Resources Plus writes the entry in `tesmioloader.ini`.
-- While SML runs, Resources Plus shows **amber**: paused, not broken. The page is locked until you choose "Edit anyway".
 - The log window shows `logs\tesmioloader.resources_plus.log`.
 
 ---
 
 ## ⚙️ Configuration
 
-### Main file: `plugins\resources_plus.ini`
+### Main file: `resources_plus.ini`
+
+The list always lives in `<game>\tesmioloader\plugins\resources_plus.ini`, also when the DLL comes from the Workshop. If the file is missing, the plugin creates it once at the first game start, from the first source it finds:
+1. the original plugin's `tesmioloader\plugins\resources.ini`, with the same entries in the same order
+2. Soviet Mod Loader's baseline, when the `resources.ini` was generated by it or is missing
+3. the `resources.ini` next to the original's DLL in the Workshop folder, when the loader takes the original from there
+4. the INI next to the DLL, in the Workshop item `plugins\resources_plus\resources_plus.ini`
+
+So the INI next to the DLL is only the template for the first start. After that only the file in the loader folder counts; a Steam update does not change your list.
 
 | Section | Content |
 |---|---|
 | `[list]` | One line per resource: `<name> = <template or custom>[, <display name>]` |
+| `[names:<Language>]` | Names for one game language: `<name> = <display name>`. `<Language>` is written as in the game's file name `soviet<Language>.btf`, for example `German` |
 | `[custom:<name>]` | Fine-tuning: `transport`, `kind`, `cargo`, `price`, `market_rub`, `market_usd` and more |
 | `[base_price]` / `[price]` | Override prices before or after the game's price pass |
 | `[resources]` | How the plugin reaches the game: `hook`, `resource_capacity`, `price_hook`, `price_report`, `custom_report` |
@@ -120,6 +141,7 @@ The format is the original plugin's; every key is explained in the file itself. 
 
 ### Good to know
 - **Saves depend on `[list]`.** A save with two own resources does not load without them, and a save without own resources does not load with them. Change the list only with a matching save or a new game. The takeover from `resources.ini` keeps the order, so your saves keep loading.
+- **Names per language:** the display name in `[list]` applies to every language that has no section of its own, so keep it English. German names go under `[names:German]`. The shipped list and the content packages already bring their German names. If you already have a `resources_plus.ini` of your own, the plugin also reads the names of the shipped resources from the INI beside its DLL; a name that is in your file as well wins. For resources of your own you enter the names in Republic Mod Manager (0.6.6 or newer, fields "Names per game language" at the very end of the resource's properties) or by hand in `resources_plus.ini`. Names apply from the next game start; saves do not depend on them.
 - Icon: `media_soviet\resources\<name>.png` (48×48, RGBA), best placed under `tesmioloader\vfs\`.
 - Cargo models: `resources\<name>.nmf` for open goods, `<name>1..4.nmf` plus `<name>_vehicle.nmf` for bulk goods.
 
@@ -131,7 +153,7 @@ The format is the original plugin's; every key is explained in the file itself. 
 
 Resources Plus and the original plugin `resources` share:
 - **the same service name:** `resources`
-- **the same file format**, in separate files: `plugins\resources_plus.ini` and `plugins\resources.ini`
+- **the same file format**, in separate files: `resources_plus.ini` and `resources.ini`, both in `tesmioloader\plugins`
 - **the same text ids** for the display names (from 1000000)
 - **compatibility:** saves stay valid as long as `[list]` has the same entries in the same order
 
@@ -139,9 +161,9 @@ Resources Plus and the original plugin `resources` share:
 
 **Resources Plus only loads when the original is switched off.**
 
-If `plugins\resources.dll` exists and is enabled in tesmioloader.ini:
+If the original is loaded (from the Workshop folder or from `tesmioloader\plugins`), or `tesmioloader\plugins\resources.dll` exists and is enabled in tesmioloader.ini:
 - Resources Plus stays idle before it patches anything
-- In the log: `resources_plus  idle - plugins\resources.dll is present and enabled`
+- In the log: `resources_plus  idle - the original resources.dll is loaded`
 - The original loads normally
 
 The same applies under Soviet Mod Loader: `resources_plus  idle - soviet_mod_loader.dll brings its own resources`.
@@ -156,8 +178,12 @@ The same applies under Soviet Mod Loader: `resources_plus  idle - soviet_mod_loa
 Unchanged from the original: the number of resources is part of the save, the display names get the same text ids. A save made with the original or under SML loads with Resources Plus as long as `[list]` has the same entries in the same order. That is exactly what the automatic takeover guarantees.
 
 ### Version compatibility
+- With Soviet Mod Loader: SML brings resources of its own. While it runs, this plugin pauses and says so in the log; if you want Resources Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.5: the first list is now also made from the original's `resources.ini` when the original lies only in the Workshop folder. Before, the plugin looked in the loader folder only and took the shipped list otherwise
+- 0.1.4: names in the game language: new sections `[names:<Language>]` in the list; the shipped list brings German names. Without such sections nothing changes
+- 0.1.3: for WRSR 1.1.1.13. The plugin now also recognises the original resources when it is loaded from the Workshop folder, and then stays idle. If your `resources_plus.ini` still carries a game address of the previous game version (`resource_rva`, `price_pass_rva`, `customhouse_tick_rva`), the plugin skips it with a log line and uses its built-in one
 - 0.1.2: safety round, no new feature: the customs house sync runs under the same lock as the move of the resource table and checks the game's push function for its bytes before the first call; transport classes beyond the record's 18 are no longer read; registering resources and the price bracket switch themselves off after a fault instead of repeating it; `packed = auto` does what the comment says again; a UTF-8 BOM in resources_plus.ini no longer hides `[list]`; `resource_capacity`, `resource_vector_rva`, `packed` and a numeric `family` are checked and refused with a WARN line; write errors name the Windows error code
-- 0.1.1: the guard against Soviet Mod Loader also works when Resources Plus loads before SML (alphabetical order in `plugins`): `pluginssoviet_mod_loader.dll` present and switched on is enough. Without this fix SML blocked the game start with "resources registration hook was not installed".
+- 0.1.1: the guard against Soviet Mod Loader also works when Resources Plus loads before SML (alphabetical order in `plugins`): `plugins\soviet_mod_loader.dll` present and switched on is enough. Without this fix SML blocked the game start with "resources registration hook was not installed".
 - 0.1.0: first version as a fork of resources 1.7. Same features, plus the exit fix, its own file with automatic takeover, the duplicate-name check and the guard against the original and SML.
 
 ---
@@ -172,27 +198,39 @@ Unchanged from the original: the number of resources is part of the save, the di
 | "Save needs mods" when loading | `[list]` does not match the save | Declare the same entries in the same order |
 | A resource is missing, the log says "listed twice" | Name twice in `[list]` | Remove the second line |
 | Storage shows 0.00 of 0.00 t | Template's transport class does not match the building's `$STORAGE` | Pick another template or set `transport =` in `[custom:<name>]` |
-| Resource not tradeable at the customs house | Template `custom` without market values | Use a template with market values (e.g. food) or set `market_rub`/`market_usd` |
+| A customs house that already stood does not trade the new resource | `hook = 0` in `[customs]` | Set `hook = 1`, or demolish and rebuild the customs house |
 | No icon | PNG missing | `media_soviet\resources\<name>.png`, 48×48 RGBA |
 
 ### Logging
-- Summary in `tesmioloader.log`: `plugin resources_plus 0.1.2`, at the first start `created plugins\resources_plus.ini from …`, then `published as index …` per resource
-- Details in `logs\tesmioloader.resources_plus.log` (records, prices)
+- Summary in `tesmioloader.log`: the loader's line with `resources_plus` and the version `0.1.5`, at the first start `created plugins\resources_plus.ini from …`, then `published as index …` per resource; with `price_report = 1` the price table as well, with `custom_report = 1` the records
+- Details in `logs\tesmioloader.resources_plus.log`: every resource name the game asked for
 
 ---
 
 ## 📦 File structure
 
+**Workshop item Republic Mod Manager** (Steam subscription)
 ```
-tesmioloader\build\
+<Workshop item>\
+└── plugins\
+    └── resources_plus\
+        ├── resources_plus.dll          (plugin)
+        ├── resources_plus.ini          (shipped list, template for the first start)
+        └── rmm.mod.ini                 (manifest for Republic Mod Manager)
+```
+
+**Loader folder**
+```
+<game>\tesmioloader\
 ├── plugins\
-│   ├── resources_plus.dll
-│   ├── resources_plus.ini              (your list; taken over from resources.ini when the RMM page first opens or at the first game start)
-│   ├── resources_plus.template.ini     (template from the package, used only without a resources.ini)
+│   ├── resources_plus.dll              (method 2 only)
+│   ├── resources_plus.ini              (your list; created at the first game start or when the RMM page first opens)
 │   └── resources.ini                   (original plugin, left untouched)
 └── logs\
     └── tesmioloader.resources_plus.log
 ```
+
+Loaded from the Workshop, the DLL stays in the Workshop item; `tesmioloader\plugins` then holds only your list.
 
 ---
 
@@ -210,10 +248,15 @@ tesmioloader\build\
 A: No. Either the original OR Resources Plus. While the original is enabled, Resources Plus stays idle.
 
 **Q: Do I have to carry my resources.ini over by hand?**
-A: No. At the first start Resources Plus copies it to `resources_plus.ini`, in the same order. From then on `resources_plus.ini` is the file that counts.
+A: No. If it lies in `tesmioloader\plugins`, Resources Plus copies it to `resources_plus.ini` at the first start, in the same order. If it lies only in the Workshop folder next to the original's DLL, Resources Plus takes it over from there. From then on `resources_plus.ini` is the file that counts.
 
 **Q: What about Soviet Mod Loader?**
-A: SML ships the original built in. Under SML, Resources Plus pauses and the exit fix does not apply. If you want it, switch SML off and load your packages through the Workshop Bridge.
+A: SML ships the original built in. Under SML, Resources Plus pauses and the exit fix does not apply. If you want it, switch SML off; Republic Mod Manager then provides content packages.
 
-**Q: Why did the installer switch my resources off?**
-A: So that the fixed version runs and not both at once. It says so in its output, deletes nothing, and one switch brings the original back.
+**Q: Why is my resources switched off?**
+A: Republic Mod Manager switches the original off as soon as Resources Plus is switched on. That way the fixed version runs and not both at once. Nothing is deleted, and one switch brings the original back.
+
+---
+
+**Last update:** Resources Plus 0.1.5  
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

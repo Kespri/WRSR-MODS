@@ -12,7 +12,7 @@ static DG::State g_generationState;
 static std::string g_generationFolder;
 static bool g_generationPending=false,g_generationReady=false,g_generationFault=false;
 static bool g_generationHadState=false,g_generationLegacy=false;
-static bool g_desertMap=false;   // 0.4.1: the world's script.ini carries $TYPE_DESERT
+static bool g_desertMap=false;   // the world's script.ini carries $TYPE_DESERT
 static unsigned g_generationWait=0;
 static void* g_generationTerrain=NULL;
 static void* g_generationWater=NULL;
@@ -283,7 +283,7 @@ static bool GenerationRun(void* terrain) {
     std::vector<int> recordIndex(g_depCount,-1),generate;
     unsigned resumed=0;
     std::vector<GenerationMap> disk;
-    DG::Bytes desertLand;   // 0.4.1: land mask for desert_fill, computed once when needed
+    DG::Bytes desertLand;   // land mask for desert_fill, computed once when needed
     // Before remapping, validate the native contents against the SAVED layout.
     // A native save that succeeded while the sidecar replacement failed can
     // contain a different channel order. Never guess or restore stale snapshots.
@@ -331,7 +331,15 @@ static bool GenerationRun(void* terrain) {
                         for(unsigned xx=x0;xx<(std::max)(x0+1,x1);++xx) { sum+=source[yy*mask->w+xx]; ++n; }
                     r.pixels[(size_t)y*r.width+x]=(unsigned char)(sum/n);
                 }
-                Logf("generation [%s] adopted old terrain richness into independent storage; terrain untouched",d.name);
+                // A handful of stray texels in the old terrain channel is not a
+                // deposit. Counting it as one would record the resource as existing,
+                // skip its first distribution and leave the save without any for good.
+                size_t cells=0; for(unsigned char v:r.pixels) cells+=v!=0;
+                if(cells<g_legacyAdoptMinCells) {
+                    r.pixels.assign((size_t)r.width*r.height,0);
+                    Logf("generation [%s] old terrain channel holds only %u cell(s) (legacy_adopt_min_cells=%u); treated as empty, first distribution applies; terrain untouched",d.name,(unsigned)cells,g_legacyAdoptMinCells);
+                } else
+                Logf("generation [%s] adopted old terrain richness into independent storage (%u cells); terrain untouched",d.name,(unsigned)cells);
             } else if(d.legacyTerrainComponent>=0 && !g_generationHadState && !g_generationLegacy) {
                 r.pixels.assign((size_t)r.width*r.height,0);
             }
@@ -347,7 +355,7 @@ static bool GenerationRun(void* terrain) {
             DG::ObserveExisting(r);
             if(newlyAdded && d.generation.enabled) Logf("generation WARN [%s] shares a vanilla/terrain channel; random placement suppressed (use independent_map=1 for terrain)",d.name);
         } else if(g_desertMap && d.desertFill && ((newlyAdded && !DG::HasData(r.pixels)) || DG::Pending(r))) {
-            // 0.4.1: desert_fill - on a $TYPE_DESERT map the whole land is this deposit
+            // desert_fill - on a $TYPE_DESERT map the whole land is this deposit
             // instead of random regions; only for a deposit that never held data, like the
             // first distribution. Water stays clear, so mine placement is unchanged.
             // Infinite unless the Depletion plugin mines it down.
@@ -416,7 +424,7 @@ static bool GenerationRun(void* terrain) {
         DG::Bytes blocked;
         if(!GenerationLand(terrain,size[0],size[1],offset,blocked)) return false;
         DG::Bytes occupied(DG::Cells,0);
-        // 0.4.3: every source is counted on its own so the log tells which map blocks the land
+        // Every source is counted on its own so the log tells which map blocks the land
         // (Siberia/Asia showed 89% of the land reserved although the resource maps cover 15%).
         unsigned srcCells[8]={0}; unsigned maskNonZero[4]={0};
         auto merge=[&](int slot,const DG::Bytes& pixels,unsigned w,unsigned h){DG::Bytes mask=DG::Occupancy(pixels,w,h);unsigned n=0;for(size_t i=0;i<occupied.size();++i) if(mask[i]){occupied[i]=1;++n;} srcCells[slot]=n;};
@@ -520,7 +528,7 @@ static int h_GenerationTerrainInit(void* self,void* mp,char* folder,void* lighti
 }
 } // anonymous namespace
 
-// 0.4.1: the map type the world declares in its script.ini ($TYPE_DESERT, $TYPE_JUNGLE,
+// The map type the world declares in its script.ini ($TYPE_DESERT, $TYPE_JUNGLE,
 // $TYPE_SIBERIA; the meadow maps carry none). Saved games ship the script.ini as well.
 static bool GenerationMapIsDesert(const std::string& folder) {
     DG::Bytes text; if(!GenerationReadFile(folder+"\\script.ini",text,4u*1024*1024)) return false;

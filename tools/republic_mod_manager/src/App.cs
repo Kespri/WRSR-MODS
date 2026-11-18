@@ -11,9 +11,9 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Republic Mod Manager")]
 [assembly: System.Reflection.AssemblyProduct("Republic Mod Manager (RMM)")]
 [assembly: System.Reflection.AssemblyDescription("Plugin manager for TesmioLoader - Workers & Resources: Soviet Republic")]
-[assembly: System.Reflection.AssemblyVersion("0.5.21.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.5.21.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("0.5.21")]
+[assembly: System.Reflection.AssemblyVersion("0.6.13.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.6.13.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("0.6.13")]
 
 namespace TesmioAutoload
 {
@@ -41,13 +41,12 @@ namespace TesmioAutoload
             {
                 string directory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
                 var defaults = new UiState { Build = directory }; string legacy = "", screenshot = null, snapshotSize = null, snapshotWindow = null; bool saveMode = false, steamCheck = args.Contains("--steam-check"); bool? activate = null;
-                if (!File.Exists(Path.Combine(defaults.Build, "tesmioloader.dll"))) try
+                // The loader folder is wherever tesmioloader.dll lies: beside this program, else in
+                // the game folder of a Steam library (see Discovery.LoaderFolder).
+                if (!Discovery.HasLoader(defaults.Build)) try
                 {
-                    foreach (string library in Discovery.SteamLibraries())
-                    {
-                        string candidate = Path.Combine(library, @"steamapps\common\SovietRepublic\tesmioloader\build");
-                        if (File.Exists(Path.Combine(candidate, "tesmioloader.dll"))) { defaults.Build = candidate; break; }
-                    }
+                    string found = Discovery.LoaderFolder(directory, Discovery.SteamLibraries());
+                    if (found != null) defaults.Build = found;
                 }
                 catch (IOException) { } catch (UnauthorizedAccessException) { } catch (FormatException) { }
                 // rmm.ini beside the executable; the pre-0.17 name still counts when
@@ -160,6 +159,20 @@ namespace TesmioAutoload
                                 if (dialog != null && dialog != form) { using (var image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(0, 0, dialog.Width, dialog.Height)); image.Save(screenshot); } dialog.Close(); }
                             };
                             timer.Start(); form.TestOpenAddDialog(); form.Close();
+                            return 0;
+                        }
+                        if (snapshotWindow == "hide" || snapshotWindow == "contentoff" || snapshotWindow == "needed")
+                        {
+                            // The question before an original resource is hidden, or before a content
+                            // package with resources is switched off: modal, drawn and closed (Cancel)
+                            // by a timer like the add dialog, so nothing changes.
+                            var timer = new System.Windows.Forms.Timer { Interval = 500 };
+                            timer.Tick += (s, e) =>
+                            {
+                                timer.Stop(); Form dialog = Form.ActiveForm;
+                                if (dialog != null && dialog != form) { using (var image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(0, 0, dialog.Width, dialog.Height)); image.Save(screenshot); } dialog.Close(); }
+                            };
+                            timer.Start(); if (snapshotWindow == "hide") form.TestAskHideOriginal(); else if (snapshotWindow == "needed") form.TestAskHideNeeded(); else form.TestAskContentOff(); form.Close();
                             return 0;
                         }
                         if (snapshotWindow == "texts")

@@ -1,4 +1,4 @@
-// resources_button_fix v1.1
+// resources_button_fix
 //
 // Compacts two terrain-editor grids without touching any other tool window:
 //
@@ -9,10 +9,11 @@
 // Names and the editor's tab field are therefore not a safe discriminator: the
 // Rocks and Resources functions both write tab id 6.  This plugin accepts only
 // calls whose return address is inside the exact Resources/Rocks panel function,
-// plus the calls deposits.dll appends immediately after that same panel.  Every
+// plus the calls deposits.dll (or its fork deposits_plus.dll) appends
+// immediately after that same panel.  Every
 // other caller passes through byte-for-byte unchanged.
 //
-// Addresses and layout constants are for SOVIET64.exe v1.1.1.9.  Both the PE
+// Addresses and layout constants are for SOVIET64.exe v1.1.1.13.  Both the PE
 // identity and the hooked prologue are checked before anything is changed.
 
 #include "../../src/tesmio_plugin.h"
@@ -31,58 +32,58 @@
 #include <string>
 
 #define PLUGIN_INI "plugins\\resources_button_fix.ini"
-#define PLUGIN_VERSION "0.4.0"
+#define PLUGIN_VERSION "0.4.3"
 #define PLUGIN_LOG_NAME "tesmioloader.resources_button_fix.log"
 
 static const size_t MAX_INI_BYTES = 16u * 1024u * 1024u;
 static const size_t MAX_CONFIG_VALUE = 63u;
 
-// SOVIET64.exe v1.1.1.9
-#define EXPECTED_TIMESTAMP  0x6A3EB6ADu
+// SOVIET64.exe v1.1.1.13 (v1.1.1.9 had 0x6A3EB6AD)
+#define EXPECTED_TIMESTAMP  0x6A8D4087u
 #define EXPECTED_IMAGE_SIZE 0x00A9D000u
 
 // Draws one editor tool button. It handles drawing, hover and click detection,
 // so changing these arguments moves the visible button and its hitbox together.
-#define P_ED_DRAW_BUTTON 0x382760
+#define P_ED_DRAW_BUTTON 0x3826A0
 
 // The Resources panel calculates the round "delete all resources" button's X
 // and Y immediately before drawing it. These two RIP-relative float reads are
 // repointed to plugin-owned values; the resulting coordinates are then reused
 // by the game for the visible control and its hitbox.
-#define P_ED_CANCEL_X_MUL 0x233633
-#define P_ED_CANCEL_Y_MUL 0x233650
+#define P_ED_CANCEL_X_MUL 0x2335B3
+#define P_ED_CANCEL_Y_MUL 0x2335D0
 
 // Panel-local transitions from the tool grid to the controls below it.  They
 // are repointed instead of changing the shared constants, so Trees and every
 // other editor window retain the game's original layout.
-#define P_ED_RESOURCES_BRUSH_GAP_RELOAD 0x2337D2
-#define P_ED_ROCKS_BRUSH_Y_MUL          0x22F171
+#define P_ED_RESOURCES_BRUSH_GAP_RELOAD 0x233752
+#define P_ED_ROCKS_BRUSH_Y_MUL          0x22F0F1
 
 // Exact function ranges from the executable's .pdata table. Return addresses
 // inside these ranges identify the two supported vanilla panels unambiguously.
-#define P_ED_ROCKS_PANEL_BEGIN     0x22EEA0
-#define P_ED_ROCKS_PANEL_END       0x230577
-#define P_ED_RESOURCES_PANEL_BEGIN 0x233180
-#define P_ED_RESOURCES_PANEL_END   0x233887
+#define P_ED_ROCKS_PANEL_BEGIN     0x22EE20
+#define P_ED_ROCKS_PANEL_END       0x2304F7
+#define P_ED_RESOURCES_PANEL_BEGIN 0x233100
+#define P_ED_RESOURCES_PANEL_END   0x233807
 
 // Shared grid constants.
 #define G_DPI          0x992088
-#define G_ED_X_A       0x90AA28   // 50
-#define G_ED_X_B       0x90AB14   // 85
-#define G_ED_Y_BASE    0x90ADB8   // 250
-#define G_ED_Y_CAPTION 0x90AAFC   // 80
-#define G_ED_BUTTON    0x909ED4   // 0.85
-#define G_ED_ROW_STEP  0x90AB2C   // 90
-#define G_ED_RES_STEP  0x90AB84   // 105
-#define G_ED_CANCEL_X  0x90A9FC   // 42: original cancel X base
-#define G_ED_CANCEL_Y  0x90AC84   // 170: grid top -> original cancel button
-#define G_ED_BRUSH_GAP 0x90AA78   // 60: original cancel -> brush controls
-#define G_ED_ROCKS_BRUSH_Y 0x90AADC // 75: Rocks grid top -> brush controls
+#define G_ED_X_A       0x90AA38   // 50
+#define G_ED_X_B       0x90AB24   // 85
+#define G_ED_Y_BASE    0x90ADC8   // 250
+#define G_ED_Y_CAPTION 0x90AB0C   // 80
+#define G_ED_BUTTON    0x909EDC   // 0.85
+#define G_ED_ROW_STEP  0x90AB3C   // 90
+#define G_ED_RES_STEP  0x90AB94   // 105
+#define G_ED_CANCEL_X  0x90AA0C   // 42: original cancel X base
+#define G_ED_CANCEL_Y  0x90AC94   // 170: grid top -> original cancel button
+#define G_ED_BRUSH_GAP 0x90AA88   // 60: original cancel -> brush controls
+#define G_ED_ROCKS_BRUSH_Y 0x90AAEC // 75: Rocks grid top -> brush controls
 
 // Rocks uses the same 85 constant for its initial X offset and column step.
 #define G_ED_ROCK_STEP G_ED_X_B
 
-// The safe width is the proven v0.1 Resources layout: eleven buttons at 50%.
+// The safe width is the proven Resources layout: eleven buttons at 50%.
 // The drawer's logical button is 100 units wide before its 0.85 size argument.
 #define BUTTON_LOGICAL_WIDTH 100.0f
 #define SAFE_REFERENCE_COLUMNS 11
@@ -154,14 +155,18 @@ static LONG g_phaseFatals;
 static DWORD g_lastWindowsError;
 static bool g_bound;
 
+// Compiled defaults for keys that are missing from the INI. They equal the
+// values of the shipped resources_button_fix.ini key by key; change both
+// together. A ScaleSetting of { 1, x } is "button_scale = auto"; its value is
+// not read while automatic is set.
 static const ResourcesConfig kDefaultResources = {
-    1, 9, 2, { 0, 0.50f }, 1.00f, 1.00f, 0.35f,
+    1, 6, 2, { 1, 1.00f }, 1.00f, 1.00f, 0.35f,
     10.00f, 40.00f, 0.00f, 0.00f,
     1, 1, 0.00f, 0.00f
 };
 
 static const RocksConfig kDefaultRocks = {
-    1, 2, { 1, 1.00f }, 1.00f, 1.00f, 15.00f, 0.00f, 0.00f, 1
+    1, 2, { 1, 1.00f }, 1.00f, 1.00f, 20.00f, 0.00f, 0.00f, 1
 };
 
 static ResourcesConfig g_resources = kDefaultResources;
@@ -918,11 +923,46 @@ static bool SupportedGameBuild()
     DWORD timestamp = nt->FileHeader.TimeDateStamp;
     DWORD imageSize = nt->OptionalHeader.SizeOfImage;
     if (timestamp == EXPECTED_TIMESTAMP && imageSize == EXPECTED_IMAGE_SIZE)
+    {
+        // The layout constants are read by address, and the game's float pool
+        // moves between builds (by 8 and 16 bytes from 1.1.1.9 to 1.1.1.13)
+        // while the time stamp is not a proof of an unchanged binary. Each
+        // address therefore has to hold the value the layout was derived from;
+        // a neighbour in the pool would otherwise move every button silently.
+        static const struct { DWORD rva; float value; const char* name; } kConstants[] = {
+            { G_ED_X_A,           50.0f, "grid x base a" },
+            { G_ED_X_B,           85.0f, "grid x base b" },
+            { G_ED_Y_BASE,       250.0f, "grid y base" },
+            { G_ED_Y_CAPTION,     80.0f, "caption height" },
+            { G_ED_BUTTON,        0.85f, "button scale" },
+            { G_ED_ROW_STEP,      90.0f, "row step" },
+            { G_ED_RES_STEP,     105.0f, "resources column step" },
+            { G_ED_CANCEL_X,      42.0f, "cancel button x" },
+            { G_ED_CANCEL_Y,     170.0f, "cancel button y" },
+            { G_ED_BRUSH_GAP,     60.0f, "brush gap" },
+            { G_ED_ROCKS_BRUSH_Y, 75.0f, "rocks brush y" }
+        };
+        for (size_t i = 0; i < sizeof(kConstants) / sizeof(kConstants[0]); ++i)
+        {
+            const BYTE* p = g_exeBase + kConstants[i].rva;
+            if ((SIZE_T)kConstants[i].rva + sizeof(float) > g_exeSize ||
+                !ReadablePtr(p, sizeof(float)) ||
+                *(const float*)p != kConstants[i].value)
+            {
+                Report("FATAL", "SOVIET64.exe", "layout-constant",
+                    "Layout constant '%s' at 0x%lX does not hold %.2f. Action: verify "
+                    "the supported game version; nothing was changed",
+                    kConstants[i].name, (unsigned long)kConstants[i].rva,
+                    (double)kConstants[i].value);
+                return false;
+            }
+        }
         return true;
+    }
 
     Report("FATAL", "SOVIET64.exe", "unsupported-build",
         "Unsupported game build: timestamp=0x%08lX, image=0x%08lX; expected "
-        "v1.1.1.9 (0x%08X, 0x%08X). Action: use the supported game version",
+        "v1.1.1.13 (0x%08X, 0x%08X). Action: use the supported game version",
         (unsigned long)timestamp, (unsigned long)imageSize,
         EXPECTED_TIMESTAMP, EXPECTED_IMAGE_SIZE);
     return false;
@@ -1583,7 +1623,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host,
             return 1;
         }
 
-        // 1.1: <loader>\plugins\resources_button_fix.ini when it exists (the
+        // INI: <loader>\plugins\resources_button_fix.ini when it exists (the
         // classic install, or the effective INI Republic Mod Manager writes),
         // otherwise the INI beside the DLL - the Workshop package under Soviet
         // Mod Loader or the Workshop Bridge. Live reload follows the chosen file.
@@ -1604,7 +1644,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host,
             LogSummary("Initialization", false);
             return 1;
         }
-        ApplyConfig(config, "v1.1 configuration", false);
+        ApplyConfig(config, "configuration loaded", false);
 
         g_iniTimeValid = ReadIniWriteTime(&g_iniWriteTime) ? 1 : 0;
         if (!g_iniTimeValid)
@@ -1662,14 +1702,23 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
             return 1;
         }
 
-        DescribeModule(GetModuleHandleA("deposits.dll"),
+        // The fork deposits_plus.dll appends its pairs the same way and steps
+        // aside while the original is loaded, so at most one of the two is here.
+        const char* depositsName = "deposits.dll";
+        DescribeModule(GetModuleHandleA(depositsName),
                        &g_depositsBase, &g_depositsSize);
+        if (!g_depositsBase)
+        {
+            depositsName = "deposits_plus.dll";
+            DescribeModule(GetModuleHandleA(depositsName),
+                           &g_depositsBase, &g_depositsSize);
+        }
         if (g_depositsBase)
-            Info("deposits.dll recognized; appended Resources and Rocks pairs "
-                "will follow their own panel");
+            Info("%s recognized; appended Resources and Rocks pairs "
+                "will follow their own panel", depositsName);
         else
-            Info("deposits.dll is not loaded or did not expose a valid 64-bit "
-                "module image; only vanilla buttons are present");
+            Info("neither deposits.dll nor deposits_plus.dll is loaded with a "
+                "valid 64-bit module image; only vanilla buttons are present");
 
         if (!InstallInlineHook(g_exeBase + P_ED_DRAW_BUTTON,
                                (void*)h_ED_DrawButton,

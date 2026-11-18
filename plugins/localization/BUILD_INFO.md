@@ -1,6 +1,7 @@
 # Localization – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.9, GPL v3. Build: the standard line of the root
+TesmioLoader plugin (API 4) for WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address),
+GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `localization.cpp`;
 it includes `src/tesmio_plugin.h` and provides the `localization` service (key -> text id in the
 reserved range 2,000,000..2,999,999). Output: extended `soviet<Language>.btf` overlays in the

@@ -1,8 +1,19 @@
 # Vanilla Buildings – build notes
 
-Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT /W3 /EHsc /LD
-... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History
-newest first.
+Target: WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address), TesmioLoader API 4. Build:
+the standard line (`cl /O2 /MT /W3 /EHsc /LD ... /link kernel32.lib`); exports
+TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History newest first.
+
+## 0.4.5 (2026-11-18)
+
+- The INI is looked up as `<baseDir>\plugins\vanilla_buildings.ini` first, then beside the DLL.
+  Until now the first candidate was `<pluginDir>\vanilla_buildings.ini`. TesmioLoader b0.3.7
+  hands every plugin the folder of its own DLL as `pluginDir`, so for a DLL loaded from a
+  Workshop item both candidates were the package INI and the finished INI Republic Mod Manager
+  writes into the loader folder was never read. For a DLL in `<loader>\plugins` nothing changes.
+- No other change. Loaded on 1.1.1.13 in a smoke test with the build before this one (found its
+  INI, nothing enabled, unloaded cleanly); a rule set has not been run on 1.1.1.13, and this
+  build has not been in the game.
 
 ## 0.4.4 (2026-09-13)
 

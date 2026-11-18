@@ -2,7 +2,7 @@
 
 **TesmioLoader-Plugin für eigene Texte und Übersetzungen**
 
-Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibungen und Beschriftungen hinzu, ohne die originalen Sprachdateien anzufassen. Textpakete sind einfache INI-Dateien; beim Spielstart erzeugt das Plugin daraus erweiterte `soviet*.btf`-Sprachdateien im virtuellen Dateisystem (VFS) des TesmioLoaders und stellt anderen Plugins einen Übersetzungsdienst bereit. Das Paket enthält die Textpakete von Research Expansion, Technical Service Storage und das gemeinsame Paket `tesmio_lang`.
+Fügt *Workers & Resources: Soviet Republic* 1.1.1.13 eigene Namen, Beschreibungen und Beschriftungen hinzu, ohne die originalen Sprachdateien anzufassen. Textpakete sind einfache INI-Dateien; beim Spielstart erzeugt das Plugin daraus erweiterte `soviet*.btf`-Sprachdateien im virtuellen Dateisystem (VFS) des TesmioLoaders und stellt anderen Plugins einen Übersetzungsdienst bereit. Das Paket enthält die Textpakete von Research Expansion, Technical Service Storage und das gemeinsame Paket `tesmio_lang`.
 
 ---
 
@@ -27,13 +27,13 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4 mit aktiviertem VFS
+- WRSR 1.1.1.13
+- TesmioLoader ab b0.3.7 (API 4) mit aktiviertem VFS
 - Mindestens ein gültiges Textpaket (drei sind im Paket enthalten)
 
 ### In drei Schritten
-1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
-2. **Textpakete prüfen:** Die mitgelieferten Pakete brauchen keine Einstellung. Eigene Pakete kommen als Ordner nach `plugins\localization\<paketname>` mit `localization.ini` und mindestens der Fallback-Sprachdatei.
+1. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
+2. **Textpakete prüfen:** Die mitgelieferten Pakete brauchen keine Einstellung. Eigene Pakete kommen als Ordner nach `tesmioloader\plugins\localization\<paketname>` mit `localization.ini` und mindestens der Fallback-Sprachdatei.
 3. **Spiel vollständig neu starten.** `logs\tesmioloader.localization.log` nennt Konfigurationsdatei, Paketordner, geladene Pakete und die erzeugten Sprachdateien unter `tesmioloader\vfs\media_soviet`.
 
 ---
@@ -46,11 +46,11 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 - ✅ Text-IDs im reservierten Bereich 2.000.000 bis 2.999.999, bei jedem Start deterministisch neu vergeben
 - ✅ Dienst `localization` für andere Plugins: Schlüssel zu Text-ID
 - ✅ Strenge Prüfung von Kodierung, Abschnitten, Schlüsseln, Escape-Sequenzen und BTF-Format; ein fehlerhaftes Paket wird allein abgewiesen
-- ✅ Erzeugte Dateien werden vor jedem Start und beim Ausschalten wieder entfernt; die Originale unter `media_soviet` werden nie verändert
+- ✅ Erzeugte Dateien werden bei jedem Spielstart zuerst entfernt und mit `enabled = 0` nicht neu gebaut; die Originale unter `media_soviet` werden nie verändert
 
 ### 🆕 Neu in 0.4.0
-- ✅ **INI und Textpakete neben der DLL:** Fehlt `plugins\localization.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Textpakete werden aus `plugins\localization` **und** aus dem Ordner `localization` neben der DLL geladen. Beide Pfade stehen im Log.
-- ✅ **Lokale Textpakete werden zusammengeführt statt zu ersetzen:** Ein Paketordner unter `plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL. Deine eigenen Texte und Sprachen bleiben, neue Schlüssel und Sprachen aus einem Workshop-Update kommen trotzdem an; bei gleichem Schlüssel gilt dein lokaler Text. Die lokale `localization.ini` bestimmt Namensraum, Fallback und missingText.
+- ✅ **INI und Textpakete neben der DLL:** Fehlt `tesmioloader\plugins\localization.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Textpakete werden aus `tesmioloader\plugins\localization` **und** aus dem Ordner `localization` neben der DLL geladen. Beide Pfade stehen im Log.
+- ✅ **Lokale Textpakete werden zusammengeführt statt zu ersetzen:** Ein Paketordner unter `tesmioloader\plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL. Deine eigenen Texte und Sprachen bleiben, neue Schlüssel und Sprachen aus einem Workshop-Update kommen trotzdem an; bei gleichem Schlüssel gilt dein lokaler Text. Die lokale `localization.ini` bestimmt Namensraum, Fallback und missingText.
 - ✅ Die Textpakete `research_expansion`, `technical_service_storage` und `tesmio_lang` reisen im Paket mit.
 - ✅ Republic Mod Manager: Reiter Allgemein (Hinweise, Anleitung, Fehlersuche) und Plugin („Erweiterung anwenden“ mit Abschaltreihenfolge, Textpakete als Liste mit Kurztext und Herkunft).
 
@@ -58,68 +58,43 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Namen, Beschreibunge
 
 ## 💾 Installation
 
-Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden, und der Dienstname `localization` darf nur einmal registriert sein.
+Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden, und der Dienstname `localization` darf nur einmal registriert sein.
 
 ---
 
-### Methode 1️⃣: Klassischer TesmioLoader
+### Methode 1️⃣: Steam Workshop (empfohlen)
 
 ```
-1. Kopiere localization.dll und localization.ini aus hooks\
-   → tesmioloader\build\plugins\
-
-2. Kopiere den Ordner hooks\localization (die Textpakete)
-   → tesmioloader\build\plugins\localization\
-
-3. Aktiviere localization im TesmioLauncher
-4. Spiel vollständig neu starten
+1. Workshop-Objekt abonnieren
+2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+   von selbst im Workshop-Ordner – nichts wird kopiert
+3. INI und Textpakete findet die DLL neben sich im Paket
+4. Steam-Updates gelten ab dem nächsten Spielstart
 ```
+
+Ein neu gefundenes Plugin ist eingeschaltet. Aus- und einschalten kannst du es im TesmioLauncher oder mit „Plugin aktiv“ im Republic Mod Manager. Lies vor dem Ausschalten den Warnhinweis unter Konfiguration.
 
 ---
 
-### Methode 2️⃣: Soviet Mod Loader (SML)
+### Methode 2️⃣: Von Hand in den Loader-Ordner
 
 ```
-1. Workshop-Objekt abonnieren – SML liest abonnierte Pakete von selbst
-2. SML lädt die DLL über soviet.mod.ini aus dem Paket; INI und Textpakete liegen daneben
-3. Eine lokale localization.dll in plugins\ vorher entfernen oder abschalten
+1. Kopiere localization.dll und localization.ini aus plugins\
+   → <Spiel>\tesmioloader\plugins\
+
+2. Kopiere den Ordner plugins\localization (die Textpakete)
+   → <Spiel>\tesmioloader\plugins\localization\
 ```
 
----
-
-### Methode 3️⃣: Workshop Bridge (ohne SML)
-
-```
-1. Paket in Republic Mod Manager auswählen
-2. „Plugin aktiv“ einschalten
-3. workshop_bridge lädt die DLL direkt aus dem Paket; INI und Textpakete findet sie neben sich
-4. Steam-Updates gelten sofort
-```
-
----
-
-### Methode 4️⃣: Republic Mod Manager mit „Dateien nur lokal“
-
-```
-1. Paket in Republic Mod Manager auswählen, Einstellungen anpassen, Speichern
-2. Reiter „Allgemein“, Karte „Hinweise“: „Dateien nur lokal“ einschalten
-3. Bestätigung mit Dateiliste → DLL, INI und der Ordner localization mit den
-   Textpaketen werden beim Speichern nach tesmioloader\build\plugins\ kopiert
-4. Die Workshop Bridge überspringt das Paket danach automatisch
-```
-
-**„Dateien nur lokal“ im Detail**
-- Für alle, die das Plugin ohne Steam-Abo weiterbenutzen wollen
-- Steam-Updates gelten bei lokalen Dateien erst nach erneutem Speichern (gelbe Marke „Update“)
-- Ausschalten entfernt nur die von Republic Mod Manager kopierten Dateien wieder
+Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloader\plugins` hat Vorrang vor der gleichnamigen aus dem Workshop; Updates kopierst du dann selbst nach.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager zeigt Localization damit auf einem Reiter, deutsch und englisch: Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung, die beiden Schalter (Plugin aktiv, ausführliches Protokoll) und eine Übersicht der mitgelieferten Textpakete. Textpakete selbst werden nicht im Manager bearbeitet; sie sind Ordner mit INI-Dateien.
+Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager (ab Version 0.6.3) zeigt Localization damit in zwei Reitern, deutsch und englisch: auf **Allgemein** die Hinweise, den Knopf für diese Anleitung und die Karte Fehlersuche (Ausführliches Protokoll), auf **Plugin** den Schalter „Erweiterung anwenden“ und eine Übersicht der Textpakete. Textpakete selbst werden nicht im Manager bearbeitet; sie sind Ordner mit INI-Dateien.
 
-Republic Mod Manager schreibt die wirksame Datei `plugins\localization.ini` als UTF-8 ohne BOM; die INI im Paket bleibt unverändert.
+Die INI im Paket ändert Republic Mod Manager nie. Deine persönlichen Werte legt er in `tesmioloader\user_config\localization.ini` ab und schreibt beim Speichern die fertige INI nach `tesmioloader\plugins\localization.ini` – dort liest das Plugin sie.
 
 ---
 
@@ -128,8 +103,8 @@ Republic Mod Manager schreibt die wirksame Datei `plugins\localization.ini` als 
 ### Hauptdatei: `localization.ini`
 
 Die DLL liest in dieser Reihenfolge:
-- **Zuerst:** `tesmioloader\build\plugins\localization.ini`, falls vorhanden (klassische Installation, „Dateien nur lokal“ oder die von Republic Mod Manager geschriebene wirksame INI)
-- **Sonst:** die INI neben der DLL, im Paket `hooks\localization.ini` (Soviet Mod Loader, Workshop Bridge)
+- **Zuerst:** `tesmioloader\plugins\localization.ini`, falls vorhanden (von Hand installiert oder die fertige INI aus Republic Mod Manager)
+- **Sonst:** die INI neben der DLL, im Workshop-Paket `plugins\localization.ini`
 
 Die Hauptdatei muss **UTF-8 ohne BOM** sein. Erlaubt ist genau ein Abschnitt `[localization]` mit den Schlüsseln `enabled` und `verbose`, beide genau `0` oder `1`. Unbekannte oder doppelte Abschnitte und Schlüssel werden abgelehnt; dann bleibt das Plugin inaktiv und die Vanilla-Sprachdateien gelten.
 
@@ -146,10 +121,10 @@ verbose = 0
 ### Paketordner
 
 Textpakete werden aus zwei Ordnern geladen:
-- `tesmioloader\build\plugins\localization\<paketname>` (klassische Installation, „Dateien nur lokal“, eigene Pakete)
-- der Ordner `localization` neben der DLL, im Paket `hooks\localization` (Soviet Mod Loader, Workshop Bridge)
+- `tesmioloader\plugins\localization\<paketname>` (von Hand installiert, eigene Pakete)
+- der Ordner `localization` neben der DLL, im Workshop-Paket `plugins\localization`
 
-Ein Paketordner unter `plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL: lokale Texte gewinnen, alles andere kommt weiter aus dem Paket, auch Sprachen und Schlüssel, die ein Workshop-Update neu bringt. So kannst du ein mitgeliefertes Textpaket lokal anpassen, ohne den Anschluss zu verlieren. Zusammen höchstens 256 Paketordner.
+Ein Paketordner unter `tesmioloader\plugins\localization` legt sich Schlüssel für Schlüssel über den gleichnamigen Ordner neben der DLL: lokale Texte gewinnen, alles andere kommt weiter aus dem Paket, auch Sprachen und Schlüssel, die ein Workshop-Update neu bringt. So kannst du ein mitgeliefertes Textpaket lokal anpassen, ohne den Anschluss zu verlieren. Zusammen höchstens 256 Paketordner.
 
 ---
 
@@ -246,7 +221,7 @@ Die IDs liegen zwischen 2.000.000 und 2.999.999 und passen zu `$NAME` und `$DESC
 ## 💾 Kompatibilität
 
 ### Spielstände
-Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressource, die ein Spielstand kennt, brauchen nach einem Update denselben Schlüssel, damit die ID stabil bleibt: IDs werden in fester Reihenfolge der Pakete und Schlüssel vergeben.
+Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressource, die ein Spielstand kennt, brauchen nach einem Update denselben Schlüssel: Plugins fragen die ID bei jedem Start über den Schlüssel neu ab. Die ID selbst kann sich ändern, sobald Schlüssel dazukommen oder wegfallen, denn IDs werden bei jedem Start in fester Reihenfolge der Pakete und Schlüssel neu vergeben.
 
 ### Andere Plugins
 - **Research Expansion** braucht diesen Dienst zwingend.
@@ -267,11 +242,11 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 |---|---|---|
 | `main-config`, `unknown-section`, `unknown-key`, `invalid-value` | Hauptdatei fehlerhaft | nur `[localization]` mit `enabled`/`verbose` als 0 oder 1 |
 | `utf8-bom` | Hauptdatei mit BOM gespeichert | als UTF-8 ohne BOM speichern |
-| `pack-root` | weder `plugins\localization` noch ein Ordner `localization` neben der DLL | Textpakete bereitstellen |
+| `pack-root` | weder `tesmioloader\plugins\localization` noch ein Ordner `localization` neben der DLL | Textpakete bereitstellen |
 | `Pack was rejected because its localization.ini is invalid` | Pflichtangabe fehlt oder Wert ungültig | Paketkonfiguration prüfen |
 | `Fallback ... has no valid language file` | Fallback-Datei fehlt oder ist fehlerhaft | Datei anlegen oder korrigieren |
 | `Invalid escape sequence` | andere Sequenz als `\n` oder `\\` | Text korrigieren |
-| `namespace-collision` | zwei Pakete mit demselben Namensraum | eines umbenennen; unter `plugins\localization` und neben der DLL zählt nur der Ordnername, nicht der Namensraum |
+| `namespace-collision` | zwei Pakete mit demselben Namensraum | eines umbenennen; unter `tesmioloader\plugins\localization` und neben der DLL zählt nur der Ordnername, nicht der Namensraum |
 | `missing-key` | ein Plugin fragt einen Schlüssel ab, der in keiner Sprachdatei steht | Schlüssel in der Fallback-Datei anlegen |
 | `id-collision` | vergebene Text-ID kollidiert mit einer vorhandenen | Log prüfen; alle erzeugten Dateien werden entfernt |
 | `cleanup`, `cleanup-scan` | erzeugte VFS-Datei konnte nicht entfernt werden | Spiel und zugreifende Programme schließen |
@@ -280,21 +255,21 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 ### Logging
 
 Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.localization.log` mit Datei, Zeile, Regel und Begründung.
-- In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
+- In **Republic Mod Manager** öffnet das Protokoll-Symbol in der Seitenleiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
 - `Configuration file` und `Pack folders` → welche INI und welche Paketordner gewählt wurden
 - `Ready:` → Anzahl geladener Pakete und Schlüssel
-- `is skipped; plugins\localization has a folder of that name` → ein lokales Paket hat die Paketkopie überstimmt
+- `local folder merged over the shipped one` → ein lokales Paket wurde über die Paketkopie gelegt (mit der Zahl der neuen und ersetzten Schlüssel)
 
 ---
 
 ## 📦 Dateistruktur
 
-**Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
+**Workshop-Paket** (Steam-Abo)
 ```
-localization\
-├── hooks\
+<Workshop-Objekt>\
+├── plugins\
 │   ├── localization.dll            (Plugin)
 │   ├── localization.ini            (Original-INI)
 │   └── localization\               (Textpakete)
@@ -306,26 +281,28 @@ localization\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (Manifest für SML, Bridge und Republic Mod Manager)
+├── rmm.mod.ini                     (Manifest für Republic Mod Manager)
 ├── workshopconfig.ini              (Steam-Workshop-Eintrag)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader-Ordner** (Methode 1 von Hand oder „Dateien nur lokal“)
+**Loader-Ordner**
 ```
-tesmioloader\
-├── build\
-│   ├── plugins\
-│   │   ├── localization.dll
-│   │   ├── localization.ini        (wirksame INI)
-│   │   └── localization\           (Textpakete, eigene und mitgelieferte)
-│   ├── logs\
-│   │   └── tesmioloader.localization.log
-│   └── tesmioloader.log
-└── vfs\media_soviet\               (erzeugte soviet*.btf)
+<Spiel>\tesmioloader\
+├── plugins\
+│   ├── localization.dll            (nur bei Methode 2)
+│   ├── localization.ini            (Methode 2, oder die fertige INI aus Republic Mod Manager)
+│   └── localization\               (eigene Textpakete; bei Methode 2 auch die mitgelieferten)
+├── logs\
+│   └── tesmioloader.localization.log
+├── vfs\media_soviet\               (erzeugte soviet*.btf)
+└── tesmioloader.log
 ```
+
+Aus dem Workshop geladen, bleiben DLL, INI und die mitgelieferten Textpakete im Paket; in `tesmioloader\plugins\localization` liegen dann nur deine eigenen oder angepassten Textpakete.
 
 ---
 
@@ -343,13 +320,13 @@ tesmioloader\
 A: Nein. Die erweiterten Dateien entstehen im VFS des Loaders; die Originale unter `media_soviet` werden nur gelesen.
 
 **F: Wie füge ich eigene Texte hinzu?**
-A: Ordner unter `plugins\localization\<name>` mit `localization.ini` (Namensraum, Fallback) und mindestens der Fallback-Sprachdatei anlegen, Schlüssel unter `[strings]`, Spiel neu starten.
+A: Ordner unter `tesmioloader\plugins\localization\<name>` mit `localization.ini` (Namensraum, Fallback) und mindestens der Fallback-Sprachdatei anlegen, Schlüssel unter `[strings]`, Spiel neu starten.
 
 **F: Kann ich ein mitgeliefertes Textpaket anpassen?**
-A: Ja: den Ordner nach `plugins\localization` kopieren und dort ändern. Deine Schlüssel gewinnen gegen die Paketkopie, der Rest kommt weiter aus dem Paket, und Workshop-Updates lassen deine Dateien in Ruhe.
+A: Ja: den Ordner nach `tesmioloader\plugins\localization` kopieren und dort ändern. Deine Schlüssel gewinnen gegen die Paketkopie, der Rest kommt weiter aus dem Paket, und Workshop-Updates lassen deine Dateien in Ruhe.
 
 **F: Wie werde ich die erweiterten Sprachdateien wieder los?**
-A: Plugin ausschalten, Spiel einmal starten, dann die DLL abschalten.
+A: Erst `enabled = 0` setzen („Erweiterung anwenden“ AUS im Republic Mod Manager), das Spiel einmal starten, dann die DLL abschalten.
 
 **F: Muss ich die INI von Hand bearbeiten?**
 A: Nein. Die beiden Schalter bietet Republic Mod Manager an; Textpakete sind Ordner mit INI-Dateien.
@@ -357,4 +334,4 @@ A: Nein. Die beiden Schalter bietet Republic Mod Manager an; Textpakete sind Ord
 ---
 
 **Letzte Aktualisierung:** Localization 0.4.0  
-**Für:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Für:** WRSR 1.1.1.13 | TesmioLoader API 4

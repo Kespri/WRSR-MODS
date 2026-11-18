@@ -1,8 +1,8 @@
-# 🏭 Deposits Plus 0.4.10
+# 🏭 Deposits Plus 0.4.17
 
 **Extension of the TesmioLoader plugin deposits**
 
-Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 1.1.1.9 with natural generation, a visual ground texture and vehicle integration.
+Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 1.1.1.13 with natural generation, a visual ground texture and vehicle integration.
 
 ---
 
@@ -29,13 +29,13 @@ Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
-- Recommended: the Resources plugin (resources.dll/resources.ini) – only needed so that a deposit's minimap button can show the icon of a resource registered there (`icon`). The deposits themselves do not need it.
+- WRSR 1.1.1.13
+- TesmioLoader b0.3.7 or newer (API 4)
+- Recommended: Resources Plus or Resources – only needed so that a deposit's minimap button can show the icon of a resource registered there (`icon`). The deposits themselves do not need it.
 
 ### In three steps
-1. **Disable the original:** if `plugins\deposits.dll` exists, switch "Plugin active" off for deposits in Republic Mod Manager or clear its checkbox in TesmioLauncher. Deleting it is not necessary.
-2. **Choose one installation method** (see below) and enable the plugin.
+1. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
+2. **Switch the original off:** if you also have the deposits plugin by MaxLegend, switch it off. Republic Mod Manager does that by itself on saving; in TesmioLauncher clear the checkbox of deposits. Unsubscribing is not necessary.
 3. **Start the game** and load a saved game. The settings live in `deposits_plus.ini`, most comfortably through Republic Mod Manager.
 
 ---
@@ -72,84 +72,55 @@ Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 
 
 ## 💾 Installation
 
-Choose **one** of the four methods. The same DLL must never be loaded twice, and Deposits Plus and the original deposits plugin never run at the same time.
+Choose **one** of the two methods. The same DLL must never be loaded twice, and Deposits Plus and the original deposits plugin never run at the same time.
 
-### ⚠️ Important: disable the original plugin
+### ⚠️ Important: switch the original plugin off
 
-If `plugins\deposits.dll` exists:
-- **Republic Mod Manager:** switch "Plugin active" off for deposits
-- **TesmioLauncher:** clear the checkbox
-- **Deleting is not necessary** – while the original is enabled, Deposits Plus stays idle by itself (log line `deposits_plus  idle`)
-
----
-
-### Method 1️⃣: classic TesmioLoader
-
-```
-1. Copy deposits_plus.dll and deposits_plus.ini from hooks\
-   → tesmioloader\build\plugins\
-
-2. Copy the folder hooks\deposits_plus (the textures)
-   → tesmioloader\build\plugins\deposits_plus\
-
-3. Enable deposits_plus in TesmioLauncher
-4. Disable the original plugin deposits
-```
+If you also have the deposits plugin by MaxLegend (subscribed or in `tesmioloader\plugins`):
+- **Republic Mod Manager:** switches deposits off by itself on saving as soon as Deposits Plus is switched on
+- **TesmioLauncher:** clear the checkbox of deposits
+- **Unsubscribing or deleting is not necessary** – while the original is loaded, Deposits Plus stays idle by itself (log line `deposits_plus  idle`)
 
 ---
 
-### Method 2️⃣: Soviet Mod Loader (SML)
-
-⚠️ **While SML is running, Deposits Plus stays idle.** SML brings its own deposits; the plugin loads, steps aside and writes one line into the log. If you want Deposits Plus, switch `soviet_mod_loader` off in `tesmioloader.ini` (the "Plugin active" switch in Republic Mod Manager) and use method 1 or 3. The steps below only make sense if you want to keep the package ready for later.
+### Method 1️⃣: Steam Workshop (recommended)
 
 ```
-1. Subscribe to the Workshop item – SML reads subscribed packages by itself
-2. SML loads the DLL from the package through soviet.mod.ini
-3. The DLL finds its textures beside itself in the package
-4. Remove or disable any local deposits_plus.dll in plugins\ first
+1. Subscribe to the Workshop item
+2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+   by itself on the next game start – nothing is copied
+3. The DLL finds the textures next to itself in the package
+4. Steam updates apply from the next game start
 ```
+
+A newly found plugin is switched on. You switch it off and on in TesmioLauncher or with "Plugin active" in Republic Mod Manager.
 
 ---
 
-### Method 3️⃣: Workshop Bridge (without SML)
+### Method 2️⃣: By hand into the loader folder
 
 ```
-1. Select the package in Republic Mod Manager
-2. Switch "Plugin active" on
-3. workshop_bridge loads the DLL straight from the package
-4. The DLL finds its textures beside itself in the package
-5. Steam updates apply immediately
+1. Copy deposits_plus.dll and deposits_plus.ini from plugins\
+   → <game>\tesmioloader\plugins\
+
+2. Copy the folder plugins\deposits_plus (textures and brush pictures)
+   → <game>\tesmioloader\plugins\deposits_plus\
 ```
 
----
-
-### Method 4️⃣: Republic Mod Manager with "Files local only"
-
-```
-1. Select the package in Republic Mod Manager, adjust the settings, save
-2. Tab "General", card "Notices": switch "Files local only" on
-3. Confirmation with file list → DLL, INI and the texture folder are copied
-   into tesmioloader\build\plugins\ when saving
-4. The Workshop Bridge then skips the package automatically
-```
-
-**"Files local only" in detail**
-- For everyone who wants to keep using the plugin without the Steam subscription
-- With local files, Steam updates apply only after saving again (yellow "Update" badge)
-- Switching it off removes only the files Republic Mod Manager copied
+For everyone who wants to use the plugin without the Steam subscription. A DLL in `tesmioloader\plugins` takes priority over the one of the same name from the Workshop; you then copy updates yourself.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.4.0 and later) shows Deposits Plus with three tabs, in German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Deposits Plus with four tabs, in German and English:
 
-- **General:** notices, "Files local only", buttons for this guide, and the plugin switches code patch, minimap layers, editor brushes
-- **Sand structure:** sandy meadow and natural generation
+- **General:** notices, buttons for this guide, the plugin switches "Game file adjustment" (the code patch), "Minimap layers" and "Terrain editor brushes", and the card "Natural generation"
+- **Sand structure:** the sandy meadow
 - **Sand tiles:** the tile table, one entry per ground texture with colour and normal-map file
-- **Deposits:** the list on the left, every setting of the selected deposit on the right, a plus button for new deposits with resources from resources.ini and an automatically proposed type number
+- **Deposits:** the list on the left, every setting of the selected deposit on the right, a plus button for new deposits with resources from Resources Plus or Resources and an automatically proposed type number
 
-Personal changes live in `user_config\deposits_plus.editor.ini`; the effective file is `plugins\deposits_plus.ini`. The INI in the package stays untouched; a Steam update is the new baseline at once. If you prefer editing the INI by hand, everything you need is below.
+Personal changes live in `user_config\deposits_plus.editor.ini`; the effective file is `tesmioloader\plugins\deposits_plus.ini`. The INI in the package stays untouched; a Steam update is the new baseline at once. In RMM, Deposits Plus and deposits are a replacement pair: when you switch one on, RMM switches the other one off. If you prefer editing the INI by hand, everything you need is below.
 
 ---
 
@@ -158,8 +129,10 @@ Personal changes live in `user_config\deposits_plus.editor.ini`; the effective f
 ### Main file: `deposits_plus.ini`
 
 The original INI lives:
-- **Classic loader:** `tesmioloader\build\plugins\deposits_plus.ini`
-- **Workshop/SML/Bridge:** in the package folder under `hooks\deposits_plus.ini`; Republic Mod Manager writes the effective version to `plugins\deposits_plus.ini`
+- **Workshop:** in the package folder under `plugins\deposits_plus.ini`, next to the DLL
+- **Installed by hand:** `tesmioloader\plugins\deposits_plus.ini`
+
+If there is a `tesmioloader\plugins\deposits_plus.ini`, the plugin reads that file, otherwise the INI next to its DLL. Republic Mod Manager always writes the effective version to `tesmioloader\plugins\deposits_plus.ini`.
 
 ⚠️ **Comments only on their own lines, starting with `;`.** The parser takes everything after `=` as the value. A comment behind a value breaks tokens and switches generation off ("generation disabled for safety" in the log). No hot reload: edit the INI, restart the game, load the saved game.
 
@@ -180,6 +153,10 @@ editor = 1
 generation = 1
 ; 1 also fills channels recorded as empty earlier; 0 protects old empty channels
 generate_existing_empty = 1
+; first load of a save made with the original deposits plugin: sand is taken over from the old
+; terrain channel. With fewer cells there than given here the channel counts as empty and sand
+; is distributed like on a new map. 0 takes over any amount
+legacy_adopt_min_cells = 500
 ; 0 = random seed per new world; any other number = always the same layout
 generation_seed = 0
 
@@ -253,17 +230,18 @@ generation_size = 3
 working_vehicle_skill = gravelmining
 ```
 
-Further deposits in the shipped INI: copper (type 10), clay (type 12) and gas (type 13). A deposit is rejected and reported in the log when its token is missing, its type number lies outside 10 to 127, its map is unknown, its type number, token or channel is a duplicate, or its radius is unusable.
+Further deposits in the shipped INI: copper (type 10), clay (type 12) and gas (type 13). A deposit is rejected and reported in the log when its token is missing, its type number lies outside 10 to 127, its map lies beyond resourcemap10, its `component` lies outside 0 to 3, its `building_type` is neither 7 nor 92, its type number, token or channel is a duplicate, or its radius is unusable. An unknown word in `map` is only reported in the log; resourcemap2 is used then.
 
 ---
 
 ## 📏 Value ranges
 
-The DLL checks these limits. A value outside them switches generation off for the deposit (section) or for all (section `[deposits_plus]`) and writes "generation WARN … generation disabled for safety" to the log.
+The DLL checks these limits. A value outside them switches generation off for the deposit (section) or for all (section `[deposits_plus]`) and writes "generation WARN … generation disabled for safety" to the log. Exceptions: with `type` and `component` the deposit is rejected, and a brush name that is too long is cut off after 31 characters.
 
 | Key | Range | Default |
 |---|---|---|
 | `generation`, `generate_existing_empty`, `independent_map` | 0 or 1 | 1 / 1 / 0 |
+| `legacy_adopt_min_cells` | 0 to 1048576, whole number | 500 |
 | `generation_seed` | 0 to 4294967295, integer | 0 |
 | `generation_gap_m`, `generation_shore_m` | 0 to 500 m | 40 / 40 |
 | `generation_water_clearance_m` | 0 to 50 m | 2 |
@@ -352,6 +330,8 @@ A field counts only if at least 60 % of its area remains after clipping. If ther
 5. Save
 ```
 
+**Brush pictures:** a brush in the terrain editor needs two pictures, `tool_paint_<name>.png` and `tool_erase_<name>.png` (96 x 96 pixels); `<name>` is the value of `editor`. The game loads them from `tesmioloader\vfs\media_soviet\editor`. For the shipped deposits the pictures come in the package under `plugins\deposits_plus\editor`: the plugin copies them into the vfs folder at game start when none of that name is there yet. For a deposit of your own you put your two pictures into the vfs folder yourself. If a picture is missing, the button shows a picture from the base game; the brush works all the same. The name on the brush comes from the resource named under `icon`; if none is named, the brush is called like the deposit.
+
 ---
 
 ## 🏞️ Sandy meadow (visual texture)
@@ -379,9 +359,9 @@ sand_surface_strength = 1.0
 sand_surface_token = $TYPE_MINE_SAND
 ```
 
-### Tile table (since 0.4.1)
+### Tile table
 
-One section `[sand_tile:<name>]` per ground texture: `base` is the texture the map's material.mtl names on slot 5, folder included; `color` and `normal` are your DDS files under `deposits_plus\assets`, which the DLL looks for beside itself first (package: `hooks\deposits_plus\assets`) and then under `plugins\deposits_plus\assets`. Since 0.4.2 the files may sit in set folders (`Siberia/sand_meadow_siberia_color.dds`); `..` and absolute paths are refused. In Republic Mod Manager the table lives on the Sand tiles tab: the file fields list every DDS file grouped by set folder, and before saving RMM checks that the file exists and has the right format.
+One section `[sand_tile:<name>]` per ground texture: `base` is the texture the map's material.mtl names on slot 5, folder included; `color` and `normal` are your DDS files under `deposits_plus\assets`, which the DLL looks for beside itself first (package: `plugins\deposits_plus\assets`) and then under `tesmioloader\plugins\deposits_plus\assets`. The files may sit in set folders (`Siberia/sand_meadow_siberia_color.dds`); `..` and absolute paths are refused. In Republic Mod Manager the table lives on the Sand tiles tab: the file fields list every DDS file grouped by set folder, and before saving RMM checks that the file exists and has the right format.
 
 ```ini
 [sand_tile:meadow]
@@ -495,12 +475,22 @@ Deposits Plus and the original plugin `deposits` share:
 
 **Deposits Plus loads only while the original is switched off.**
 
-If `plugins\deposits.dll` exists and is enabled in tesmioloader.ini:
+If the original is loaded (from `plugins` or from the Workshop folder), or `plugins\deposits.dll` exists and is enabled in tesmioloader.ini:
 - Deposits Plus stays idle before it patches anything
-- In the log: `deposits_plus  idle - plugins\deposits.dll is present and enabled`
+- In the log: `deposits_plus  idle - the original deposits.dll is loaded` (or `… is present in plugins\ and enabled in tesmioloader.ini`)
 - The original loads as usual
 
 **Solution:** switch the original off in TesmioLauncher or in Republic Mod Manager. Deleting is not necessary.
+
+### Own deposits from the original
+
+If you added deposits of your own to the original's `deposits.ini`, Deposits Plus takes them over once: with the same type number and the same token, so your saves keep fitting. The four standard deposits (copper, sand, clay, gas) come with Deposits Plus itself.
+
+- **With Republic Mod Manager** (0.6.7 or newer): on the Deposits Plus page they stand as your own deposits, and a notice names them. The next save takes them over.
+- **Without Republic Mod Manager:** at the first game start the plugin creates `tesmioloader\plugins\deposits_plus.ini`: the shipped list plus your deposits. From then on that file counts. New default values from a Steam update arrive again only after you have saved once in Republic Mod Manager; your deposits stay.
+- The `deposits.ini` is looked for in `tesmioloader\plugins`, otherwise next to the original's DLL in the Workshop folder: in the package folder itself, in its `plugins` folder or in a subfolder of that.
+- If the type number or the token of a deposit is already in use, it is not taken over; the log and the page in Republic Mod Manager name it.
+- If you delete a deposit that was taken over, it does not come back.
 
 ---
 
@@ -520,7 +510,7 @@ If `plugins\deposits.dll` exists and is enabled in tesmioloader.ini:
 When copying or backing up, **always take the complete saved-game folder**:
 ```
 MyGame\
-├── dds\                    (terrain and maps)
+├── resourcemap*.dds        (the deposit maps)
 ├── buildings.bin
 ├── ...
 └── tesmio_deposits.bin     (← do not forget)
@@ -531,7 +521,14 @@ MyGame\
 - **Within the 0.4 series:** updates carry save games and `tesmio_deposits.bin` over automatically; type numbers, map slots and tokens of running save games stay off limits (see above)
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 - **With Soviet Mod Loader:** SML brings deposits of its own. While it runs, this plugin pauses and says so in the log; if you want Deposits Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
-- **0.4.10:** safety round, no new feature: the extra maps are hooked only once the type patch is in place; the terrain editor overlay and the brush restore their state after a fault and switch themselves off; the extra map table is read under the lock; a blank DDS file that could not be written completely is reported with the error code and removed; `building_type` must be 7 or 92 and `minimap` 0 or 1, otherwise WARN and default; the game EXE headers are checked before they are read. In RMM: at most 32 deposits and 16 sand tiles (the plugin's limits), the card "Natural generation" now sits on the General tab
+- **0.4.17:** the game starts faster when you are subscribed to many Workshop items: the `deposits.ini` of the original is only looked for where a package keeps its plugins, no longer in the whole Workshop folder
+- **0.4.16:** a brush without pictures of its own now really shows a picture from the base game; before, the picture of the brush before it appeared. A brush whose deposit names no resource is now called like the deposit instead of "Bauxite"
+- **0.4.15:** deposits of your own from the original's `deposits.ini` are taken over once, with the same type number and the same token (see "Own deposits from the original")
+- **0.4.14:** the brush pictures for sand, clay, gas and copper now come with the package. If one is missing in the loader folder under `vfs\media_soviet\editor`, the plugin copies it there at game start; a picture that is already there stays untouched. Plus tidied log texts
+- **0.4.13:** loaded from the Workshop, the plugin now finds its deposits without Republic Mod Manager as well: when there is no `tesmioloader\plugins\deposits_plus.ini`, it reads the INI next to its DLL
+- **0.4.12:** new key `legacy_adopt_min_cells` (default 500): on the first load of a save made with the original deposits plugin, an old sand channel with only a few stray cells counts as empty and sand is distributed like on a new map. Before, such a save stayed without sand
+- **0.4.11:** for WRSR 1.1.1.13. The plugin now also recognises the original deposits when it is loaded from the Workshop folder, and then stays idle
+- **0.4.10:** safety round, no new feature: the extra maps are hooked only once the type patch is in place; the terrain editor overlay and the brush restore their state after a fault and switch themselves off; the extra map table is read under the lock; a blank DDS file that could not be written completely is reported with the error code and removed; `building_type` must be 7 or 92, otherwise the deposit is rejected; `minimap` must be 0 or 1, otherwise WARN and default; the headers of the game's engine DLL are checked before they are read. In RMM: at most 32 deposits and 16 sand tiles (the plugin's limits), the card "Natural generation" now sits on the General tab
 - **0.4.9:** the guard against Soviet Mod Loader also works when Deposits Plus loads before SML (local copy in `plugins`, alphabetical order): it is enough that `plugins\soviet_mod_loader.dll` exists and is switched on in `tesmioloader.ini`.
 - **0.4.8:** the plugin steps aside on its own under Soviet Mod Loader
 - **0.4.7:** the brush name may now be up to 31 characters. Existing names and the two PNG files stay as they are
@@ -553,7 +550,7 @@ MyGame\
 ### Logging
 
 Every message is in `tesmioloader.log`.
-- In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
+- In **Republic Mod Manager** the log icon in the sidebar opens the log view with filter and sender.
 
 Search for:
 - `generation` → generation
@@ -565,46 +562,45 @@ Search for:
 
 ## 📦 File structure
 
-**Workshop package** (Steam subscription, SML, Workshop Bridge)
+**Workshop package** (Steam subscription)
 ```
-deposits_plus\
-├── hooks\
+<Workshop item>\
+├── plugins\
 │   ├── deposits_plus.dll           (plugin)
 │   ├── deposits_plus.ini           (original INI)
-│   └── deposits_plus\assets\       (sandy meadow textures)
-│       ├── Vanilla\                (sand_meadow_*.dds)
-│       ├── Siberia\                (sand_meadow_siberia_*.dds, sand_meadow_autumn_siberia_*.dds)
-│       ├── Asia - Jungle\          (sand_meadow_jungle_*.dds)
-│       └── Ultimate Vanilla +\     (sand_meadow_*_ultimatevanilla.dds)
+│   ├── deposits_plus\assets\       (textures of the sandy meadow)
+│   │   ├── Vanilla\                (sand_meadow_*.dds)
+│   │   ├── Siberia\                (sand_meadow_siberia_*.dds, sand_meadow_autumn_siberia_*.dds)
+│   │   ├── Asia - Jungle\          (sand_meadow_jungle_*.dds)
+│   │   └── Ultimate Vanilla +\     (sand_meadow_*_ultimatevanilla.dds)
+│   └── deposits_plus\editor\       (brush pictures: tool_paint_<name>.png, tool_erase_<name>.png)
 ├── config\                         (editor schema for Republic Mod Manager)
 │   ├── deposits_plus.launcher.ini
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (manifest for SML, Bridge and Republic Mod Manager)
+├── rmm.mod.ini                     (manifest for Republic Mod Manager)
 ├── workshopconfig.ini              (Steam Workshop entry)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 ├── README_EN.md
-└── THIRD-PARTY-LICENSE.txt         (licence of the included shader-compiler code)
+└── THIRD-PARTY-LICENSE.txt         (licence of the included shader compiler code)
 ```
 
-**Loader folder** (method 1 by hand or "Files local only")
+**Loader folder** (only with method 2 or with Republic Mod Manager)
 ```
-tesmioloader\build\
+<game>\tesmioloader\
 ├── plugins\
-│   ├── deposits_plus.dll
+│   ├── deposits_plus.dll           (method 2 only)
 │   ├── deposits_plus.ini           (effective INI)
-│   └── deposits_plus\assets\
-│       ├── Vanilla\
-│       ├── Siberia\
-│       ├── Asia - Jungle\
-│       └── Ultimate Vanilla +\
+│   └── deposits_plus\              (assets and editor, method 2 only)
+├── vfs\media_soviet\editor\        (brush pictures; the plugin copies missing ones at game start)
 └── user_config\
     └── deposits_plus.editor.ini    (personal values from Republic Mod Manager)
 ```
 
-Through the Bridge or SML only the effective INI lies in `plugins`; DLL and textures stay in the package.
+Loaded from the Workshop, DLL and textures stay in the package; `tesmioloader\plugins` then holds only the effective INI, once you have saved in Republic Mod Manager.
 
 ---
 
@@ -622,7 +618,7 @@ Through the Bridge or SML only the effective INI lies in `plugins`; DLL and text
 A: No. Either the original OR Deposits Plus. While the original is enabled, Deposits Plus stays idle.
 
 **Q: Do I lose my saved games?**
-A: No. Old saves keep working. `tesmio_deposits.bin` is created on the first load.
+A: No. Old saves keep working. `tesmio_deposits.bin` is created on the first save after that.
 
 **Q: Can I change the generation later?**
 A: Yes, but only deposits not yet placed are generated. Existing fields stay.
@@ -638,5 +634,5 @@ A: No. Republic Mod Manager shows every setting with a description, checks the v
 
 ---
 
-**Last update:** Deposits Plus 0.4.10  
-**For:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Last update:** Deposits Plus 0.4.17  
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

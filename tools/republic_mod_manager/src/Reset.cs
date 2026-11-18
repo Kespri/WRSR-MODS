@@ -23,13 +23,12 @@ namespace TesmioAutoload
         public readonly List<string> Files = new List<string>();      // deleted, paths as shown
         public readonly List<string> Folders = new List<string>();    // deleted with everything in them
         public readonly List<string> Restored = new List<string>();   // written back from an upstream copy
-        public readonly List<string> Edited = new List<string>();     // rewritten (loader ini, bridge list)
+        public readonly List<string> Edited = new List<string>();     // rewritten (the loader's ini)
         public readonly List<string> Packages = new List<string>();   // packages whose entries go away (names)
         public readonly List<string> Targets = new List<string>();    // their loader keys, for tesmioloader.ini
         public readonly List<string> Ids = new List<string>();        // resources, deposits, needs, buildings
         public readonly List<string> Saves = new List<string>();      // saved games that use one of those ids
         public readonly List<string> Buildings = new List<string>();  // 0.5.5: generated building.ini put back
-        public readonly List<string> Overlays = new List<string>();   // 0.5.9: our overlay mod, an absolute path outside the loader folder
         public bool View = true;                                      // the saved window state goes in both levels
         public int Count { get { return Files.Count + Folders.Count + Restored.Count + Edited.Count + Buildings.Count; } }
     }
@@ -64,31 +63,13 @@ namespace TesmioAutoload
                 if (!plan.Packages.Contains(name)) plan.Packages.Add(name);
                 if (!plan.Targets.Contains(target, StringComparer.OrdinalIgnoreCase)) plan.Targets.Add(target);
                 Add(plan.Files, build, "user_config\\" + overlay + ".ini");
-                if (ini.Get("state", "local_copy", "0") == "1")
-                {
-                    Add(plan.Files, build, "plugins\\" + target + ".dll");
-                    foreach (var pair in ini.Values.Where(v => v.Key.StartsWith("state/asset.", StringComparison.OrdinalIgnoreCase)))
-                        Add(plan.Files, build, "plugins\\" + pair.Value);
-                }
-                // 0.5.4: which file the editor really wrote. Under Soviet Mod Loader that is its
-                // baseline, not the generated file in plugins\ - restoring the latter would leave
-                // the personal entries in place and overwrite a file SML rewrites anyway. Receipts
-                // written before 0.5.4 have no such key, and for those plugins\<target>.ini is right.
+                // Which file the editor wrote: the receipt names it, and plugins\<target>.ini is
+                // right for receipts that do not.
                 string written = ini.Get("state", "effective_file", "").Trim();
                 if (written.Length == 0) written = "plugins\\" + target + ".ini";
                 string upstream = Path.Combine(state, target + ".upstream.ini");
                 if (File.Exists(upstream) && !plan.Restored.Contains(written, StringComparer.OrdinalIgnoreCase)) plan.Restored.Add(written);
             }
-            // 0.5.9: the little overlay mod the editors write for package entries under SML. It sits
-            // in the Workshop folder, outside the loader folder, and only ours is ever touched - the
-            // marker in its manifest says so.
-            try
-            {
-                string overlayRoot = SmlOverlay.Root(build);
-                if (overlayRoot.Length > 0 && Directory.Exists(overlayRoot) && SmlOverlay.IsOverlay(Path.Combine(overlayRoot, "soviet.mod.ini"))
-                    && !plan.Overlays.Contains(overlayRoot, StringComparer.OrdinalIgnoreCase)) plan.Overlays.Add(overlayRoot);
-            }
-            catch (Exception) { }
             // Content packages: their files in the vfs and the ids they added.
             string vfs = LocalEditorSpec.VfsRoot(build);
             foreach (string receipt in Files(Path.Combine(state, "content"), "receipt.ini", true))
@@ -104,8 +85,7 @@ namespace TesmioAutoload
                     foreach (string id in pair.Value.Split('|').Select(x => x.Trim()).Where(x => x.Length > 0))
                         if (!plan.Ids.Contains(id, StringComparer.OrdinalIgnoreCase)) plan.Ids.Add(id);
             }
-            // 0.5.0: only name what really has something left to do. A second run used to list the
-            // state folder and the bridge list although the folder was gone and the list was empty.
+            // Only name what really has something left to do.
             string loaderIni = SafeFiles.Child(build, "tesmioloader.ini");
             if (File.Exists(loaderIni)) try
             {
@@ -116,12 +96,6 @@ namespace TesmioAutoload
             // 0.5.5: personal changes in a generated building.ini live in the game folder, not
             // under the loader - deleting the receipts would leave the changed file behind.
             foreach (string id in WipEdits.Recorded(build)) plan.Buildings.Add(id);
-            string bridgeIni = SafeFiles.Child(build, "user_config\\workshop_bridge.ini");
-            if (File.Exists(bridgeIni)) try
-            {
-                if (new LooseIni(SafeFiles.Text(bridgeIni)).Entries("packages").Any()) plan.Edited.Add("user_config\\workshop_bridge.ini");
-            }
-            catch (Exception) { }
             if (Directory.Exists(state))
             {
                 plan.Folders.Add("user_config\\.autoload");
@@ -161,24 +135,7 @@ namespace TesmioAutoload
             string target = Path.Combine(root, DateTime.Now.ToString("yyyyMMdd_HHmmss"));
             Directory.CreateDirectory(target);
             Copy(SafeFiles.Child(build, "tesmioloader.ini"), Path.Combine(target, "tesmioloader.ini"));
-            // 0.5.4: under SML the editors write its baseline, so that folder has to travel into
-            // the backup as well - otherwise a reset would take back entries nothing kept a copy of.
             var folders = new List<string> { "user_config", "plugins" };
-            string baseFolder = Sml.Show(build, Path.Combine(Sml.StateDir(build), "base"));
-            if (!Path.IsPathRooted(baseFolder) && Directory.Exists(SafeFiles.Child(build, baseFolder))) folders.Add(baseFolder);
-            // 0.5.9: the overlay mod lives outside the loader folder, so it travels into the backup
-            // under its own name.
-            try
-            {
-                string overlayRoot = SmlOverlay.Root(build);
-                if (overlayRoot.Length > 0 && Directory.Exists(overlayRoot) && SmlOverlay.IsOverlay(Path.Combine(overlayRoot, "soviet.mod.ini")))
-                    foreach (string file in Directory.GetFiles(overlayRoot, "*.ini", SearchOption.AllDirectories))
-                    {
-                        string copy = Path.Combine(target, SmlOverlay.Folder, file.Substring(overlayRoot.Length).TrimStart('\\'));
-                        Directory.CreateDirectory(Path.GetDirectoryName(copy)); Copy(file, copy);
-                    }
-            }
-            catch (Exception) { }
             foreach (string folder in folders)
             {
                 string source = SafeFiles.Child(build, folder);
@@ -214,15 +171,14 @@ namespace TesmioAutoload
                 try { if (File.Exists(upstream)) { File.Copy(upstream, target, true); report.AppendLine("restored = " + relative); } }
                 catch (Exception e) { report.AppendLine("failed = " + relative + ": " + e.Message); }
             }
-            // 2. The two lists RMM keeps for the loader.
+            // 2. The switches RMM set in the loader's own file.
             foreach (string relative in plan.Edited)
             {
                 try
                 {
                     string path = SafeFiles.Child(build, relative);
                     string text = SafeFiles.Text(path);
-                    string cleaned = relative.EndsWith("workshop_bridge.ini", StringComparison.OrdinalIgnoreCase)
-                        ? Strip(text, "packages", null) : Strip(text, "plugins", plan.Targets);
+                    string cleaned = Strip(text, "plugins", plan.Targets);
                     if (cleaned != text) { File.WriteAllText(path, cleaned, SafeFiles.Utf8); report.AppendLine("edited = " + relative); }
                 }
                 catch (Exception e) { report.AppendLine("failed = " + relative + ": " + e.Message); }
@@ -255,18 +211,6 @@ namespace TesmioAutoload
                     SafeFiles.NoLinks(path); Directory.Delete(path, true); report.AppendLine("removed = " + relative + "\\");
                 }
                 catch (Exception e) { report.AppendLine("failed = " + relative + ": " + e.Message); }
-            }
-            // 0.5.9: our overlay mod in the Workshop folder. Only a folder whose manifest carries
-            // our marker is touched, and it is checked again here - nothing else in that folder is
-            // ours to delete.
-            foreach (string path in plan.Overlays)
-            {
-                try
-                {
-                    if (!Directory.Exists(path) || !SmlOverlay.IsOverlay(Path.Combine(path, "soviet.mod.ini"))) continue;
-                    SafeFiles.NoLinks(path); Directory.Delete(path, true); report.AppendLine("removed = " + path + "\\");
-                }
-                catch (Exception e) { report.AppendLine("failed = " + path + ": " + e.Message); }
             }
             return report.ToString();
         }

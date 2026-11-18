@@ -1,13 +1,52 @@
 # Needs Plus – build notes
 
 Fork of the `needs` plugin from the TesmioLoader by MaxLegend (Tesmio), GPL v3,
-https://github.com/MaxLegend/TesmioLoader. Target: WRSR 1.1.1.9 (SOVIET64.exe SHA-256
-`296644A9F207D609031FC2AE73FED2DCB34619A1D55A35D1C7B51965CE6841B8`), TesmioLoader API 4.
+https://github.com/MaxLegend/TesmioLoader. Target: WRSR 1.1.1.13 (SOVIET64.exe PE stamp
+0x6A8D4087, SHA-256 `4DF5FBECC75300E3B843AE4E6426761C84AE2E989321C011C6F560BE79122125`),
+TesmioLoader API 4.
 Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles
 `needs_plus.cpp`; there are no other sources. Exports: `TsmPluginApiVersion`, `TsmPluginInit`,
 `TsmPluginStart`. Hook sites, demand shape and storage slot logic deliberately stay identical to
 the original so saves and content packages keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
+
+## 0.1.3 (2026-11-18)
+
+- The first list file is also made from the original's `needs.ini` when the original lies only
+  in a Workshop item. `ResolveIniPath` looked for that file in `<loader>\plugins` only and fell
+  back to the shipped template; Republic Mod Manager (`ForkSeed`) has taken the INI beside the
+  original's Workshop DLL all along. New order: `<loader>\plugins\needs.ini`, Soviet Mod Loader's
+  baseline, `needs.ini` beside the original's DLL in the Workshop folder, the template beside the
+  own DLL.
+- `FindOriginalIniInWorkshop` and `SmallestDllBelow` are the same code as in Resources Plus 0.1.5:
+  nothing is searched when `<loader>\plugins\needs.dll` exists; the Workshop folder is
+  `tesmioloader.ini [tesmioloader] workshop_path` or `<...>\steamapps\workshop\content\784150`;
+  the smallest path of several `needs.dll` wins; the file is taken by its name, its exports are
+  not checked. Runs once, only when the list file is missing.
+- Checked offline with the same harness as Resources Plus (seven cases, all as expected). Not run
+  in the game.
+- The default lists of the original and of this plugin are the same two needs, so the change
+  matters only when the two differ.
+
+## 0.1.2 (2026-11-16)
+
+- Ported to WRSR 1.1.1.13. Two of the four hooked functions moved: the citizen's daily plan
+  0x836B40 -> 0x836CE0 and the shop tick 0x171E10 -> 0x171E30. The storage builder (0x0E40F0)
+  and the building type loader (0x11D800) stayed, as did `std::vector<Slot>::push_back`
+  (0x0B14E0), the type vector (0x9E6A30) and the resource vector (0x9E11C0).
+- How it was checked: 512-640 bytes of each function in 1.1.1.9 (from the analysed Ghidra
+  project) against the 1.1.1.13 executable with `my_plugins\tests\pe.pl cmplist`; every
+  difference is a run of at most four bytes (call targets, RIP-relative operands), no structure
+  offset changed. The `add rbx,0xBE8` of the type-vector clear is still there (type stride).
+  The DLL MaxLegend ships for 1.1.1.13 carries the same seven addresses.
+- `std::vector<Slot>::push_back` is now verified against its 14-byte prologue before it is
+  ever called; a different build switches the storage half off instead of calling into the
+  wrong function. `FixOtherGoodsBucket` does nothing without it.
+- The brake against the original now asks for the loaded module (`needs.dll` exporting
+  `TsmPluginInit`) as well as for the file in `plugins\`: since loader b0.3.7 the original can
+  be loaded from a Workshop folder, and it inits before `needs_plus` in name order.
+- Not changed: `ResolveIniPath` still looks for the original's `needs.ini` only in the loader's
+  own `plugins\` folder.
 
 ## 0.1.1 (2026-09-20)
 
@@ -53,7 +92,7 @@ User documentation: README_DE.md / README_EN.md. History newest first, technical
 
 ## Technical notes
 
-- Every address is for SOVIET64.exe v1.1.1.9 and is verified against expected bytes before a hook
+- Every address is for SOVIET64.exe v1.1.1.13 and is verified against expected bytes before a hook
   installs; a game update makes the hooks refuse rather than corrupt the process. See the header
   of `needs_plus.cpp` and `docs/11-needs.md` for the engine facts.
 - The resource a need names is resolved lazily through the `resources` service, so it does not

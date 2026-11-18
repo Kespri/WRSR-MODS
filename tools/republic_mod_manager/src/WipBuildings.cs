@@ -58,7 +58,6 @@ namespace TesmioAutoload
             var found = new List<WipBuilding>();
             string root = Root(build);
             if (root == null || !Directory.Exists(root)) return found;
-            HashSet<string> declared = null;
             string[] dirs;
             try { dirs = Directory.GetDirectories(root); }
             catch (Exception) { return found; }
@@ -66,19 +65,50 @@ namespace TesmioAutoload
             {
                 WipBuilding entry = Read(dir);
                 if (!Wanted(entry, range)) continue;
-                if (entry.Origin == "sml" && entry.Section.Length > 0)
-                {
-                    if (declared == null) declared = DeclaredSections(build);
-                    entry.Orphan = !declared.Contains(entry.Section);
-                }
                 found.Add(entry);
             }
             return found.OrderBy(x => x.Display, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+        // 0.6.11: takes the folders Buildings Plus generated for the given sections out of
+        // workshop_wip and puts them under parkRoot\<id>. The game loads every folder in
+        // workshop_wip at start; one whose declaration is gone and whose resource is no longer in
+        // the list stops the game right there (a building.ini that names an unknown resource).
+        // Only a folder with the stamp of Buildings Plus and a generated id is moved, a copy
+        // parked earlier is replaced. Buildings Plus writes the folder again under the same
+        // number when the section comes back. Returns the ids moved; failed takes the ones that
+        // could not be moved.
+        // Where the folders of sections go that the player removed on the Buildings Plus page.
+        // (A content package keeps the ones of its own sections in its state folder.)
+        public static string ParkRoot(string build)
+        {
+            return Path.Combine(Path.GetFullPath(build), "user_config", ".autoload", "parked_buildings");
+        }
+        public static List<string> Park(string build, ICollection<string> sections, string parkRoot, List<string> failed)
+        {
+            var moved = new List<string>();
+            if (sections == null || sections.Count == 0 || String.IsNullOrEmpty(parkRoot)) return moved;
+            foreach (WipBuilding entry in Scan(build, "own"))
+            {
+                if (!entry.Generated || entry.Section.Length == 0 || !sections.Contains(entry.Section, StringComparer.OrdinalIgnoreCase)) continue;
+                try
+                {
+                    SafeFiles.NoLinks(entry.Folder);
+                    Directory.CreateDirectory(parkRoot);
+                    string target = Path.Combine(parkRoot, entry.Id);
+                    if (Directory.Exists(target)) { SafeFiles.NoLinks(target); Directory.Delete(target, true); }
+                    Directory.Move(entry.Folder, target);
+                    moved.Add(entry.Id);
+                }
+                catch (Exception) { if (failed != null) failed.Add(entry.Id); }
+            }
+            return moved;
         }
         static bool Wanted(WipBuilding entry, string range)
         {
             if (range == "all") return true;
             if (range == "own") return entry.Origin == "buildings_plus";
+            // Every folder a generator stamped: Buildings Plus or the original buildings plugin.
+            if (range == "generated") return entry.Origin == "buildings_plus" || entry.Origin == "sml";
             return entry.Origin == "sml" || (entry.SmlRange && entry.Origin != "buildings_plus");
         }
 
@@ -134,14 +164,10 @@ namespace TesmioAutoload
             return entry;
         }
 
-        // Every building section a package or Soviet Mod Loader's own baseline declares right
-        // now. SML compares the folders of its id range against exactly this and CLOSES THE GAME
-        // when it finds one nothing declares any more, so a stale folder is worth a warning
-        // before the player runs into a message box with no way out.
+        // Every building section a content package in the Workshop folder declares right now.
         public static HashSet<string> DeclaredSections(string build)
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            Collect(names, Path.Combine(Sml.StateDir(build), "base", "buildings.ini"));
             string game = GameBuildings.GameRoot(build);
             string workshop = game == null ? null : GameBuildings.SteamWorkshopFor(game);
             if (workshop == null || !Directory.Exists(workshop)) return names;
@@ -150,8 +176,8 @@ namespace TesmioAutoload
             catch (Exception) { return names; }
             foreach (string dir in dirs)
             {
-                string manifest = Path.Combine(dir, "soviet.mod.ini");
-                if (!File.Exists(manifest)) continue;
+                string manifest = Package.FindManifest(dir);
+                if (manifest == null) continue;
                 string relative = "tesmio\\buildings.ini";
                 try
                 {

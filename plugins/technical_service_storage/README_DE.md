@@ -1,8 +1,8 @@
-# 🚛 Technical Service Storage 0.3.3
+# 🚛 Technical Service Storage 0.3.5
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
-Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Technischen Service um zusätzliche Einzellager, anklickbare Materialprioritäten und Warnungen. Schneepflüge erhalten einen plugineigenen Streuguttank, dessen Verbrauch, Nachfüllung und Rückkehr zum Heimatdepot das Plugin verwaltet. Zusammen mit Weather Roads entscheidet das geladene Material, wie viel neuen Schnee eine geräumte Straße fernhält.
+Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.13 das Fenster des Technischen Service um zusätzliche Einzellager, anklickbare Materialprioritäten und Warnungen. Schneepflüge erhalten einen plugineigenen Streuguttank, dessen Verbrauch, Nachfüllung und Rückkehr zum Heimatdepot das Plugin verwaltet. Zusammen mit Weather Roads entscheidet das geladene Material, wie viel neuen Schnee eine geräumte Straße fernhält.
 
 ---
 
@@ -29,15 +29,15 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
+- WRSR 1.1.1.13
+- TesmioLoader ab b0.3.7 (API 4)
 - Technische Services mit `$TYPE_GARBAGE_OFFICE` (intern Gebäudetyp 49) und Schneepflüge mit der Fähigkeit 35
 - Für den Streubetrieb: registrierte Streugut-Ressourcen und passende Einzellager im Depot (siehe [Gebäudelager und Migration](#-gebäudelager-und-migration))
 - **Empfohlen:** das Localization-Plugin mit dem Textpaket `technical_service_storage` für übersetzte Beschriftungen; ohne es gelten eingebaute Ersatztexte
 - **Optional:** Weather Roads für materialabhängigen Straßenschutz
 
 ### In drei Schritten
-1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
+1. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
 2. **Materialien prüfen:** Die mitgelieferte Liste (`sand`, `gravel`) in Republic Mod Manager oder in `technical_service_storage.ini` an die vorhandenen Ressourcen und Depotlager anpassen. **Spielstand sichern.**
 3. **Spiel vollständig neu starten.** Im Depotfenster erscheinen die Streugutlager mit Prioritäten; im Protokoll `logs\tesmioloader.technical_service_storage.log` stehen Konfigurationspfad, Materialliste und Dienststatus.
 
@@ -64,7 +64,7 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 - ✅ Alle Texte für Republic Mod Manager im Spieler-Stil überarbeitet.
 
 ### 🆕 Neu in 0.3.1
-- ✅ **INI neben der DLL:** Fehlt `plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
+- ✅ **INI neben der DLL:** Fehlt `tesmioloader\plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
 - ✅ Editor-Schema für Republic Mod Manager im Paket: Materialliste als Liste mit Plus-Knopf, alle Schalter in Karten auf vier Reitern, deutsch und englisch.
 - Parser, Prüfung, Verbrauch, Rückkehr, Tankgrößen, Prioritäten und Speicherformate sind gegenüber 0.3.0 unverändert.
 
@@ -72,73 +72,50 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.9 das Fenster des Tech
 
 ## 💾 Installation
 
-Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
+Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ---
 
-### Methode 1️⃣: Klassischer TesmioLoader
+### Methode 1️⃣: Steam Workshop (empfohlen)
 
 ```
-1. Kopiere technical_service_storage.dll und technical_service_storage.ini aus hooks\
-   → tesmioloader\build\plugins\
+1. Workshop-Objekt abonnieren
+2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+   von selbst im Workshop-Ordner – nichts wird kopiert
+3. Die INI findet die DLL neben sich im Paket
+4. Steam-Updates gelten ab dem nächsten Spielstart
+```
+
+Ein neu gefundenes Plugin ist eingeschaltet. Aus- und einschalten kannst du es im TesmioLauncher oder mit „Plugin aktiv“ im Republic Mod Manager.
+
+---
+
+### Methode 2️⃣: Von Hand in den Loader-Ordner
+
+```
+1. Kopiere technical_service_storage.dll und technical_service_storage.ini aus plugins\
+   → <Spiel>\tesmioloader\plugins\
 
 2. Für übersetzte Beschriftungen: Localization-Plugin installieren; das Textpaket
    liegt im Localization-Paket unter plugins\localization\technical_service_storage\
 
-3. Aktiviere technical_service_storage im TesmioLauncher
-4. Spiel vollständig neu starten
+3. Spiel vollständig neu starten
 ```
 
----
-
-### Methode 2️⃣: Soviet Mod Loader (SML)
-
-```
-1. Workshop-Objekt abonnieren – SML liest abonnierte Pakete von selbst
-2. SML lädt die DLL über soviet.mod.ini aus dem Paket, die INI liegt daneben
-3. Eine lokale technical_service_storage.dll in plugins\ vorher entfernen oder abschalten
-```
-
----
-
-### Methode 3️⃣: Workshop Bridge (ohne SML)
-
-```
-1. Paket in Republic Mod Manager auswählen
-2. „Plugin aktiv“ einschalten
-3. workshop_bridge lädt die DLL direkt aus dem Paket; die INI findet sie neben sich
-4. Steam-Updates gelten sofort
-```
-
----
-
-### Methode 4️⃣: Republic Mod Manager mit „Dateien nur lokal“
-
-```
-1. Paket in Republic Mod Manager auswählen, Einstellungen anpassen, Speichern
-2. Reiter „Allgemein“, Karte „Hinweise“: „Dateien nur lokal“ einschalten
-3. Bestätigung mit Dateiliste → DLL und INI werden beim Speichern
-   nach tesmioloader\build\plugins\ kopiert
-4. Die Workshop Bridge überspringt das Paket danach automatisch
-```
-
-**„Dateien nur lokal“ im Detail**
-- Für alle, die das Plugin ohne Steam-Abo weiterbenutzen wollen
-- Steam-Updates gelten bei lokalen Dateien erst nach erneutem Speichern (gelbe Marke „Update“)
-- Ausschalten entfernt nur die von Republic Mod Manager kopierten Dateien wieder
+Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloader\plugins` hat Vorrang vor der gleichnamigen aus dem Workshop; Updates kopierst du dann selbst nach.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab 0.34.0) zeigt Technical Service Storage damit in vier Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Technical Service Storage damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung, die Karte „Speichern im Spielstand“ (Lagerergänzung, Prioritäten und Tanks speichern, abgerissene Depots vergessen) und darunter „Fehlersuche“ (ausführliches Protokoll, Meldungsgrenze)
+- **Allgemein:** Hinweise, Knopf für diese Anleitung, die Karte „Speichern im Spielstand“ (Lagerergänzung, Prioritäten und Tanks speichern, abgerissene Depots vergessen) und darunter „Fehlersuche“ (ausführliches Protokoll, Meldungsgrenze)
 - **Streumaterialien:** links die Materialliste (höchstens 32), rechts das gewählte Material mit seiner Schutzstärke; der Plus-Knopf legt ein Material an (interner Ressourcenname als Text, Vorschläge gruppiert nach eigenen Ressourcen aus dem Resources-Plugin und Vanilla-Ressourcen). Originalzeilen lassen sich mit dem Papierkorb ausblenden und wieder anzeigen
 - **Depotfenster:** Lagerzeilen und Office-Priority-Beschriftungen, Prioritätsfelder, Trennlinie und Warnungen
 - **Streubetrieb:** Verbrauch und Erkennung, Rückkehr zum Heimatdepot, Tankkapazität, Fahrzeuganzeige und Zeiten
 
-Persönliche Materialien liegen in `user_config\technical_service_storage.editor.ini`, die wirksame Datei ist `plugins\technical_service_storage.ini`; die INI im Paket bleibt unverändert. Dezimalwerte werden beim Speichern normalisiert (`0.80` wird zu `0.8`), was das Plugin gleich liest.
+Persönliche Materialien liegen in `user_config\technical_service_storage.editor.ini`, die wirksame Datei ist `tesmioloader\plugins\technical_service_storage.ini`; die INI im Paket bleibt unverändert. Dezimalwerte werden beim Speichern normalisiert (`0.80` wird zu `0.8`), was das Plugin gleich liest.
 
 ---
 
@@ -147,8 +124,8 @@ Persönliche Materialien liegen in `user_config\technical_service_storage.editor
 ### Hauptdatei: `technical_service_storage.ini`
 
 Die DLL liest in dieser Reihenfolge:
-- **Zuerst:** `tesmioloader\build\plugins\technical_service_storage.ini`, falls vorhanden (klassische Installation, „Dateien nur lokal“ oder die von Republic Mod Manager geschriebene wirksame INI)
-- **Sonst:** die INI neben der DLL, im Paket `hooks\technical_service_storage.ini` (Soviet Mod Loader, Workshop Bridge)
+- **Zuerst:** `tesmioloader\plugins\technical_service_storage.ini`, falls vorhanden (von Hand installiert oder die von Republic Mod Manager geschriebene wirksame INI)
+- **Sonst:** die INI neben der DLL, im Workshop-Paket `plugins\technical_service_storage.ini`
 
 Empfohlen ist **UTF-8 ohne BOM**; UTF-8 mit BOM und UTF-16 LE werden ebenfalls gelesen. Höchstens 1 MiB. `;` nur in eigenen Zeilen, keine Kommentare hinter Werten. Materialstärken mit Dezimalpunkt, Schalter als `0` oder `1`. Änderungen gelten nach einem vollständigen Neustart.
 
@@ -328,9 +305,11 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - **Weather Roads** nutzt den Streugut-Dienst dieses Plugins; ohne ihn rechnet es mit Stärke 1.00.
 - **Localization** liefert die übersetzten Beschriftungen (empfohlen, nicht zwingend).
 - **Vanilla Buildings** oder das Buildings-Plugin ergänzen die nötigen Einzellager in den Depots.
-- Ressourcen-Plugins (Resources, Deposits Plus) registrieren zusätzliche Materialien wie `road_salt`.
+- Ressourcen-Plugins (Resources Plus oder Resources) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
+- **0.3.5:** Im Spiel ändert sich nichts; nur die Texte im Protokoll wurden aufgeräumt
+- **0.3.4:** Für WRSR 1.1.1.13; sonst unverändert
 - **0.3.3:** Reserveschwelle in Prozent (alter Schlüssel bleibt lesbar), Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
 - **0.3.1:** INI-Fallback neben der DLL, Editor-Schema im Paket; Betrieb und Speicherformate unverändert
 - **0.3.0:** einheitliche Versionsnummer für Plugin und Streugutkomponente
@@ -357,7 +336,7 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 ### Logging
 
 Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.technical_service_storage.log`, mit Bereich, Regelkennung und Kontext. `debug = 0` unterdrückt nur Routinedetails; Warnungen, Fehler und Start-/Speichermeldungen bleiben. `debug = 1` ergänzt Details und den lesenden Strg+F8-Lebenszyklus-Schnappschuss.
-- In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
+- In **Republic Mod Manager** öffnet das Protokoll-Symbol in der Seitenleiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
 - `Configuration file` → welche INI gewählt wurde
@@ -368,10 +347,10 @@ Suche nach:
 
 ## 📦 Dateistruktur
 
-**Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
+**Workshop-Paket** (Steam-Abo)
 ```
-technical_service_storage\
-├── hooks\
+<Workshop-Objekt>\
+├── plugins\
 │   ├── technical_service_storage.dll   (Plugin)
 │   └── technical_service_storage.ini   (Original-INI mit Erklärungen)
 ├── config\                             (Editor-Schema für Republic Mod Manager)
@@ -379,27 +358,30 @@ technical_service_storage\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                      (Manifest für SML, Bridge und Republic Mod Manager)
+├── rmm.mod.ini                         (Manifest für Republic Mod Manager)
 ├── workshopconfig.ini                  (Steam-Workshop-Eintrag)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader-Ordner** (Methode 1 von Hand oder „Dateien nur lokal“)
+**Loader-Ordner** (nur bei Methode 2 oder mit Republic Mod Manager)
 ```
-tesmioloader\build\
+<Spiel>\tesmioloader\
 ├── plugins\
-│   ├── technical_service_storage.dll
+│   ├── technical_service_storage.dll   (nur bei Methode 2)
 │   ├── technical_service_storage.ini   (wirksame INI)
-│   ├── localization.dll                (empfohlen, eigenes Plugin)
-│   └── localization\technical_service_storage\   (Textpaket, aus dem Localization-Paket)
+│   ├── localization.dll                (empfohlen, eigenes Plugin; nur wenn von Hand installiert)
+│   └── localization\technical_service_storage\   (Textpaket aus dem Localization-Paket; nur wenn von Hand installiert)
 ├── user_config\
 │   └── technical_service_storage.editor.ini (persönliche Materialien aus Republic Mod Manager)
 ├── logs\
 │   └── tesmioloader.technical_service_storage.log
 └── tesmioloader.log
 ```
+
+Aus dem Workshop geladen, bleibt die DLL im Paket; in `tesmioloader\plugins` liegt dann nur die wirksame INI, sobald du im Republic Mod Manager gespeichert hast.
 
 ---
 
@@ -430,5 +412,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.3  
-**Für:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Letzte Aktualisierung:** Technical Service Storage 0.3.5  
+**Für:** WRSR 1.1.1.13 | TesmioLoader API 4

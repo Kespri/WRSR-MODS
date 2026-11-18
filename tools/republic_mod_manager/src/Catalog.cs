@@ -14,27 +14,33 @@ namespace TesmioAutoload
         // Where the entry comes from, for the list icon: "steam" (a Workshop folder of
         // a Steam library), "loader" (the loader's own plugins folder), else "unknown".
         public string Origin = "unknown";
-        // "plugin" (deployable native hook) or "content" (SML-only content, listed for information).
+        // "plugin" (a DLL the loader finds) or "content" (fragments and files without a DLL).
         public string Kind = "plugin";
-        // Installed: found as build\plugins\<Target>.dll without a Workshop package (Root is the DLL path).
+        // Installed: the DLL lies in <loader>\plugins and has no package (Root is the DLL path).
         public bool Installed;
-        // Deployed once and changed in the Workshop since (see UpdateCheck).
+        // Saved once and changed in the Workshop since (see UpdateCheck).
         public bool Updated; public string PreviousVersion = "";
         public string Target = "";
+        // The plugin's key - the DLL's file name without ".dll", the name of its switch in
+        // tesmioloader.ini - and the DLL the loader takes for it. Empty for a content package.
+        // A keyed editor carries the key of the plugin it edits here as well.
+        public string Key = "", Dll = "";
+        // The key of the plugin this one takes the place of ("" = none).
+        public string Replaces = "";
+        // Other DLLs with the same key, which the loader passes over.
+        public readonly List<string> PassedOver = new List<string>();
         public readonly List<string> Hints = new List<string>();
         public readonly List<Dependency> Dependencies = new List<Dependency>();
-        public string Status { get { return Problem.Length > 0 ? "Hinweis" : !Supported ? "Nicht unterstützt" : Kind == "content" ? "SML-Inhalt" : Installed ? "Installiert" : "Verfügbar"; } }
-        public override string ToString() { return Name + (Problem.Length > 0 ? " [Hinweis]" : !Supported ? " [nicht unterstützt]" : Kind == "content" ? " [SML-Inhalt]" : Installed ? " [installiert]" : ""); }
+        public string Status { get { return Problem.Length > 0 ? "Hinweis" : !Supported ? "Nicht unterstützt" : Kind == "content" ? "Inhalt" : Installed ? "Installiert" : "Verfügbar"; } }
+        public override string ToString() { return Name + (Problem.Length > 0 ? " [Hinweis]" : !Supported ? " [nicht unterstützt]" : Kind == "content" ? " [Inhalt]" : Installed ? " [installiert]" : ""); }
     }
 
     public static class Catalog
     {
         // Folder with local launcher schemas (settings_schemas beside the exe): the
-        // second schema tier for installed plugins, and home of the keyed editors.
+        // second schema tier for plugins without a package schema, and home of the keyed editors.
         public static string SchemaRoot = "";
-        // Workshop packages whose DLL also sits in plugins\ while SML is active: SML
-        // loads the package copy and TesmioLoader the local one - twice in one game.
-        // Marks every Workshop package that was deployed once and has changed
+        // Marks every Workshop package that was saved once and has changed
         // since; returns the names of those, for the startup summary.
         public static List<string> MarkUpdates(IEnumerable<CatalogEntry> entries, string build)
         {
@@ -47,7 +53,7 @@ namespace TesmioAutoload
                 {
                     if (e.Kind == "content")
                     {
-                        // 0.4.80: a provided content package whose fragments or assets changed in the Workshop.
+                        // A provided content package whose fragments or assets changed in the Workshop.
                         var content = new ContentSession(Package.Load(e.Root), build);
                         e.Updated = content.UpdatePending; e.PreviousVersion = content.ProvidedVersion;
                         if (e.Updated) result.Add(e.Name + (content.ProvidedVersion.Length > 0 && content.ProvidedVersion != e.Version ? " (" + content.ProvidedVersion + " -> " + e.Version + ")" : ""));
@@ -55,114 +61,127 @@ namespace TesmioAutoload
                     }
                     UpdateState u = UpdateCheck.Of(Package.Load(e.Root), build);
                     e.Updated = u.Pending; e.PreviousVersion = u.PreviousVersion;
-                    if (u.Pending) result.Add(e.Name + (u.PreviousVersion.Length > 0 ? " (" + u.PreviousVersion + " -> " + e.Version + ")" : ""));
+                    if (u.Pending) result.Add(e.Name + (u.PreviousVersion.Length > 0 && u.PreviousVersion != e.Version ? " (" + u.PreviousVersion + " -> " + e.Version + ")" : ""));
                 }
                 catch (Exception) { }
             }
             return result;
         }
-        // Workshop packages whose DLL also sits in plugins\ while SML or the bridge
-        // would load them from the package. Under SML that is a double load; under
-        // the bridge the local copy wins and the package is skipped - either way
-        // worth a word at startup.
+        // Plugins whose key exists more than once: the loader takes one DLL - a local one before
+        // any Workshop one, else the smallest path - and passes the others over. One line per
+        // key, naming the file that runs and the ones that do not.
         public static List<string> DuplicateDlls(IEnumerable<CatalogEntry> entries, string build)
         {
             var result = new List<string>();
-            if (String.IsNullOrWhiteSpace(build) || !(Sml.Active(build) || Bridge.Active(build))) return result;
-            foreach (var e in entries.Where(x => x.Supported && !x.Installed && x.Kind == "plugin" && x.Target.Length > 0))
-                if (File.Exists(Path.Combine(Path.GetFullPath(build), "plugins", e.Target + ".dll"))) result.Add(e.Name + " (plugins\\" + e.Target + ".dll)");
+            foreach (var e in entries.Where(x => x.PassedOver.Count > 0))
+                result.Add(e.Name + ": " + e.Dll + " <- " + String.Join(", ", e.PassedOver));
             return result;
         }
-        // Matches every [dependencies] line of a package against the packages in the
-        // catalog (by mod id) and checks the version constraint. Pure bookkeeping:
-        // RuntimeGuard decides what an unmet dependency means for a deployment.
-        public static void ResolveDependencies(List<Dependency> dependencies, IEnumerable<CatalogEntry> entries)
+        // settings_schemas\replacements.ini: [replaces] <key> = <key of the plugin it replaces>,
+        // for replacement plugins that are found without a manifest. A manifest's own
+        // [mod] replaces wins.
+        public static Dictionary<string, string> Replacements(string schemaRoot)
+        {
+            var table = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                string path = Path.Combine(schemaRoot ?? "", "replacements.ini");
+                if (!File.Exists(path)) return table;
+                foreach (var pair in new Ini(SafeFiles.Text(path)).Values)
+                    if (pair.Key.StartsWith("replaces/", StringComparison.OrdinalIgnoreCase) && pair.Value.Trim().Length > 0) table[pair.Key.Substring(9)] = pair.Value.Trim();
+            }
+            catch (Exception) { }
+            return table;
+        }
+        // The entry that answers for a plugin key: the plugin itself or its keyed editor.
+        public static CatalogEntry ByKey(IEnumerable<CatalogEntry> entries, string key)
+        { return String.IsNullOrEmpty(key) ? null : entries.FirstOrDefault(e => e.Supported && e.Kind != "content" && e.Key.Equals(key, StringComparison.OrdinalIgnoreCase)); }
+        // Pairs (replacement, original) where both DLLs are found and both are switched on. The
+        // brake inside a replacement idles it while its original loads, so left alone such a pair
+        // runs the original; the replacement is what the player installed on purpose.
+        public static List<KeyValuePair<CatalogEntry, CatalogEntry>> OpenReplacements(IEnumerable<CatalogEntry> entries, string build)
+        {
+            var result = new List<KeyValuePair<CatalogEntry, CatalogEntry>>();
+            var list = entries.Where(e => e.Supported && e.Kind != "content" && e.Key.Length > 0).ToList();
+            if (String.IsNullOrWhiteSpace(build) || list.Count == 0) return result;
+            var switches = LoaderFiles.Switches(build, list.Select(e => e.Key));
+            foreach (var replacement in list.Where(e => e.Replaces.Length > 0 && switches[e.Key]))
+            {
+                CatalogEntry original = ByKey(list, replacement.Replaces);
+                if (original != null && original != replacement && switches[original.Key]) result.Add(new KeyValuePair<CatalogEntry, CatalogEntry>(replacement, original));
+            }
+            return result;
+        }
+        // Switches the original of every open pair off in tesmioloader.ini; returns the pairs.
+        public static List<KeyValuePair<CatalogEntry, CatalogEntry>> SettleReplacements(IEnumerable<CatalogEntry> entries, string build, Action guard)
+        {
+            var open = OpenReplacements(entries, build);
+            if (open.Count == 0) return open;
+            var switches = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in open) switches[pair.Value.Key] = false;
+            string path = LoaderFiles.IniPath(build);
+            var before = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { path, SafeFiles.HashFile(path) } };
+            var writes = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase) { { path, LoaderFiles.Render(build, switches) } };
+            Transaction.Apply(build, "replacements", writes, before, guard);
+            return open;
+        }
+        // Matches every [dependencies] line of a package against the catalog and checks the
+        // version constraint. A line names a mod id or a plugin key; an id whose last part is a
+        // plugin key matches that plugin (tesmio.localization -> localization.dll), and a plugin
+        // that replaces the named one stands in for it. Among several candidates one that is
+        // switched on wins. Pure bookkeeping: Startup.Unmet decides what it means for a start.
+        public static void ResolveDependencies(List<Dependency> dependencies, IEnumerable<CatalogEntry> entries, string build = null)
         {
             var list = entries.Where(e => e.Supported && e.Id.Length > 0).ToList();
+            Dictionary<string, bool> switches = null;
+            if (!String.IsNullOrWhiteSpace(build)) { try { switches = LoaderFiles.Switches(build, list.Where(e => e.Key.Length > 0).Select(e => e.Key)); } catch (Exception) { switches = null; } }
+            Func<CatalogEntry, bool> on = e => e.Kind == "content" || switches == null || e.Key.Length == 0 || switches[e.Key];
             foreach (Dependency d in dependencies)
             {
-                CatalogEntry match = list.FirstOrDefault(e => e.Id.Equals(d.Id, StringComparison.OrdinalIgnoreCase) && !e.Installed);
-                d.Found = match != null; d.Target = ""; d.Kind = ""; d.Version = ""; d.VersionOk = true;
-                if (match == null)
+                string tail = d.Id.Substring(d.Id.LastIndexOf('.') + 1);
+                var candidates = list.Where(e => e.Id.Equals(d.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+                bool byId = candidates.Count > 0;
+                foreach (string key in new[] { d.Id, tail }.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    // 0.34.1: a plugin installed the classic way (plugins\<name>.dll without a
-                    // package) satisfies an id whose last segment is that name, e.g.
-                    // tesmio.localization -> localization.dll. Its version is not checked.
-                    string tail = d.Id.Substring(d.Id.LastIndexOf('.') + 1);
-                    CatalogEntry local = tail.Length > 0 ? entries.FirstOrDefault(e => e.Supported && e.Installed && e.Kind != "content" && e.Target.Equals(tail, StringComparison.OrdinalIgnoreCase)) : null;
-                    if (local != null)
-                    {
-                        d.Found = true; d.Target = local.Target; d.Kind = "plugin"; d.Version = local.Version; d.Root = ""; d.VersionOk = true; d.Name = String.IsNullOrEmpty(local.Name) ? d.Id : local.Name;
-                        d.Note = Msg.Key("dep_found_installed", d.Id, local.Target);
-                        continue;
-                    }
+                    candidates.AddRange(list.Where(e => e.Kind != "content" && e.Key.Equals(key, StringComparison.OrdinalIgnoreCase) && !candidates.Contains(e)));
+                    candidates.AddRange(list.Where(e => e.Kind != "content" && e.Replaces.Equals(key, StringComparison.OrdinalIgnoreCase) && !candidates.Contains(e)));
                 }
+                CatalogEntry match = candidates.FirstOrDefault(on) ?? candidates.FirstOrDefault();
+                d.Found = match != null; d.Target = ""; d.Kind = ""; d.Version = ""; d.VersionOk = true; d.Root = ""; d.Name = "";
                 if (match == null) { d.Note = Msg.Key("dep_missing", d.Id + (d.Constraint.Length > 0 ? " (" + d.Constraint + ")" : "")); continue; }
-                d.Target = match.Target; d.Kind = match.Kind; d.Version = match.Version; d.Root = match.Root ?? ""; d.Name = String.IsNullOrEmpty(match.Name) ? d.Id : match.Name;
-                d.VersionOk = VersionRule.Satisfied(d.Constraint, match.Version);
-                // 0.4.27: the notes name the package, not the id; the editor asks RuntimeGuard.Provisioned whether it is switched on.
-                d.Note = d.VersionOk ? Msg.Key(match.Kind == "content" ? "dep_found_content" : "dep_found", d.Name, match.Version) : Msg.Key("dep_wrong_version", d.Name, match.Version, d.Constraint);
+                d.Target = match.Key; d.Kind = match.Kind; d.Version = match.Version; d.Root = match.Root ?? ""; d.Name = String.IsNullOrEmpty(match.Name) ? d.Id : match.Name;
+                // A version rule belongs to the package the id names. A plugin found by its key
+                // only - no manifest, or a replacement - has no version to hold against it.
+                bool versioned = byId && match.Id.Equals(d.Id, StringComparison.OrdinalIgnoreCase);
+                d.VersionOk = !versioned || VersionRule.Satisfied(d.Constraint, match.Version);
+                d.Note = !d.VersionOk ? Msg.Key("dep_wrong_version", d.Name, match.Version, d.Constraint)
+                    : !versioned ? Msg.Key("dep_found_installed", d.Id, match.Key)
+                    : Msg.Key(match.Kind == "content" ? "dep_found_content" : "dep_found", d.Name, match.Version);
             }
         }
-        // Once the installed plugins are known (ScanInstalled), the dependency notes
-        // of the Workshop entries are resolved again against the complete list, so a
-        // dependency met only by a classic installation loses its "missing" hint.
-        public static void ResolveAll(List<CatalogEntry> entries)
+        // The dependency notes of every entry, resolved against the complete list.
+        public static void ResolveAll(List<CatalogEntry> entries, string build = null)
         {
             foreach (var entry in entries.Where(e => e.Dependencies.Count > 0))
             {
-                ResolveDependencies(entry.Dependencies, entries);
+                ResolveDependencies(entry.Dependencies, entries, build);
                 entry.Hints.RemoveAll(h => h.StartsWith("\u0001dep_", StringComparison.Ordinal));
                 foreach (Dependency d in entry.Dependencies.Where(x => !x.Found || !x.VersionOk)) entry.Hints.Add(d.Note);
             }
-        }
-        // Plugins present in build\plugins that no listed Workshop package or local
-        // editor accounts for - the plain TesmioLoader installation.
-        public static List<CatalogEntry> ScanInstalled(string build, IEnumerable<CatalogEntry> known, List<string> diagnostics)
-        {
-            var entries = new List<CatalogEntry>();
-            try
-            {
-                if (String.IsNullOrWhiteSpace(build)) return entries;
-                string plugins = Path.Combine(Path.GetFullPath(build), "plugins");
-                if (!Directory.Exists(plugins)) return entries;
-                SafeFiles.NoLinks(plugins);
-                var covered = new HashSet<string>(known.Where(e => e.Target.Length > 0).Select(e => e.Target), StringComparer.OrdinalIgnoreCase);
-                foreach (var editor in known.Where(e => e.LocalEditor)) { try { covered.Add(LocalEditorSpec.Load(editor.Root).Plugin); } catch (Exception) { } }
-                foreach (string dll in Directory.GetFiles(plugins, "*.dll").OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
-                {
-                    string name = Path.GetFileNameWithoutExtension(dll);
-                    if (covered.Contains(name)) continue;
-                    var entry = new CatalogEntry { Root = dll, Name = name, Target = name, Installed = true, Origin = "loader" };
-                    try
-                    {
-                        Package package = InstalledPlugins.Load(build, name, SchemaRoot);
-                        entry.Supported = true; entry.Id = package.Id; entry.Name = package.Name; entry.Version = package.Version; entry.Kind = package.Kind; entry.Hints.AddRange(package.Hints);
-                    }
-                    catch (Exception e) { entry.Problem = Msg.Key("catalog_installed_rejected", e.Message); entry.Supported = false; }
-                    entries.Add(entry);
-                }
-            }
-            catch (Exception e) { diagnostics.Add("Installierte Plugins konnten nicht gelesen werden: " + e.Message); }
-            foreach (var entry in entries.Where(e => e.Problem.Length > 0)) diagnostics.Add(entry.Root + ": " + entry.Problem);
-            return entries.OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
         public static string NormalizeRoot(string path)
         {
             if (String.IsNullOrWhiteSpace(path)) return "";
             string full = Path.GetFullPath(path);
             if (full.Length > Path.GetPathRoot(full).Length) full = full.TrimEnd('\\', '/');
-            // Backwards compatibility: an old single-package path becomes its parent.
-            if (File.Exists(Path.Combine(full, "soviet.mod.ini"))) return Path.GetDirectoryName(full);
+            // A single package path becomes its parent.
+            if (Package.FindManifest(full) != null) return Path.GetDirectoryName(full);
             return full;
         }
         public static string WorkshopForBuild(string build)
         {
             if (String.IsNullOrWhiteSpace(build)) return "";
-            for (var dir = new DirectoryInfo(Path.GetFullPath(build)); dir != null; dir = dir.Parent)
-                if (dir.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase))
-                    return Path.Combine(dir.FullName, @"workshop\content\784150");
-            return "";
+            return PluginScan.WorkshopDefault(Path.GetFullPath(build));
         }
         public static string InitialRoot(string build, string legacyPackage)
         {
@@ -172,7 +191,7 @@ namespace TesmioAutoload
                 string legacy = Path.GetFullPath(legacyPackage).TrimEnd('\\', '/');
                 // Prefer the subscribed copy when this formerly private WIP item
                 // is now present in Steam. Otherwise keep the WIP collection usable.
-                if (steam.Length > 0 && File.Exists(Path.Combine(steam, Path.GetFileName(legacy), "soviet.mod.ini"))) return steam;
+                if (steam.Length > 0 && Package.FindManifest(Path.Combine(steam, Path.GetFileName(legacy))) != null) return steam;
                 return NormalizeRoot(legacy);
             }
             return steam;
@@ -188,63 +207,114 @@ namespace TesmioAutoload
             }
             catch (Exception) { return false; }
         }
-        public static List<CatalogEntry> Scan(string root, List<string> diagnostics)
+        // A package that is rejected still shows under its own name: [mod] of its manifest is
+        // read on its own, as far as it can be read at all.
+        static void Peek(CatalogEntry entry, string folder)
         {
-            var entries = new List<CatalogEntry>();
-            if (String.IsNullOrWhiteSpace(root)) { diagnostics.Add("Kein Workshop-Ordner gewählt."); return entries; }
-            string full = NormalizeRoot(root);
             try
             {
-                SafeFiles.NoLinks(full);
-                if (!Directory.Exists(full)) { diagnostics.Add("Workshop-Ordner nicht vorhanden: " + full); return entries; }
-                foreach (string child in Directory.GetDirectories(full).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+                string manifest = Package.FindManifest(folder); if (manifest == null) return;
+                var mod = Manifest.Parse(SafeFiles.Text(manifest));
+                string id = mod.Get("mod", "id", ""), name = mod.Get("mod", "name", ""), version = mod.Get("mod", "version", "");
+                if (id.Length > 0 && id.Length <= 160) entry.Id = id;
+                if (name.Length > 0 && name.Length <= 200 && !name.Any(Char.IsControl)) entry.Name = name;
+                if (version.Length > 0 && version.Length <= 80) entry.Version = version;
+            }
+            catch (Exception) { }
+        }
+        static void Fill(CatalogEntry entry, Package package)
+        {
+            entry.Supported = true; entry.Id = package.Id; entry.Name = package.Name; entry.Version = package.Version; entry.Kind = package.Kind; entry.Target = package.Target;
+            entry.Key = package.Target; entry.Dll = package.DllPath ?? ""; entry.Replaces = package.Replaces;
+            entry.Hints.AddRange(package.Hints); entry.Dependencies.AddRange(package.Dependencies);
+        }
+        // Everything the list shows, from what the loader will find on its next start:
+        //   - plugin DLLs in <loader>\plugins and, in any depth, below the Workshop folder, one
+        //     entry per key (the DLL the loader takes; the ones it passes over are named on it);
+        //   - keyed editors from settings_schemas, in place of the plain entry of their plugin
+        //     and only when that plugin's DLL is found;
+        //   - content packages: Workshop folders with a manifest and no plugin DLL.
+        public static List<CatalogEntry> ScanAll(string build, string workshop, string schemaRoot, List<string> diagnostics)
+        {
+            var entries = new List<CatalogEntry>();
+            string loader = String.IsNullOrWhiteSpace(build) ? "" : Path.GetFullPath(build);
+            string root = String.IsNullOrWhiteSpace(workshop) ? "" : NormalizeRoot(workshop);
+            if (root.Length > 0 && !Directory.Exists(root)) { diagnostics.Add("Workshop-Ordner nicht vorhanden: " + root); root = ""; }
+            List<FoundPlugin> found;
+            try { found = PluginScan.Discover(loader.Length > 0 ? Path.Combine(loader, "plugins") : "", root); }
+            catch (Exception e) { diagnostics.Add("Plugins konnten nicht gesucht werden: " + e.Message); found = new List<FoundPlugin>(); }
+            if (loader.Length > 0) LoaderFiles.Remember(loader, root, found);
+            var replaces = Replacements(schemaRoot);
+            Dictionary<string, string> versions = loader.Length > 0 ? InstalledPlugins.LoaderVersions(loader) : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // Keyed editors first: they stand for their plugin.
+            var editors = ScanLocalEditors(schemaRoot, diagnostics);
+            var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var editor in editors)
+            {
+                string plugin; try { plugin = LocalEditorSpec.Load(editor.Root).Plugin; } catch (Exception) { continue; }
+                FoundPlugin dll = found.FirstOrDefault(f => PluginScan.SameKey(f.Key, plugin));
+                if (dll == null) continue;
+                covered.Add(plugin); editor.Key = dll.Key; editor.Dll = dll.Path; editor.Origin = dll.Local ? "loader" : UnderSteamWorkshop(dll.Path) ? "steam" : "unknown";
+                editor.PassedOver.AddRange(dll.Shadowed.Select(s => s.Path));
+                string original; if (replaces.TryGetValue(dll.Key, out original)) editor.Replaces = original;
+                entries.Add(editor);
+            }
+            // Package folders that hold more than one plugin DLL are named by DLL path.
+            var rootOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in found.Where(x => !x.Local)) { try { rootOf[f.Path] = Package.RootOf(f.Path); } catch (Exception) { rootOf[f.Path] = Path.GetDirectoryName(f.Path); } }
+            var crowded = new HashSet<string>(rootOf.Values.GroupBy(x => x, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key), StringComparer.OrdinalIgnoreCase);
+            foreach (var f in found)
+            {
+                if (covered.Contains(f.Key)) continue;
+                CatalogEntry entry;
+                if (f.Local)
                 {
-                    string manifest = Path.Combine(child, "soviet.mod.ini");
-                    if (!File.Exists(manifest)) continue;
-                    // 0.5.9: the overlay layer Republic Mod Manager writes for package entries under
-                    // Soviet Mod Loader is not an entry of its own - the editors that fill it own it.
-                    if (SmlOverlay.IsOverlay(manifest)) continue;
-                    var entry = new CatalogEntry { Root = child, Name = Path.GetFileName(child), Origin = UnderSteamWorkshop(child) ? "steam" : "unknown" };
+                    entry = new CatalogEntry { Root = f.Path, Name = f.Key, Target = f.Key, Key = f.Key, Dll = f.Path, Installed = true, Origin = "loader" };
+                    try { Fill(entry, InstalledPlugins.Load(loader, f.Key, schemaRoot)); }
+                    catch (Exception e) { entry.Problem = Msg.Key("catalog_installed_rejected", e.Message); entry.Supported = false; }
+                }
+                else
+                {
+                    string packageRoot = rootOf[f.Path];
+                    entry = new CatalogEntry { Root = crowded.Contains(packageRoot) ? f.Path : packageRoot, Name = f.Key, Target = f.Key, Key = f.Key, Dll = f.Path, Origin = UnderSteamWorkshop(f.Path) ? "steam" : "unknown" };
                     try
                     {
-                        SafeFiles.NoLinks(child);
-                        // Only parse [mod] metadata here. Other SML sections may
-                        // legitimately contain repeated hooks/content directives.
-                        string text = SafeFiles.Text(manifest);
-                        var metadata = new StringBuilder(); bool inMod = false, seenMod = false;
-                        foreach (string raw in text.Replace("\r\n", "\n").Split('\n'))
-                        {
-                            string line = raw.Trim();
-                            if (line.StartsWith("[", StringComparison.Ordinal))
-                            {
-                                if (!line.EndsWith("]", StringComparison.Ordinal)) throw new FormatException(Msg.Key("err_ung_ltiger_abschnitt_im"));
-                                inMod = line.Substring(1, line.Length - 2).Trim().Equals("mod", StringComparison.OrdinalIgnoreCase);
-                                if (inMod && seenMod) throw new FormatException(Msg.Key("err_mod_ist_mehrfach_vorhanden"));
-                                if (inMod) { seenMod = true; metadata.AppendLine("[mod]"); }
-                            }
-                            else if (inMod) metadata.AppendLine(raw);
-                        }
-                        var mod = new Ini(metadata.ToString());
-                        entry.Id = mod.Required("mod", "id"); entry.Name = mod.Required("mod", "name"); entry.Version = mod.Get("mod", "version", "?");
-                        if (entry.Id.Length > 160 || entry.Name.Length > 200 || entry.Name.Any(Char.IsControl)) throw new FormatException(Msg.Key("err_ung_ltige_paketkennung_name"));
-                        if (mod.Get("mod", "enabled", "1") != "1") entry.Problem = "Dieses Paket ist im Manifest deaktiviert.";
-                        else
-                        {
-                            Package package=Package.Load(child);entry.Supported=true;entry.Id=package.Id;entry.Name=package.Name;entry.Version=package.Version;entry.Kind=package.Kind;entry.Target=package.Target;entry.Hints.AddRange(package.Hints);entry.Dependencies.AddRange(package.Dependencies);
-                        }
+                        SafeFiles.NoLinks(packageRoot);
+                        Package package = Package.Load(entry.Root); Fill(entry, package);
+                        // A package without a version of its own shows what the loader reported.
+                        string seen; if (package.ManifestPath.Length == 0 && versions.TryGetValue(f.Key, out seen)) entry.Version = seen;
                     }
-                    catch (Exception e) { entry.Problem = Msg.Key("catalog_manifest_rejected", e.Message); entry.Supported = false; }
-                    entries.Add(entry);
+                    catch (Exception e) { Peek(entry, packageRoot); entry.Problem = Msg.Key("catalog_manifest_rejected", e.Message); entry.Supported = false; }
                 }
+                if (f.PathTooLong) { entry.Problem = Msg.Key("catalog_path_too_long", f.Path); }
+                entry.PassedOver.AddRange(f.Shadowed.Select(s => s.Path));
+                if (entry.Replaces.Length == 0) { string original; if (replaces.TryGetValue(f.Key, out original)) entry.Replaces = original; }
+                entries.Add(entry);
             }
-            catch (Exception e) { diagnostics.Add("Workshop konnte nicht vollständig gelesen werden: " + e.Message); }
-            foreach (var duplicates in entries.Where(e => e.Id.Length > 0).GroupBy(e => e.Id, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
-                foreach (var entry in duplicates) entry.Problem = "Paket-ID mehrfach vorhanden: " + entry.Id + ". Doppelte Pakete zuerst klären; keine automatische Bereitstellung.";
-            foreach (var entry in entries.Where(e => e.Dependencies.Count > 0))
+            // Content packages: a manifest and no plugin DLL of their own.
+            if (root.Length > 0)
             {
-                ResolveDependencies(entry.Dependencies, entries);
-                foreach (Dependency d in entry.Dependencies.Where(x => !x.Found || !x.VersionOk)) entry.Hints.Add(d.Note);
+                try
+                {
+                    SafeFiles.NoLinks(root);
+                    var withDll = new HashSet<string>(rootOf.Values, StringComparer.OrdinalIgnoreCase);
+                    foreach (var f in found.Where(x => !x.Local)) foreach (var s in f.Shadowed) { try { withDll.Add(Package.RootOf(s.Path)); } catch (Exception) { } }
+                    foreach (string child in Directory.GetDirectories(root).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+                    {
+                        if (Package.FindManifest(child) == null || withDll.Contains(child)) continue;
+                        var entry = new CatalogEntry { Root = child, Name = Path.GetFileName(child), Origin = UnderSteamWorkshop(child) ? "steam" : "unknown" };
+                        try { SafeFiles.NoLinks(child); Fill(entry, Package.Load(child)); }
+                        catch (Exception e) { Peek(entry, child); entry.Problem = Msg.Key("catalog_manifest_rejected", e.Message); entry.Supported = false; }
+                        entries.Add(entry);
+                    }
+                }
+                catch (Exception e) { diagnostics.Add("Workshop konnte nicht vollständig gelesen werden: " + e.Message); }
             }
+            foreach (var duplicates in entries.Where(e => e.Id.Length > 0).GroupBy(e => e.Id, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+                foreach (var entry in duplicates) entry.Problem = Msg.Key("catalog_duplicate_id", entry.Id);
+            foreach (var entry in entries.Where(e => e.PassedOver.Count > 0)) entry.Hints.Add(Msg.Key("hint_same_key", entry.Dll, String.Join(", ", entry.PassedOver)));
+            foreach (var entry in entries.Where(e => e.Replaces.Length > 0 && ByKey(entries, e.Replaces) != null)) entry.Hints.Add(Msg.Key("hint_replaces", ByKey(entries, entry.Replaces).Name));
+            ResolveAll(entries, loader.Length > 0 ? loader : null);
             foreach (var entry in entries.Where(e => e.Problem.Length > 0)) diagnostics.Add(entry.Root + ": " + entry.Problem);
             return entries.OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(e => e.Root, StringComparer.OrdinalIgnoreCase).ToList();
         }
@@ -253,13 +323,13 @@ namespace TesmioAutoload
             var entries=new List<CatalogEntry>();
             try
             {
-                if(!Directory.Exists(schemaRoot))return entries;SafeFiles.NoLinks(schemaRoot);
+                if(String.IsNullOrWhiteSpace(schemaRoot)||!Directory.Exists(schemaRoot))return entries;SafeFiles.NoLinks(schemaRoot);
                 foreach(string path in Directory.GetFiles(schemaRoot,"*.launcher.ini").OrderBy(x=>x,StringComparer.OrdinalIgnoreCase))
                 {
                     // Plain launcher schemas in this folder are the second schema tier for
-                    // installed plugins (InstalledPlugins); only keyed editors are entries here.
+                    // plugins without a package schema; only keyed editors are entries here.
                     try{if(new Ini(SafeFiles.Text(path)).Get("launcher","editor_type","").Length==0)continue;}catch(Exception){continue;}
-                    try{LocalEditorSpec spec=LocalEditorSpec.Load(path);entries.Add(new CatalogEntry{Root=path,Id=spec.Id,Name=spec.Name,Version=spec.Version,Supported=true,LocalEditor=true,Origin="loader"});}
+                    try{LocalEditorSpec spec=LocalEditorSpec.Load(path);entries.Add(new CatalogEntry{Root=path,Id=spec.Id,Name=spec.Name,Version=spec.Version,Supported=true,LocalEditor=true,Origin="loader",Key=spec.Plugin});}
                     catch(Exception e){diagnostics.Add(path+": Lokaler Editor abgewiesen: "+e.Message);}
                 }
             }

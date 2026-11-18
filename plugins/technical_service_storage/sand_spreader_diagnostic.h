@@ -8,7 +8,7 @@
 // Depot inventory is charged only for confirmed fills, never for loading a
 // saved tank. Lifecycle observation prevents demolished/collapsed depots from
 // transferring saved settings to their replacement.
-// v0.1.76 beta removes discovery scans, manual route experiments and fixed
+// There are no discovery scans, manual route experiments or fixed
 // per-road depot consumption. Detailed runtime logs use [general] debug=1.
 
 #ifndef TECHNICAL_SERVICE_SAND_SPREADER_DIAGNOSTIC_H
@@ -45,7 +45,7 @@ static const size_t SAND_VEHICLE_ROUTE_LINK_BEGIN = 0x06B8;
 static const size_t SAND_VEHICLE_ROUTE_LINK_END = 0x06C0;
 static const size_t SAND_VEHICLE_ROUTE_INDEX = 0x0700;
 // These fields are deliberately diagnostic-only. Their changes help identify
-// vanilla work reassignment while a return lock is active, but v0.1.19 never
+// vanilla work reassignment while a return lock is active, but the plugin never
 // writes them because their ownership and lifetime are not yet fully verified.
 static const size_t SAND_VEHICLE_ASSIGNMENT_BEGIN = 0x0680;
 static const size_t SAND_VEHICLE_ASSIGNMENT_END = 0x0688;
@@ -86,31 +86,31 @@ static const BYTE EXPECT_SAND_C3D_NODE_GET_POSITION[] = {
     0x89,0x42,0x08
 };
 
-// WRSR 1.1.1.9 global world/registry access. The simulation game object is a
+// WRSR 1.1.1.13 global world/registry access. The simulation game object is a
 // static object, not a pointer. The LEA at RVA_SAND_STATIC_GAME_LEA is verified
 // before the background observer reads its building vector. The separate world
 // pointer changes on every load and is used only as a generation token.
 static const DWORD RVA_SAND_STATIC_GAME = 0x009D4F10;
 static const DWORD RVA_SAND_GLOBAL_WORLD_POINTER = 0x009941F0;
-static const DWORD RVA_SAND_STATIC_GAME_LEA = 0x0043970A;
+static const DWORD RVA_SAND_STATIC_GAME_LEA = 0x0043969A;
 
-static const DWORD RVA_SAND_SKILL_CHECK = 0x003E2320;
-static const DWORD RVA_SAND_CLEAR_ENTRY = 0x006BC210;
-static const DWORD RVA_SAND_CLEAR_CALL_1 = 0x0069CD08;
-static const DWORD RVA_SAND_CLEAR_CALL_2 = 0x0069D0A1;
-static const DWORD RVA_SAND_NATURAL_HOME_CALL = 0x0069D0E7;
-static const DWORD RVA_SAND_PLAN_ROUTE_HOME = 0x006BC5A0;
-static const DWORD RVA_SAND_CLEAN_ROUTE_LINKS = 0x006A6720;
-static const DWORD RVA_SAND_VANILLA_REFUEL_ORDER = 0x006B4DE0;
-static const DWORD RVA_SAND_TASK_FUEL_ELIGIBILITY = 0x006B3AB0;
+static const DWORD RVA_SAND_SKILL_CHECK = 0x003E2260;
+static const DWORD RVA_SAND_CLEAR_ENTRY = 0x006BC3B0;
+static const DWORD RVA_SAND_CLEAR_CALL_1 = 0x0069CEA8;
+static const DWORD RVA_SAND_CLEAR_CALL_2 = 0x0069D241;
+static const DWORD RVA_SAND_NATURAL_HOME_CALL = 0x0069D287;
+static const DWORD RVA_SAND_PLAN_ROUTE_HOME = 0x006BC740;
+static const DWORD RVA_SAND_CLEAN_ROUTE_LINKS = 0x006A68C0;
+static const DWORD RVA_SAND_VANILLA_REFUEL_ORDER = 0x006B4F80;
+static const DWORD RVA_SAND_TASK_FUEL_ELIGIBILITY = 0x006B3C50;
 static const DWORD RVA_SAND_TASK_FUEL_MODE = 0x009D54C0;
-static const DWORD RVA_SAND_NATIVE_LOW_FUEL_COMPARE = 0x006CFB22;
-static const DWORD RVA_SAND_NATIVE_FUEL_BUILDING_WRITE = 0x006CFB4E;
-static const DWORD RVA_SAND_NATIVE_FUEL_CAPACITY_LOAD = 0x006CFB12;
+static const DWORD RVA_SAND_NATIVE_LOW_FUEL_COMPARE = 0x006CFCC2;
+static const DWORD RVA_SAND_NATIVE_FUEL_BUILDING_WRITE = 0x006CFCEE;
+static const DWORD RVA_SAND_NATIVE_FUEL_CAPACITY_LOAD = 0x006CFCB2;
 // After loading the skill-35 float at exe+0x6A2775, vanilla folds it into its
 // target speed and compares that value directly with vehicle+0xD24 here. This
 // proves that +0xD24 and the snowplow skill parameter use the same km/h scale.
-static const DWORD RVA_SAND_NATIVE_SPEED_COMPARE = 0x006A2951;
+static const DWORD RVA_SAND_NATIVE_SPEED_COMPARE = 0x006A2AF1;
 
 static const BYTE EXPECT_SAND_SKILL_CHECK[] = {
     0x45,0x8B,0xD0,0x48,0x85,0xD2,0x74,0x4B,
@@ -145,17 +145,17 @@ static const BYTE EXPECT_SAND_VANILLA_REFUEL_ORDER[] = {
 };
 // Complete instructions through mov rax,[rcx+0x1708]. The stock loader's
 // generic inline trampoline cannot relocate the leading RIP-relative compare
-// or its short conditional jump, so v0.1.61 installs a dedicated trampoline
+// or its short conditional jump, so a hook here needs a dedicated trampoline
 // which reproduces both control-flow paths before continuing at +0x10.
 static const BYTE EXPECT_SAND_TASK_FUEL_ELIGIBILITY[] = {
-    0x83,0x3D,0x09,0x1A,0x32,0x00,0x02,
+    0x83,0x3D,0x69,0x18,0x32,0x00,0x02,
     0x75,0x50,
     0x48,0x8B,0x81,0x08,0x17,0x00,0x00
 };
 static const size_t SAND_TASK_FUEL_ELIGIBILITY_STOLEN =
     sizeof(EXPECT_SAND_TASK_FUEL_ELIGIBILITY);
 // Vanilla compares its calculated reserve with vehicle+0x5F0 and, after the
-// candidate-building check, stores that building in vehicle+0x5E8. v0.1.62
+// candidate-building check, stores that building in vehicle+0x5E8. The plugin
 // does not patch these instructions; verifying them makes the field ownership
 // and the adopted state transition fail closed on an unsupported game build.
 static const BYTE EXPECT_SAND_NATIVE_LOW_FUEL_COMPARE[] = {
@@ -1004,7 +1004,7 @@ static const char SPREADER_TANK_FILE_MAGIC[8] = {
 };
 static const DWORD SPREADER_TANK_FILE_VERSION = 1;
 static const DWORD RVA_SPREADER_WORLD_SAVE = 0x00007C20;
-static const DWORD RVA_SPREADER_WORLD_SAVE_CALL = 0x0042CDAE;
+static const DWORD RVA_SPREADER_WORLD_SAVE_CALL = 0x0042CD3E;
 static const char SPREADER_CREATE_MANAGED_TEXTURE_SYMBOL[] =
     "?CreateManagedTexture@C3D_MIDDLEPOINT@@QEAAPEAVC3DAPI_TEXTURE@@PEBD@Z";
 
@@ -5082,8 +5082,8 @@ static bool SandLatchNativeFuelBuildingToHome(void* vehicle,
     return true;
 }
 
-// Retained as reverse-engineering history from v0.1.61. This generic predicate
-// is not installed in v0.1.62 because an active Technical Services work chain
+// Retained as reverse-engineering history. This generic predicate
+// is not installed because an active Technical Services work chain
 // never reaches it. This is the same boolean gate vanilla uses to stop
 // assigning work to a
 // vehicle whose real fuel is too low. Returning false here does not alter the
@@ -5358,7 +5358,7 @@ static bool SandPrepareReturnAction(void* vehicle,
         SandReadAssignmentSnapshot(vehicle);
     bool arrived = currentBuilding && homeBuilding &&
                    currentBuilding == homeBuilding;
-    // v0.1.57 never mutates an outside vehicle's route from a panel, timer or
+    // The plugin never mutates an outside vehicle's route from a panel, timer or
     // background observation. The active lock simply waits for the verified
     // vanilla job-boundary call. Arrival processing below remains unchanged.
     if (SAND_NATURAL_BOUNDARY_RETURN_ENABLED && !arrived)
@@ -5666,7 +5666,7 @@ static void SandExecuteReturnAction(void* vehicle,
                                     int actionKind, int reason,
                                     DWORD previousState)
 {
-    // v0.1.62 only records the first successful game-thread hand-off here.
+    // Only the first successful game-thread hand-off is recorded here.
     // SandDispatchReturnFromClearHook has already latched +0x5E8 to the home
     // depot using the same persistent field as vanilla's real-low-fuel path.
     // Route, target and real fuel remain owned by the Technical Services AI.
@@ -5789,7 +5789,7 @@ static void SandExecuteReturnAction(void* vehicle,
         }
         else if (directOnce)
         {
-            // v0.1.58 deliberately does not retry a failed immediate plan.
+            // A failed immediate plan is deliberately not retried.
             // The persistent lock remains active and the verified vanilla
             // job-boundary call is the only fallback, avoiding route fights.
             item->returnStartPending = 0;
@@ -6645,7 +6645,7 @@ static void SandResetTrackedVehiclesForWorld(
 {
     // Returning to the main menu destroys the world's owning UI worker. The
     // next loaded world may render panels on a different thread, as observed
-    // in v0.1.71. Release the old binding at every verified world transition;
+    // in the game. Release the old binding at every verified world transition;
     // the first Technical Services panel in the new world binds it again.
     LONG previousUiThread = InterlockedExchange(&g_uiThreadId, 0);
     InterlockedExchange(&g_uiThreadWarningLogged, 0);

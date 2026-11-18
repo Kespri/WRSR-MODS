@@ -1,9 +1,24 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 0.3.0. Target: SOVIET64.exe 1.1.1.9, TesmioLoader API 4.
+- Plugin version 0.3.1. Target: SOVIET64.exe 1.1.1.13 (PE stamp 0x6A8D4087), TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 0.3.1 (2026-11-16)
+
+- Ported to WRSR 1.1.1.13; 1.1.1.9 is refused by the PE stamp. Every CUSTOMHOUSE address moved by
+  +0x1A0: panel 0x71B410 -> 0x71B5B0, the measure and draw calls 0x71C475 / 0x71C4B5 ->
+  0x71C615 / 0x71C655, the resource-column renderer 0x7C6720 -> 0x7C68C0, the row-pitch
+  instruction 0x7C678C -> 0x7C692C (displacement 0x7C6931, end 0x7C6935).
+- The row-pitch instruction is compared with its displacement, and the float pool moved by
+  +0x10, so the expected bytes changed from `F3 44 0F 59 35 D3 41 14 00` to
+  `F3 44 0F 59 35 43 40 14 00`; the operand still resolves to the constant 25.0 (now at 0x90A978).
+- How it was checked (`my_plugins\tests\pe.pl`): panel and renderer found by their first bytes
+  (one match each), 96 / 112 / 192 bytes compared with 1.1.1.9 (only operands differ), both calls
+  resolve to the renderer's new start (`pe.pl rip`).
+- TEXT WRAP uses engine imports and text ids only; the ids (1970, the route hint) were taken over
+  from 1.1.1.9 and not looked up again.
 
 ## 0.3.0 (2026-09-09)
 

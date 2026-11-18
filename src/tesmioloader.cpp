@@ -40,7 +40,7 @@
 // counts the rounds of fixes on top of it. The host table, the API version and
 // every log line other tools read are unchanged - a plugin built for b0.3.6
 // runs here and one built here runs on b0.3.6.
-#define LOADER_VERSION "b0.3.6-rmm.1"
+#define LOADER_VERSION "b0.3.7-rmm.2"
 
 // ---------------------------------------------------------------- exported names
 
@@ -827,7 +827,10 @@ static HANDLE WINAPI h_CreateFile2(LPCWSTR path, DWORD access, DWORD share,
 //   [20] +0xA0  TextureAccesGetTexel(x, y) -> colour
 //   [23] +0xB8  TextureAccesSetTexel(x, y, colour)
 //   [36] +0x120 SaveToDDS          - how depletion survives a save
-#define TEX_VTABLE_RVA   0x187BF0
+#define TEX_VTABLE_RVA   0x187BF0   // C3DDLL64.dll rva - the 2026-11-11 engine
+                                    // update changed 34 bytes of timestamps
+                                    // only; v1.1.1.13: unchanged, verified by
+                                    // a byte-for-byte section diff
 #define TEX_SLOT_LOAD    2
 #define TEX_SLOT_GETTEXEL 20
 
@@ -1400,21 +1403,24 @@ static bool ReadablePtr(const void* p, size_t n)
 // that shipping one is copying a DLL.
 
 #include "tesmio_api.h"
-
-#define MAX_PLUGINS 64
+#include "tesmio_discovery.h"
 
 struct LoadedPlugin
 {
     HMODULE          module;
-    char             file[64];
+    char             file[MAX_PATH * 3];
+    wchar_t          key[MAX_PATH];
+    wchar_t          ini[MAX_PATH];
+    char             directory[MAX_PATH * 3];
+    TsmHost          host;
     const char*      name;
     const char*      version;
     TsmPluginStartFn start;      // optional second phase; null when absent
 };
-static LoadedPlugin g_plugin[MAX_PLUGINS];
+static std::vector<LoadedPlugin> g_plugin;
 static int          g_pluginCount;
 static int          g_plugins = 1;
-static char         g_pluginDir[MAX_PATH];
+static wchar_t      g_iniPathWide[MAX_PATH];
 
 // --- the host table -------------------------------------------------------
 //
@@ -1455,29 +1461,187 @@ static long api_FaultFilter(const char* what, void* ep)
     return FaultFilter(what, (PEXCEPTION_POINTERS)ep);
 }
 
-static void api_IniPath(const char* iniName, char* out, size_t n)
+static void WCToAnsiPath(const wchar_t* path, char* out, int size)
 {
-    _snprintf_s(out, n, _TRUNCATE, "%s\\%s", g_baseDir, iniName ? iniName : "tesmioloader.ini");
+    BOOL substituted = FALSE;
+    const bool utf8 = GetACP() == CP_UTF8;
+    if (!WideCharToMultiByte(CP_ACP, utf8 ? 0 : WC_NO_BEST_FIT_CHARS,
+                             path, -1, out, size, NULL, utf8 ? NULL : &substituted) ||
+        substituted)
+        out[0] = 0;
+}
+
+static const LoadedPlugin* FindPlugin(const wchar_t* key)
+{
+    for (int i = 0; i < g_pluginCount; ++i)
+        if (_wcsicmp(g_plugin[i].key, key) == 0) return &g_plugin[i];
+    return nullptr;
+}
+
+static void api_IniPath(const char* iniName, wchar_t* out, size_t n)
+{
+    wchar_t name[MAX_PATH] = L"tesmioloader.ini";
+    if (iniName && !MultiByteToWideChar(CP_ACP, 0, iniName, -1, name, _countof(name)))
+    {
+        *out = 0;
+        return;
+    }
+    const wchar_t* leaf = name;
+    if (_wcsnicmp(leaf, L"plugins\\", 8) == 0 || _wcsnicmp(leaf, L"plugins/", 8) == 0)
+        leaf += 8;
+    const wchar_t* ext = wcsrchr(leaf, L'.');
+    if (ext && _wcsicmp(ext, L".ini") == 0 && !wcschr(leaf, L'\\') && !wcschr(leaf, L'/'))
+    {
+        wchar_t key[MAX_PATH];
+        wcsncpy_s(key, leaf, ext - leaf);
+        if (const auto* plugin = FindPlugin(key))
+        {
+            // rmm.2: <loader>\plugins\<name>.ini wins while it exists, wherever the DLL
+            // lives. That file is the finished INI Republic Mod Manager writes for a
+            // plugin loaded from the Workshop folder (list editors, and packages whose
+            // plugin never looks into user_config), and it is the rule the plugins that
+            // open their INI by path follow already: loader folder first, then the INI
+            // beside the DLL. For a plugin in <loader>\plugins both are the same file.
+            const std::wstring local =
+                tsm::JoinPath(tsm::JoinPath(tsm::Parent(g_iniPathWide), L"plugins"), leaf);
+            if (local.size() < n)
+            {
+                DWORD a = GetFileAttributesW(local.c_str());
+                if (a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY))
+                {
+                    wcscpy_s(out, n, local.c_str());
+                    return;
+                }
+            }
+            wcscpy_s(out, n, plugin->ini);
+            return;
+        }
+    }
+    const std::wstring path = tsm::JoinPath(tsm::Parent(g_iniPathWide), name);
+    wcsncpy_s(out, n, path.c_str(), _TRUNCATE);
+}
+
+// Personal values. <loader>\user_config\<name>.ini is laid over a plugin's own
+// INI key by key: a key found there wins, everything else comes from the INI
+// beside the DLL. That file is the one Republic Mod Manager writes, so the INI
+// an author ships - in a Workshop folder Steam rewrites on every update - is
+// never touched and the player's values survive the update. The plugins in
+// my_plugins do the same merge themselves (tesmio_config.h); this gives it to
+// every plugin that asks through the host table. A plugin that opens its INI
+// by path and parses it on its own is out of reach.
+#define MAX_OVERLAY_NOTES 64
+static wchar_t g_overlayNoted[MAX_OVERLAY_NOTES][64];
+static int     g_overlayNotedCount;
+
+static bool OverlayIni(const char* iniName, wchar_t* out, size_t n)
+{
+    if (!iniName) return false;                     // tesmioloader.ini itself has no overlay
+    wchar_t local[MAX_PATH];
+    if (!MultiByteToWideChar(CP_ACP, 0, iniName, -1, local, _countof(local))) return false;
+    const wchar_t* leaf = local;
+    if (_wcsnicmp(leaf, L"plugins\\", 8) == 0 || _wcsnicmp(leaf, L"plugins/", 8) == 0) leaf += 8;
+    const wchar_t* ext = wcsrchr(leaf, L'.');
+    if (!ext || _wcsicmp(ext, L".ini") != 0 || wcschr(leaf, L'\\') || wcschr(leaf, L'/')) return false;
+    if (_wcsicmp(leaf, L"tesmioloader.ini") == 0) return false;
+    const std::wstring path =
+        tsm::JoinPath(tsm::JoinPath(tsm::Parent(g_iniPathWide), L"user_config"), leaf);
+    if (path.size() >= n) return false;
+    DWORD a = GetFileAttributesW(path.c_str());
+    if (a == INVALID_FILE_ATTRIBUTES || (a & FILE_ATTRIBUTE_DIRECTORY)) return false;
+    wcscpy_s(out, n, path.c_str());
+    return true;
+}
+
+// The value of one key in the overlay, or false when the overlay does not set it.
+static bool OverlayValue(const char* iniName, const char* section, const char* key,
+                         wchar_t* value, int size)
+{
+    static const wchar_t kAbsent[] = L"\x01" L"absent";
+    if (size < 16 || !section || !key) return false;
+    wchar_t ini[MAX_PATH], sectionW[MAX_PATH], keyW[MAX_PATH];
+    if (!OverlayIni(iniName, ini, _countof(ini))) return false;
+    if (!MultiByteToWideChar(CP_ACP, 0, section, -1, sectionW, _countof(sectionW)) ||
+        !MultiByteToWideChar(CP_ACP, 0, key, -1, keyW, _countof(keyW)))
+        return false;
+    GetPrivateProfileStringW(sectionW, keyW, kAbsent, value, size, ini);
+    if (wcscmp(value, kAbsent) == 0) return false;
+
+    // Said once per file, so the log shows where a value came from.
+    const wchar_t* leaf = wcsrchr(ini, L'\\');
+    leaf = leaf ? leaf + 1 : ini;
+    bool fresh = false;
+    EnterCriticalSection(&g_lock);
+    int i = 0;
+    for (; i < g_overlayNotedCount; i++)
+        if (_wcsicmp(g_overlayNoted[i], leaf) == 0) break;
+    if (i == g_overlayNotedCount && g_overlayNotedCount < MAX_OVERLAY_NOTES)
+    {
+        wcsncpy_s(g_overlayNoted[g_overlayNotedCount++], _countof(g_overlayNoted[0]), leaf, _TRUNCATE);
+        fresh = true;
+    }
+    LeaveCriticalSection(&g_lock);
+    if (fresh) Logf("config   %ls: personal values from user_config\\%ls are laid over it", leaf, leaf);
+    return true;
 }
 
 static int api_ConfigInt(const char* iniName, const char* section,
                          const char* key, int fallback)
 {
-    char ini[MAX_PATH];
-    api_IniPath(iniName, ini, sizeof(ini));
-    return GetPrivateProfileIntA(section, key, fallback, ini);
+    wchar_t personal[64];
+    if (OverlayValue(iniName, section, key, personal, _countof(personal)))
+    {
+        wchar_t* end = NULL;
+        const bool hex = personal[0] == L'0' && (personal[1] == L'x' || personal[1] == L'X');
+        long v = wcstol(personal, &end, hex ? 16 : 10);
+        if (end != personal) return (int)v;
+    }
+    wchar_t ini[MAX_PATH], sectionW[MAX_PATH], keyW[MAX_PATH];
+    api_IniPath(iniName, ini, _countof(ini));
+    if (!MultiByteToWideChar(CP_ACP, 0, section, -1, sectionW, _countof(sectionW)) ||
+        !MultiByteToWideChar(CP_ACP, 0, key, -1, keyW, _countof(keyW)))
+        return fallback;
+    return GetPrivateProfileIntW(sectionW, keyW, fallback, ini);
 }
 
 static int api_ConfigString(const char* iniName, const char* section,
                             const char* key, char* out, int outSize,
                             const char* fallback)
 {
-    char ini[MAX_PATH];
-    api_IniPath(iniName, ini, sizeof(ini));
-    DWORD n = GetPrivateProfileStringA(section, key, fallback ? fallback : "",
-                                       out, (DWORD)outSize, ini);
+    if (outSize <= 0) return 0;
+    {
+        std::vector<wchar_t> personal(outSize > 16 ? outSize : 16);
+        if (OverlayValue(iniName, section, key, personal.data(), (int)personal.size()) &&
+            (!personal[0] ||
+             WideCharToMultiByte(CP_ACP, 0, personal.data(), -1, out, outSize, NULL, NULL)))
+        {
+            if (!personal[0]) out[0] = 0;
+            Trim(out);
+            return (int)strlen(out);
+        }
+    }
+    wchar_t ini[MAX_PATH];
+    api_IniPath(iniName, ini, _countof(ini));
+    char ansi[MAX_PATH];
+    WCToAnsiPath(ini, ansi, _countof(ansi));
+    if (ansi[0])
+    {
+        GetPrivateProfileStringA(section, key, fallback ? fallback : "",
+                                 out, outSize, ansi);
+    }
+    else
+    {
+        wchar_t sectionW[MAX_PATH], keyW[MAX_PATH];
+        std::vector<wchar_t> value(outSize);
+        if (!MultiByteToWideChar(CP_ACP, 0, section, -1, sectionW, _countof(sectionW)) ||
+            !MultiByteToWideChar(CP_ACP, 0, key, -1, keyW, _countof(keyW)))
+            value[0] = 0;
+        else
+            GetPrivateProfileStringW(sectionW, keyW, L"", value.data(), outSize, ini);
+        if (!value[0] || !WideCharToMultiByte(CP_ACP, 0, value.data(), -1, out, outSize, NULL, NULL))
+            strncpy_s(out, outSize, fallback ? fallback : "", _TRUNCATE);
+    }
     Trim(out);
-    return (int)n;
+    return (int)strlen(out);
 }
 
 // --- the service noticeboard ----------------------------------------------
@@ -1578,7 +1742,6 @@ static void BuildHostTable()
     g_host.exeSize      = g_exeSize;
     g_host.engineModule = (void*)GetModuleHandleA(DLL_ENGINE);
     g_host.baseDir      = g_baseDir;
-    g_host.pluginDir    = g_pluginDir;
     g_host.vfsRoot      = g_vfsRoot;
 
     g_host.log               = Logf;
@@ -1601,16 +1764,14 @@ static void BuildHostTable()
 // launcher's checkboxes write, and the reason the choice is a config key rather
 // than a renamed file: a plugin the user turned off is still on disk, still
 // listed by the launcher, and still one keystroke from coming back.
-static bool PluginEnabled(const char* file)
+// The loader's own reader, not the profile API: a UTF-8 BOM at the top of
+// tesmioloader.ini made the profile API miss every section header, and
+// every plugin then counted as on.
+static bool PluginEnabled(const wchar_t* key)
 {
-    char key[64];
-    strncpy_s(key, sizeof(key), file, _TRUNCATE);
-    if (char* dot = strrchr(key, '.')) *dot = 0;
-
-    // The loader's own reader, not the profile API: a UTF-8 BOM at the top of
-    // tesmioloader.ini made the profile API miss every section header, and
-    // every plugin then counted as on.
-    return IniInt(g_iniPath, "plugins", key, 1) != 0;
+    char k[MAX_PATH * 3] = {};
+    WideCharToMultiByte(CP_UTF8, 0, key, -1, k, _countof(k), NULL, NULL);
+    return IniInt(g_iniPath, "plugins", k, 1) != 0;
 }
 
 // The loaded list, keyed the same way PluginEnabled is - the file name
@@ -1619,30 +1780,25 @@ static bool PluginEnabled(const char* file)
 // manifest: either way the content is not in the game.
 static bool PluginLoaded(const char* key)
 {
-    for (int i = 0; i < g_pluginCount; i++)
-    {
-        char file[64];
-        strncpy_s(file, sizeof(file), g_plugin[i].file, _TRUNCATE);
-        if (char* dot = strrchr(file, '.')) *dot = 0;
-        if (_stricmp(file, key) == 0) return true;
-    }
-    return false;
+    wchar_t w[MAX_PATH] = {};
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, w, _countof(w));
+    return FindPlugin(w) != nullptr;
 }
 
-static void LoadOnePlugin(const char* file)
+static bool PluginLoaded(const wchar_t* key)
 {
-    if (g_pluginCount >= MAX_PLUGINS)
-    {
-        Logf("plugin   \"%s\" skipped - only %d fit", file, MAX_PLUGINS);
-        return;
-    }
+    return FindPlugin(key) != nullptr;
+}
 
-    char path[MAX_PATH];
-    _snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", g_pluginDir, file);
+static void LoadOnePlugin(const tsm::PluginFile& candidate, const wchar_t* iniPath,
+                          const wchar_t* directory)
+{
+    char file[MAX_PATH * 3] = {};
+    WideCharToMultiByte(CP_UTF8, 0, candidate.file.c_str(), -1, file, _countof(file), NULL, NULL);
 
     // The full path, and LOAD_WITH_ALTERED_SEARCH_PATH so a plugin's own
     // dependencies resolve next to it rather than out of the game folder.
-    HMODULE mod = LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+    HMODULE mod = LoadLibraryExW(candidate.path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
     if (!mod)
     {
         Logf("plugin   \"%s\" failed to load (%lu)", file, GetLastError());
@@ -1689,9 +1845,16 @@ static void LoadOnePlugin(const char* file)
 
     // Reserved before Init runs, so anything the plugin publishes is credited
     // to it in the log.
-    LoadedPlugin* p = &g_plugin[g_pluginCount];
+    LoadedPlugin* p = &g_plugin[g_pluginCount++];
     memset(p, 0, sizeof(*p));
     p->module = mod;
+    wcscpy_s(p->key, candidate.key.c_str());
+    wcscpy_s(p->ini, iniPath);
+    WCToAnsiPath(directory, p->directory, _countof(p->directory));
+    if (!p->directory[0])
+        WideCharToMultiByte(CP_UTF8, 0, directory, -1, p->directory, _countof(p->directory), NULL, NULL);
+    p->host = g_host;
+    p->host.pluginDir = p->directory;
     strncpy_s(p->file, sizeof(p->file), file, _TRUNCATE);
     p->name    = p->file;
     p->version = "";
@@ -1700,7 +1863,7 @@ static void LoadOnePlugin(const char* file)
     TsmPluginInfo info;
     memset(&info, 0, sizeof(info));
     int rc = 1;
-    __try { rc = init(&g_host, &info); }
+    __try { rc = init(&p->host, &info); }
     __except (FaultFilter("plugin init", GetExceptionInformation())) { rc = 1; }
     g_currentPlugin = "?";
 
@@ -1715,14 +1878,13 @@ static void LoadOnePlugin(const char* file)
         // go too, which is why FreeLibrary only happens on this path.
         Logf("plugin   \"%s\" declined to install (%d)", file, rc);
         DropServices(p->file);
+        --g_pluginCount;
         FreeLibrary(mod);
         return;
     }
 
     p->start = (TsmPluginStartFn)GetProcAddress(mod, TSM_EXPORT_START);
-    g_pluginCount++;
-
-    Logf("plugin   %-16s %-8s from %s", p->name, p->version, file);
+    Logf("plugin   %-16s %-8s from %ls", p->name, p->version, candidate.path.c_str());
 }
 
 // Second phase. Every plugin's Init has run, so every service that will ever
@@ -1744,65 +1906,35 @@ static void StartPlugins()
     }
 }
 
-#define MAX_PLUGIN_FILES 128
-
-static int __cdecl CompareNames(const void* a, const void* b)
-{
-    return _stricmp((const char*)a, (const char*)b);
-}
-
 static void LoadPlugins()
 {
-    _snprintf_s(g_pluginDir, sizeof(g_pluginDir), _TRUNCATE, "%s\\plugins", g_baseDir);
-
-    DWORD attr = GetFileAttributesA(g_pluginDir);
-    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY))
-    {
-        Logf("plugin   no plugins folder at %s", g_pluginDir);
-        return;
-    }
-
+    const std::wstring base = tsm::ModuleDir(g_self);
+    if (base.empty()) return;
+    const auto local = tsm::JoinPath(base, L"plugins");
+    CreateDirectoryW(local.c_str(), NULL);
+    auto workshop = tsm::ReadWorkshopOverride(g_iniPathWide);
+    if (workshop.empty()) workshop = tsm::WorkshopDefault(base);
+    const auto candidates = tsm::DiscoverPlugins(local, workshop);
+    // Where the plugins were looked for, so a missing one can be explained from
+    // the log alone. Name order across both places; a local DLL wins a name.
+    Logf("plugin   scan: %d plugin DLL(s) in %ls and, in any depth, %ls",
+         (int)candidates.size(), local.c_str(), workshop.empty() ? L"(no Workshop folder found)" : workshop.c_str());
+    g_plugin.resize(candidates.size());
     BuildHostTable();
-
-    char pattern[MAX_PATH];
-    _snprintf_s(pattern, sizeof(pattern), _TRUNCATE, "%s\\*.dll", g_pluginDir);
-
-    WIN32_FIND_DATAA fd;
-    HANDLE h = FindFirstFileA(pattern, &fd);
-    if (h == INVALID_HANDLE_VALUE)
+    for (const auto& candidate : candidates)
     {
-        Logf("plugin   no plugins in %s", g_pluginDir);
-        return;
-    }
-
-    // Name order, sorted here rather than trusted: FindFirstFile is alphabetical
-    // on NTFS and on nothing else, and the order is a promise plugins rely on
-    // (resources_plus has to init before soviet_mod_loader, for one).
-    static char names[MAX_PLUGIN_FILES][64];
-    int count = 0;
-    do
-    {
-        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        if (count >= MAX_PLUGIN_FILES)
+        if (!PluginEnabled(candidate.key.c_str()))
         {
-            Logf("plugin   \"%s\" not considered - only %d files fit", fd.cFileName, MAX_PLUGIN_FILES);
+            Logf("plugin   %ls off in tesmioloader.ini [plugins]", candidate.file.c_str());
             continue;
         }
-        strncpy_s(names[count++], sizeof(names[0]), fd.cFileName, _TRUNCATE);
-    } while (FindNextFileA(h, &fd));
-    FindClose(h);
-    qsort(names, (size_t)count, sizeof(names[0]), CompareNames);
-
-    for (int i = 0; i < count; i++)
-    {
-        if (!PluginEnabled(names[i]))
-        {
-            Logf("plugin   %-16s off in tesmioloader.ini [plugins]", names[i]);
-            continue;
-        }
-        LoadOnePlugin(names[i]);
+        const auto ini = candidate.IniPath();
+        const auto dir = tsm::Parent(candidate.path);
+        if (ini.size() < MAX_PATH)
+            LoadOnePlugin(candidate, ini.c_str(), dir.c_str());
+        else
+            Logf("plugin   %ls skipped - its path is longer than %d characters", candidate.file.c_str(), MAX_PATH);
     }
-
     StartPlugins();
     Logf("plugin   %d loaded", g_pluginCount);
 }
@@ -1877,9 +2009,13 @@ static char* LoadIniText(const char* ini, char** text)
     *text = NULL;
     if (!ini || !*ini) return NULL;
 
-    HANDLE h = CreateFileA(ini, GENERIC_READ,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                           NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    // The loader's own ini is opened by its wide path: the ANSI copy of a game
+    // folder with characters outside the system codepage does not open at all,
+    // and every plugin switch would silently read as "on".
+    const DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    HANDLE h = (g_iniPathWide[0] && _stricmp(ini, g_iniPath) == 0)
+        ? CreateFileW(g_iniPathWide, GENERIC_READ, share, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)
+        : CreateFileA(ini, GENERIC_READ, share, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (h == INVALID_HANDLE_VALUE) return NULL;
 
     LARGE_INTEGER sz = { 0 };
@@ -2059,6 +2195,14 @@ static bool IniHasKey(const char* ini, const char* section, const char* key)
             return true;
 
     return false;
+}
+
+// The narrow form of api_IniPath, for the manifest code that works on ANSI paths.
+static void api_IniPath(const char* iniName, char* out, size_t n)
+{
+    wchar_t path[MAX_PATH];
+    api_IniPath(iniName, path, _countof(path));
+    WCToAnsiPath(path, out, (int)n);
 }
 
 static bool FileExistsA(const char* p)
@@ -2527,7 +2671,7 @@ static void NoteSaveOpenW(const wchar_t* path, bool writing)
 //
 // The suffix is appended to the format string rather than printed separately,
 // so the game does the drawing and the line stays one string with one layout.
-#define P_MENU_VERSION_SITE 0x28B5CC     // v1.1.1.9; was 0x28B55C. LEA RAX,[rip+disp32] - the format argument
+#define P_MENU_VERSION_SITE 0x28B54C  // v1.1.1.13; was 0x28B5CC. LEA RAX,[rip+disp32] - the format argument
 #define MENU_LEA_LEN        7
 
 static const BYTE kMenuLeaOrig[3] = { 0x48, 0x8D, 0x05 };   // lea rax,[rip+disp32]
@@ -2702,6 +2846,8 @@ static void Init()
     ResolveVfsRoot();
     _snprintf_s(g_iniPath, sizeof(g_iniPath), _TRUNCATE, "%s\\tesmioloader.ini", g_baseDir);
 
+    const auto wideIni = tsm::JoinPath(tsm::ModuleDir(g_self), L"tesmioloader.ini");
+    wcsncpy_s(g_iniPathWide, wideIni.c_str(), _TRUNCATE);
     ReadConfig();
 
     RotateLog();
@@ -2733,7 +2879,7 @@ static void Init()
              t.wYear, t.wMonth, t.wDay);
         Logf("game      %ls", exePath);
         Logf("game      image size 0x%zX  pe-stamp 0x%08lX%s", g_exeSize, (unsigned long)exeStamp,
-             exeStamp == 0x6A3EB6AD ? "  (v1.1.1.9, the build the addresses were taken from)" : "  (NOT the build the addresses were taken from - patches that check their bytes will refuse)");
+             exeStamp == 0x6A8D4087 ? "  (v1.1.1.13, the build the addresses were taken from)" : "  (NOT the build the addresses were taken from - patches that check their bytes will refuse)");
         Logf("base dir  %ls", g_baseDirW);
     }
     Logf("tesmioloader phase B");
@@ -2824,8 +2970,8 @@ BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID)
 // ---------------------------------------------------------------- offline self-test
 //
 // Built as an EXE, never as the DLL:
-//   cl /nologo /O2 /MT /W3 /EHsc /DTESMIO_SELFTEST /Fe"tesmioloader_test.exe" src\tesmioloader.cpp /link kernel32.lib
-//   tesmioloader_test.exe <fresh scratch folder>
+//   cl /nologo /O2 /MT /W3 /EHsc /std:c++17 /DTESMIO_SELFTEST /Fe"tesmioloader_test.exe" src\tesmioloader.cpp /link kernel32.lib
+//   tesmioloader_test.exe <fresh scratch folder> [any built plugin DLL]
 // Exercises the parts that do not need a running game: the ini reader, the VFS
 // path rule, the plugin name order, the service noticeboard and the whole save
 // manifest (write and check) against fake resources/deposits services.
@@ -2876,7 +3022,7 @@ static void t_copyManifest(const char* fromDir, const char* toDir)
 
 int main(int argc, char** argv)
 {
-    if (argc < 2) { printf("usage: tesmioloader_test <fresh scratch folder>\n"); return 2; }
+    if (argc < 2) { printf("usage: tesmioloader_test <fresh scratch folder> [plugin dll]\n"); return 2; }
     const char* root = argv[1];
     InitializeCriticalSection(&g_lock);
     g_noMessageBox = true;
@@ -2903,9 +3049,9 @@ int main(int argc, char** argv)
     Check(IniInt(g_iniPath, "tesmioloader", "save_manifest", 0) == 16, "IniInt takes hex");
     Check(IniInt(g_iniPath, "tesmioloader", "absent", 7) == 7, "IniInt falls back for a missing key");
     { char v[64]; Check(IniReadValue(g_iniPath, "tesmioloader", "menu_tag", v, sizeof(v)) && strcmp(v, "hello world") == 0, "IniReadValue strips one pair of quotes"); }
-    Check(!PluginEnabled("resources.dll"), "[plugins] resources = 0 switches the plugin off");
-    Check(PluginEnabled("resources_plus.dll"), "[plugins] key compares without case");
-    Check(PluginEnabled("unlisted.dll"), "an unlisted plugin is on");
+    Check(!PluginEnabled(L"resources"), "[plugins] resources = 0 switches the plugin off");
+    Check(PluginEnabled(L"resources_plus"), "[plugins] key compares without case");
+    Check(PluginEnabled(L"unlisted"), "an unlisted plugin is on");
     printf("info the Win32 profile API reads resources=%d through the BOM (1 = fooled, the reason the loader has its own reader)\n",
            GetPrivateProfileIntA("plugins", "resources", 1, g_iniPath));
 
@@ -2914,19 +3060,94 @@ int main(int argc, char** argv)
     Check(!HasParentStep("a..b\\c") && !HasParentStep("media_soviet\\x.ini") && !HasParentStep("..x\\y"), "dots inside a name are not a parent step");
     Check(HasParentStepW(L"..\\x") && !HasParentStepW(L"vehicles\\a.nmf"), "the wide rule matches the narrow one");
 
-    // 3. plugin name order
+    // 3. finding plugins: local folder flat, Workshop folder in any depth
     {
-        char names[3][64] = { "soviet_mod_loader.dll", "Resources_plus.dll", "deposits_plus.dll" };
-        qsort(names, 3, sizeof(names[0]), CompareNames);
-        Check(_stricmp(names[0], "deposits_plus.dll") == 0 && _stricmp(names[1], "Resources_plus.dll") == 0 && _stricmp(names[2], "soviet_mod_loader.dll") == 0,
-              "plugins load in case-insensitive name order regardless of the file system");
+        char ws[MAX_PATH], item[MAX_PATH], sub[MAX_PATH];
+        _snprintf_s(ws,   sizeof(ws),   _TRUNCATE, "%s\\workshop", root);                 CreateDirectoryA(ws, NULL);
+        _snprintf_s(item, sizeof(item), _TRUNCATE, "%s\\workshop\\4000000001", root);     CreateDirectoryA(item, NULL);
+        _snprintf_s(sub,  sizeof(sub),  _TRUNCATE, "%s\\workshop\\4000000001\\plugins", root); CreateDirectoryA(sub, NULL);
+        // A file that only calls itself a DLL is not a plugin.
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\notaplugin.dll", sub); t_write(p, "MZ this is text");
+        wchar_t localW[MAX_PATH], wsW[MAX_PATH];
+        MultiByteToWideChar(CP_ACP, 0, plugins, -1, localW, MAX_PATH);
+        MultiByteToWideChar(CP_ACP, 0, ws, -1, wsW, MAX_PATH);
+        Check(tsm::DiscoverPlugins(localW, wsW).empty(), "a file named .dll without the plugin exports is not listed");
+        if (argc >= 3)
+        {
+            // A real plugin DLL, once in the Workshop tree and once more under another name.
+            _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\zeta.dll", sub);  CopyFileA(argv[2], p, FALSE);
+            _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\Alpha.dll", sub); CopyFileA(argv[2], p, FALSE);
+            auto found = tsm::DiscoverPlugins(localW, wsW);
+            Check(found.size() == 2 && _wcsicmp(found[0].key.c_str(), L"alpha") == 0 && _wcsicmp(found[1].key.c_str(), L"zeta") == 0,
+                  "Workshop plugins are found below the item folder, in name order, keyed without .dll");
+            Check(found.size() == 2 && found[0].IniPath().size() > 10 &&
+                  _wcsicmp(found[0].IniPath().c_str() + found[0].IniPath().size() - 9, L"Alpha.ini") == 0,
+                  "a plugin's INI is the file of the same name beside its DLL");
+            _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\zeta.dll", plugins); CopyFileA(argv[2], p, FALSE);
+            found = tsm::DiscoverPlugins(localW, wsW);
+            bool localWins = false;
+            for (const auto& f : found)
+                if (_wcsicmp(f.key.c_str(), L"zeta") == 0) localWins = wcsstr(f.path.c_str(), L"\\build\\plugins\\") != NULL;
+            Check(found.size() == 2 && localWins, "a local DLL wins over a Workshop DLL of the same name");
+            DeleteFileA(p);
+        }
+        else printf("info no plugin DLL given as second argument - the three discovery checks with a real plugin are skipped\n");
     }
 
     // 4. the service noticeboard
-    strncpy_s(g_plugin[0].file, sizeof(g_plugin[0].file), "resources_plus.dll", _TRUNCATE);
-    strncpy_s(g_plugin[1].file, sizeof(g_plugin[1].file), "deposits_plus.dll", _TRUNCATE);
-    strncpy_s(g_plugin[2].file, sizeof(g_plugin[2].file), "buildings_plus.dll", _TRUNCATE);
+    g_plugin.resize(8);
+    _snwprintf_s(g_iniPathWide, MAX_PATH, _TRUNCATE, L"%hs", g_iniPath);
+    auto t_plugin = [&](int i, const char* key)
+    {
+        _snprintf_s(g_plugin[i].file, sizeof(g_plugin[i].file), _TRUNCATE, "%s.dll", key);
+        _snwprintf_s(g_plugin[i].key, MAX_PATH, _TRUNCATE, L"%hs", key);
+        _snwprintf_s(g_plugin[i].ini, MAX_PATH, _TRUNCATE, L"%hs\\%hs.ini", plugins, key);
+    };
+    t_plugin(0, "resources_plus"); t_plugin(1, "deposits_plus"); t_plugin(2, "buildings_plus");
     g_pluginCount = 3;
+    {
+        // A plugin asking for "plugins\<its name>.ini" gets its own INI, wherever its DLL lives.
+        wchar_t got[MAX_PATH];
+        wcscpy_s(g_plugin[1].ini, L"X:\\workshop\\4000000002\\plugins\\deposits_plus.ini");
+        api_IniPath("plugins\\deposits_plus.ini", got, _countof(got));
+        Check(wcscmp(got, g_plugin[1].ini) == 0, "plugins\\<name>.ini resolves to the INI beside the plugin's own DLL");
+        // rmm.2: the finished INI in <loader>\plugins wins while it exists.
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\deposits_plus.ini", plugins);
+        t_write(p, "[deposits_plus]\r\ncode_patch = 1\r\n");
+        api_IniPath("plugins\\deposits_plus.ini", got, _countof(got));
+        Check(wcsstr(got, L"\\build\\plugins\\deposits_plus.ini") != NULL, "an INI of that name in the loader's plugins folder wins over the one beside a Workshop DLL");
+        DeleteFileA(p);
+        api_IniPath("plugins\\deposits_plus.ini", got, _countof(got));
+        Check(wcscmp(got, g_plugin[1].ini) == 0, "and the INI beside the DLL answers again once that file is gone");
+        api_IniPath("plugins\\unknown.ini", got, _countof(got));
+        Check(wcsstr(got, L"\\build\\plugins\\unknown.ini") != NULL, "an INI of no loaded plugin stays relative to the loader");
+        t_plugin(1, "deposits_plus");
+
+        // user_config\<name>.ini is laid over the plugin's INI key by key.
+        char uc[MAX_PATH]; _snprintf_s(uc, sizeof(uc), _TRUNCATE, "%s\\user_config", build); CreateDirectoryA(uc, NULL);
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\buildings_plus.ini", plugins);
+        t_write(p, "[buildings_plus]\r\nenabled = 1\r\nprune = 0\r\nout = media_soviet\\workshop_wip\r\n");
+        Check(api_ConfigInt("plugins\\buildings_plus.ini", "buildings_plus", "prune", 7) == 0, "without an overlay the plugin's own INI answers");
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\buildings_plus.ini", uc);
+        t_write(p, "[buildings_plus]\r\nprune = 1\r\nlabel = mine\r\nhexed = 0x20\r\n");
+        Check(api_ConfigInt("plugins\\buildings_plus.ini", "buildings_plus", "prune", 7) == 1, "a key in user_config wins over the plugin's INI");
+        Check(api_ConfigInt("plugins\\buildings_plus.ini", "buildings_plus", "enabled", 7) == 1, "a key the overlay does not set still comes from the plugin's INI");
+        Check(api_ConfigInt("plugins\\buildings_plus.ini", "buildings_plus", "hexed", 7) == 32, "an overlay number may be hex");
+        char s[64];
+        Check(api_ConfigString("plugins\\buildings_plus.ini", "buildings_plus", "label", s, sizeof(s), "none") == 4 && strcmp(s, "mine") == 0,
+              "a text value comes from the overlay too");
+        Check(api_ConfigString("plugins\\buildings_plus.ini", "buildings_plus", "out", s, sizeof(s), "none") > 0 && strcmp(s, "media_soviet\\workshop_wip") == 0,
+              "a text value the overlay does not set comes from the plugin's INI");
+        // (Asked in the second section: the profile API behind this call cannot see
+        // the first section of a file that starts with a BOM, as check 1 shows.)
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\tesmioloader.ini", uc);
+        t_write(p, "[plugins]\r\nresources = 1\r\n");
+        Check(api_ConfigInt(NULL, "plugins", "resources", 5) == 0, "tesmioloader.ini itself takes no overlay");
+        DeleteFileA(p);
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\buildings_plus.ini", uc);
+        DeleteFileA(p);
+        _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\buildings_plus.ini", plugins); DeleteFileA(p);
+    }
     g_currentPlugin = g_plugin[0].file; api_Provide(TSM_SERVICE_RESOURCES, TSM_RESOURCES_VERSION, &t_res);
     g_currentPlugin = g_plugin[1].file; api_Provide(TSM_SERVICE_DEPOSITS, TSM_DEPOSITS_VERSION, &t_dep);
     g_currentPlugin = "?";
@@ -2984,13 +3205,13 @@ int main(int argc, char** argv)
 
     // 8. no provider loaded at all
     g_pluginCount = 1;
-    strncpy_s(g_plugin[0].file, sizeof(g_plugin[0].file), "buildings_plus.dll", _TRUNCATE);
+    t_plugin(0, "buildings_plus");
     char slot4[MAX_PATH]; _snprintf_s(slot4, sizeof(slot4), _TRUNCATE, "%s\\slot4", saves); t_copyManifest(slot1, slot4);
     Check(CheckSaveManifest(slot4) == 4, "with no resources and no deposits provider every name is reported (3 + 1)");
 
     // 9. the generated folder is gone
     g_pluginCount = 3;
-    strncpy_s(g_plugin[0].file, sizeof(g_plugin[0].file), "resources_plus.dll", _TRUNCATE);
+    t_plugin(0, "resources_plus");
     g_currentPlugin = g_plugin[0].file; api_Provide(TSM_SERVICE_RESOURCES, TSM_RESOURCES_VERSION, &t_res);
     g_currentPlugin = g_plugin[1].file; api_Provide(TSM_SERVICE_DEPOSITS, TSM_DEPOSITS_VERSION, &t_dep); g_currentPlugin = "?";
     _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\9300000001\\tesmioloader.stamp", wip); DeleteFileA(p);

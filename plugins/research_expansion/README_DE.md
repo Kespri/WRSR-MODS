@@ -2,7 +2,7 @@
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
-Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge hinzu, hängt sie an bestehende Forschungen, positioniert ihre Freischaltungen und ändert Vanilla-Forschungen gezielt, ohne die originale `research.ini` anzufassen. Die erweiterte Datei entsteht bei jedem Spielstart im virtuellen Dateisystem (VFS) des TesmioLoaders.
+Fügt *Workers & Resources: Soviet Republic* 1.1.1.13 eigene Forschungseinträge hinzu, hängt sie an bestehende Forschungen, positioniert ihre Freischaltungen und ändert Vanilla-Forschungen gezielt, ohne die originale `research.ini` anzufassen. Die erweiterte Datei entsteht bei jedem Spielstart im virtuellen Dateisystem (VFS) des TesmioLoaders.
 
 ---
 
@@ -27,13 +27,13 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
-- **Pflicht:** das Localization-Plugin (localization.dll), aktiviert. Ohne seinen Dienst wird die Erweiterung nicht angewendet.
+- WRSR 1.1.1.13
+- TesmioLoader ab b0.3.7 (API 4)
+- **Pflicht:** das Localization-Plugin (ab 0.4.0), eingeschaltet. Ohne seinen Dienst wird die Erweiterung nicht angewendet. Republic Mod Manager prüft das vor dem Spielstart und bietet an, Research Expansion auszuschalten, wenn Localization fehlt.
 - Für neue Forschungen: ein Localization-Textpaket mit den Namen und Beschreibungen (Namensraum `research_expansion`); es wird mit dem Localization-Paket ausgeliefert.
 
 ### In drei Schritten
-1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren; Localization muss laufen.
+1. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner. Localization muss ebenfalls abonniert und eingeschaltet sein.
 2. **Forschung eintragen:** Neue Forschungsblöcke in `research_expansion.ini` schreiben (Beispiele stehen auskommentiert darin), Icons als 128 × 128 PNG unter dem Namen `<forschungs_id>.png` in den Ordner `tesmioloader\vfs\media_soviet\research` legen (Republic Mod Manager zeigt und öffnet ihn in der Karte Forschungs-Icons). Änderungen an Vanilla-Forschungen am bequemsten in Republic Mod Manager.
 3. **Spiel vollständig neu starten.** Die erzeugte `research.ini` liegt danach unter `tesmioloader\vfs\media_soviet\research`.
 
@@ -60,78 +60,55 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.9 eigene Forschungseinträge 
 - ✅ **Neue Forschung als INI-Abschnitt:** `[research:<id>]` mit den Schlüsseln `type`, `cost`, `name`, `desc`, `requires`, `unlock` und `line` ist dieselbe Forschung wie ein `$RESEARCH`-Block, nur als Abschnitt, damit Republic Mod Manager sie bearbeiten kann. Beide Formen dürfen gemischt werden und laufen durch dieselbe Prüfung; Abschnitte werden nach den freien Blöcken eingeordnet.
 - ✅ **Kurze Textschlüssel:** In `[research:<id>]` reichen `name = quartz_smasher` oder gar nichts; das Plugin macht daraus `research_expansion.quartz_smasher.name` und `.desc`. Ein Schlüssel mit Punkten gilt wörtlich.
 - ✅ **Kosten ändern ohne Ersetzen-Befehl:** In `[modify:<id>]` reicht `cost = 1800`; das Plugin ersetzt die `$COST`-Zeile des Vanilla-Blocks selbst. Im Republic Mod Manager wählst du die Forschung über „Forschung wählen…“, siehst den Originalblock und baust jede Befehlszeile über „Zeile wählen…“ aus den echten Zeilen.
-- ✅ **Ein Icon-Ordner:** Die Icons liegen in `tesmioloader\vfs\media_soviet\research`, dem Ordner, aus dem das Spiel sie liest. Ein Icon, das dort liegt, bleibt unangetastet; fehlt eines, erzeugt das Plugin es beim Start aus `noimage.png` (aus `research_expansion\icons` neben der DLL, sonst aus `plugins\research_expansion\noimage.png`).
-- ✅ **INI neben der DLL:** Fehlt `plugins\research_expansion.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Der gewählte Pfad steht im Log.
+- ✅ **Ein Icon-Ordner:** Die Icons liegen in `tesmioloader\vfs\media_soviet\research`, dem Ordner, aus dem das Spiel sie liest. Ein Icon, das dort liegt, bleibt unangetastet; fehlt eines, erzeugt das Plugin es beim Start aus `noimage.png` (aus `research_expansion\icons` neben der DLL, sonst aus `tesmioloader\plugins\research_expansion\noimage.png`).
+- ✅ **INI neben der DLL:** Fehlt `tesmioloader\plugins\research_expansion.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Der gewählte Pfad steht im Log.
 
 ---
 
 ## 💾 Installation
 
-Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden. Localization muss in jedem Fall installiert und eingeschaltet sein.
+Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden. Localization muss in jedem Fall abonniert oder installiert und eingeschaltet sein.
 
 ---
 
-### Methode 1️⃣: Klassischer TesmioLoader
+### Methode 1️⃣: Steam Workshop (empfohlen)
 
 ```
-1. Kopiere research_expansion.dll und research_expansion.ini aus hooks\
-   → tesmioloader\build\plugins\
-
-2. Kopiere den Ordner hooks\research_expansion (die Icons)
-   → tesmioloader\build\plugins\research_expansion\
-
-3. Aktiviere research_expansion und localization im TesmioLauncher
-4. Spiel vollständig neu starten
+1. Workshop-Objekt abonnieren, ebenso das Paket Localization
+2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+   von selbst im Workshop-Ordner – nichts wird kopiert
+3. INI und Ersatz-Icon findet die DLL neben sich im Paket
+4. Steam-Updates gelten ab dem nächsten Spielstart
 ```
+
+Ein neu gefundenes Plugin ist eingeschaltet. Aus- und einschalten kannst du es im TesmioLauncher oder mit „Plugin aktiv“ im Republic Mod Manager. Lies vor dem Ausschalten den Warnhinweis unter Konfiguration.
 
 ---
 
-### Methode 2️⃣: Soviet Mod Loader (SML)
+### Methode 2️⃣: Von Hand in den Loader-Ordner
 
 ```
-1. Workshop-Objekt abonnieren – SML liest abonnierte Pakete von selbst
-2. SML lädt die DLL über soviet.mod.ini aus dem Paket, INI und Icons liegen daneben
-3. Eine lokale research_expansion.dll in plugins\ vorher entfernen oder abschalten
+1. Kopiere research_expansion.dll und research_expansion.ini aus plugins\
+   → <Spiel>\tesmioloader\plugins\
+
+2. Kopiere den Ordner plugins\research_expansion (das Ersatz-Icon)
+   → <Spiel>\tesmioloader\plugins\research_expansion\
 ```
 
----
-
-### Methode 3️⃣: Workshop Bridge (ohne SML)
-
-```
-1. Paket in Republic Mod Manager auswählen
-2. „Plugin aktiv“ einschalten
-3. workshop_bridge lädt die DLL direkt aus dem Paket; INI und Icons findet sie neben sich
-4. Steam-Updates gelten sofort
-```
-
----
-
-### Methode 4️⃣: Republic Mod Manager mit „Dateien nur lokal“
-
-```
-1. Paket in Republic Mod Manager auswählen, Einstellungen anpassen, Speichern
-2. Reiter „Allgemein“, Karte „Hinweise“: „Dateien nur lokal“ einschalten
-3. Bestätigung mit Dateiliste → DLL, INI und der Icon-Ordner werden beim
-   Speichern nach tesmioloader\build\plugins\ kopiert
-4. Die Workshop Bridge überspringt das Paket danach automatisch
-```
-
-**„Dateien nur lokal“ im Detail**
-- Für alle, die das Plugin ohne Steam-Abo weiterbenutzen wollen
-- Steam-Updates gelten bei lokalen Dateien erst nach erneutem Speichern (gelbe Marke „Update“)
-- Ausschalten entfernt nur die von Republic Mod Manager kopierten Dateien wieder
+Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloader\plugins` hat Vorrang vor der gleichnamigen aus dem Workshop; Updates kopierst du dann selbst nach.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager zeigt Research Expansion damit in zwei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Research Expansion damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Plugin-Einstellungen (Erweiterung anwenden, Forschungs-Icons, Diagnoseprotokoll)
+- **Allgemein:** Hinweise, Knopf für diese Anleitung und die Plugin-Einstellungen (Erweiterung anwenden, Forschungs-Icons, Fehlersuche)
+- **Neue Forschungen:** links die Liste, rechts die gewählte Forschung mit Typ, Kosten, Vorgängern, Freischaltungen, Name und Beschreibung; gespeichert als Abschnitt `[research:<id>]`
+- **Localization:** Namen und Beschreibungen deiner Forschungen je Spielsprache; das Textpaket liegt dafür als eigene Kopie unter `tesmioloader\plugins\localization\research_expansion`
 - **Vanilla-Änderungen:** links die geänderten Forschungen, rechts die gewählte mit Schalter und je einem Mehrzeilenfeld für ersetzen, entfernen, hinzufügen, einfügen und verschieben; der Plus-Knopf legt eine Änderung für eine Vanilla-Forschungs-ID an
 
-Neue Forschungsblöcke (`$RESEARCH … $RESEARCH_ADD`) sind freie Textblöcke und werden weiterhin in der INI geschrieben; Republic Mod Manager lässt sie unverändert stehen. Persönliche Änderungen liegen in `user_config\research_expansion.editor.ini`, die wirksame Datei ist `plugins\research_expansion.ini`; die INI im Paket bleibt unverändert.
+Freie Forschungsblöcke (`$RESEARCH … $RESEARCH_ADD`) werden weiterhin in der INI geschrieben; Republic Mod Manager lässt sie unverändert stehen. Persönliche Änderungen liegen in `user_config\research_expansion.editor.ini`, die wirksame Datei ist `tesmioloader\plugins\research_expansion.ini`; die INI im Paket bleibt unverändert.
 
 ---
 
@@ -140,8 +117,8 @@ Neue Forschungsblöcke (`$RESEARCH … $RESEARCH_ADD`) sind freie Textblöcke un
 ### Hauptdatei: `research_expansion.ini`
 
 Die DLL liest in dieser Reihenfolge:
-- **Zuerst:** `tesmioloader\build\plugins\research_expansion.ini`, falls vorhanden (klassische Installation, „Dateien nur lokal“ oder die von Republic Mod Manager geschriebene wirksame INI)
-- **Sonst:** die INI neben der DLL, im Paket `hooks\research_expansion.ini` (Soviet Mod Loader, Workshop Bridge)
+- **Zuerst:** `tesmioloader\plugins\research_expansion.ini`, falls vorhanden (von Hand installiert oder die von Republic Mod Manager geschriebene wirksame INI)
+- **Sonst:** die INI neben der DLL, im Workshop-Paket `plugins\research_expansion.ini`
 
 ⚠️ **Kommentare nur in eigenen Zeilen mit `;`.** UTF-8 ohne BOM, höchstens 8 MiB. Direktivennamen sind schreibungsabhängig. In `[general]` sind nur `enabled` und `debug` erlaubt (`icon_folder` und `noimage_name` werden ignoriert). Änderungen gelten nach einem vollständigen Neustart.
 
@@ -240,9 +217,9 @@ Die Befehle laufen in Dateireihenfolge, nach den automatischen Freischaltungen n
 
 ## 🖼️ Icons und Texte
 
-**Icons:** PNG, genau 128 × 128 Pixel, höchstens 4 MiB, Dateiname `<forschungs_id>.png` im Ordner `tesmioloader\vfs\media_soviet\research`. Das Plugin legt den Ordner beim ersten Start an. Ein Icon, das dort liegt, bleibt; fehlt eines, wird es aus `noimage.png` erzeugt und eine Warnung protokolliert (Quelle: `research_expansion\icons` neben der DLL, sonst `plugins\research_expansion\noimage.png`). Ein unbrauchbares Icon im Ordner oder ein fehlendes `noimage.png` weist die Erweiterung ab.
+**Icons:** PNG, genau 128 × 128 Pixel, höchstens 4 MiB, Dateiname `<forschungs_id>.png` im Ordner `tesmioloader\vfs\media_soviet\research`. Das Plugin legt den Ordner beim ersten Start an. Ein Icon, das dort liegt, bleibt; fehlt eines, wird es aus `noimage.png` erzeugt und eine Warnung protokolliert (Quelle: `research_expansion\icons` neben der DLL, sonst `tesmioloader\plugins\research_expansion\noimage.png`). Ein unbrauchbares Icon im Ordner oder ein fehlendes `noimage.png` weist die Erweiterung ab.
 
-**Texte:** `$NAME` und `$DESC` verweisen auf ein Localization-Textpaket, etwa `plugins\localization\research_expansion\sovietGerman.ini`:
+**Texte:** `$NAME` und `$DESC` verweisen auf ein Localization-Textpaket, etwa `tesmioloader\plugins\localization\research_expansion\sovietGerman.ini`:
 
 ```ini
 [strings]
@@ -256,7 +233,7 @@ Das Textpaket gehört zum Localization-Plugin und wird mit dessen Paket ausgelie
 
 ## 📏 Wertebereiche
 
-| Grösse | Grenze |
+| Größe | Grenze |
 |---|---|
 | `enabled`, `debug` | genau 0 oder 1 |
 | `$COST` | 1 bis 2.147.483.647 |
@@ -291,19 +268,19 @@ Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden ni
 
 | Problem | Ursache | Lösung |
 |---|---|---|
-| Erweiterung wird nicht angewendet | Localization fehlt oder ist aus | localization.dll installieren und einschalten |
+| Erweiterung wird nicht angewendet | Localization fehlt oder ist aus | Localization abonnieren oder installieren und einschalten |
 | `Localization key ... could not be resolved` | Schlüssel fehlt im Textpaket | Textpaket prüfen, Schlüssel exakt schreiben |
 | `No icon for ... and no usable noimage.png` | Icon und Ersatz-Icon fehlen | 128 × 128 PNG als `<id>.png` nach `vfs\media_soviet\research` legen oder `noimage.png` bereitstellen |
 | `Icon for ... is unusable` | PNG im VFS-Ordner kaputt oder falsche Größe | Datei ersetzen oder löschen, dann entsteht sie neu aus `noimage.png` |
 | `Unknown directive` | Tippfehler oder nicht unterstützte Direktive | Zeile mit der originalen research.ini vergleichen |
 | `Research ... already exists` | ID doppelt | eindeutige ID wählen |
-| `Dependency cycle detected` | Kreis in den `+`-Zeilen | Abhängigkeiten entwirren |
+| `Circular dependency found`, `New link creates a cycle` | Kreis in den `+`- oder `$UNLOCK_RESEARCH`-Zeilen | Abhängigkeiten entwirren |
 | Forschung bleibt nach Abschalten sichtbar | DLL abgeschaltet, ohne vorher `enabled = 0` | Plugin einschalten, `enabled = 0`, Spiel einmal starten |
 
 ### Logging
 
 Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.research_expansion.log`, mit Regelnamen wie `placement-target`, `modify-match`, `research-cycle`.
-- In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
+- In **Republic Mod Manager** öffnet das Protokoll-Symbol in der Seitenleiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
 - `Configuration file`, `Icon store` und `Fallback icon` → welche INI, welcher Icon-Ordner und welches Ersatz-Icon gewählt wurden
@@ -313,10 +290,10 @@ Suche nach:
 
 ## 📦 Dateistruktur
 
-**Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
+**Workshop-Paket** (Steam-Abo)
 ```
-research_expansion\
-├── hooks\
+<Workshop-Objekt>\
+├── plugins\
 │   ├── research_expansion.dll      (Plugin)
 │   ├── research_expansion.ini      (Original-INI, Beispiele auskommentiert)
 │   └── research_expansion\icons\
@@ -326,27 +303,28 @@ research_expansion\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (Manifest für SML, Bridge und Republic Mod Manager)
+├── rmm.mod.ini                     (Manifest für Republic Mod Manager)
 ├── workshopconfig.ini              (Steam-Workshop-Eintrag)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader-Ordner** (Methode 1 von Hand oder „Dateien nur lokal“)
+**Loader-Ordner**
 ```
-tesmioloader\
-├── build\
-│   ├── plugins\
-│   │   ├── localization.dll        (Pflicht, eigenes Plugin)
-│   │   ├── localization\research_expansion\   (Textpaket, aus dem Localization-Paket)
-│   │   ├── research_expansion.dll
-│   │   ├── research_expansion.ini  (wirksame INI)
-│   │   └── research_expansion\noimage.png (nur ohne Workshop, von Hand kopiert)
-│   └── user_config\
-│       └── research_expansion.editor.ini (persönliche Änderungen aus Republic Mod Manager)
+<Spiel>\tesmioloader\
+├── plugins\
+│   ├── localization\research_expansion\   (deine Kopie des Textpakets, sobald du sie im Republic Mod Manager anlegst)
+│   ├── research_expansion.dll      (nur bei Methode 2)
+│   ├── research_expansion.ini      (wirksame INI)
+│   └── research_expansion\icons\noimage.png (nur bei Methode 2)
+├── user_config\
+│   └── research_expansion.editor.ini (persönliche Änderungen aus Republic Mod Manager)
 └── vfs\media_soviet\research\      (erzeugte research.ini und die Icons <id>.png)
 ```
+
+Aus dem Workshop geladen, bleiben DLL und Ersatz-Icon im Paket; in `tesmioloader\plugins` liegt dann nur die wirksame INI, sobald du im Republic Mod Manager gespeichert hast.
 
 ---
 
@@ -370,12 +348,12 @@ A: Meist fehlt Localization oder ein Sprachschlüssel, oder ein Fehler hat die g
 A: Ja. Änderungsabschnitte funktionieren ohne neue Blöcke; nur der Localization-Dienst muss laufen.
 
 **F: Wie werde ich die Erweiterung wieder los?**
-A: Plugin ausschalten, Spiel einmal starten, dann die DLL abschalten. So räumt das Plugin das VFS auf.
+A: Erst `enabled = 0` setzen („Erweiterung anwenden“ AUS im Republic Mod Manager), das Spiel einmal starten, dann die DLL abschalten. So räumt das Plugin das VFS auf.
 
 **F: Muss ich die INI von Hand bearbeiten?**
-A: Für neue Forschungsblöcke ja. Änderungen an Vanilla-Forschungen und die Plugin-Einstellungen bietet Republic Mod Manager als Liste mit Beschreibung an.
+A: Nein. Neue Forschungen, Änderungen an Vanilla-Forschungen und die Plugin-Einstellungen bietet Republic Mod Manager als Liste mit Beschreibung an. Nur freie `$RESEARCH`-Blöcke schreibst du weiter von Hand.
 
 ---
 
 **Letzte Aktualisierung:** Research Expansion 0.4.2  
-**Für:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Für:** WRSR 1.1.1.13 | TesmioLoader API 4

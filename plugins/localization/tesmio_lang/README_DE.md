@@ -20,11 +20,11 @@ Ein Localization-Textpaket mit dem Namensraum `tesmio_lang`, in dem mehrere Plug
 ## 🚀 Schnellstart
 
 ### Voraussetzungen
-- Localization-Plugin (im Paket enthalten oder klassisch installiert)
+- Localization-Plugin (aus dem Workshop abonniert oder von Hand in den Loader-Ordner kopiert)
 - Ein Plugin, das den Namensraum benutzt, derzeit Depletion 1.1.2
 
 ### In drei Schritten
-1. Das Textpaket liegt im Localization-Paket unter `hooks\localization\tesmio_lang` und wird von dort geladen; bei klassischer Installation den Ordner nach `plugins\localization\tesmio_lang` kopieren.
+1. Das Textpaket liegt im Localization-Paket unter `plugins\localization\tesmio_lang` und wird von dort geladen. Eigene oder angepasste Textpakete kommen nach `<Spiel>\tesmioloader\plugins\localization\<paketname>`; hast du Localization von Hand installiert, liegt auch `tesmio_lang` dort.
 2. Localization aktivieren.
 3. Spiel vollständig neu starten. Im Protokoll von Depletion steht `localization key tesmio_lang.depletion.deposit_remaining resolved to …`.
 
@@ -79,7 +79,7 @@ Depletion ab 1.1.2 nutzt bei aktivem Localization die Übersetzung der gewählte
 |---|---|---|
 | `localization key tesmio_lang.depletion.deposit_remaining missing/invalid` (Depletion) | Paket nicht geladen oder Schlüssel fehlt | Ordner und `sovietEnglish.ini` prüfen; Localization-Protokoll lesen |
 | `Pack was rejected because its localization.ini is invalid` (Localization) | Paketkonfiguration fehlerhaft | genau ein Abschnitt `[localization]` mit `namespace` und `fallback` |
-| `namespace-collision` | ein zweites Paket mit Namensraum `tesmio_lang` | eines der beiden entfernen; gleiche Ordnernamen unter `plugins\localization` und neben der DLL werden zusammengeführt, nicht doppelt geladen |
+| `namespace-collision` | ein zweites Paket mit Namensraum `tesmio_lang` | eines der beiden entfernen; gleiche Ordnernamen unter `tesmioloader\plugins\localization` und neben der DLL werden zusammengeführt, nicht doppelt geladen |
 | Beschriftung bleibt englisch | Spielsprache ohne Sprachdatei | `soviet<Sprache>.ini` ergänzen |
 
 Änderungen an Sprachdateien gelten nach einem vollständigen Neustart des Spiels.
@@ -99,5 +99,5 @@ tesmio_lang\
 
 ---
 
-**Letzte Aktualisierung:** tesmio_lang, Localization 1.2  
-**Für:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Letzte Aktualisierung:** tesmio_lang, Localization 0.4.0  
+**Für:** WRSR 1.1.1.13 | TesmioLoader API 4

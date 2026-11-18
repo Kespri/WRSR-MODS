@@ -89,7 +89,7 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.1.10"
+#define PLUGIN_VERSION    "0.1.11"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
@@ -1641,7 +1641,9 @@ static void LoadRegistry(const std::string& text)
 // (the Workshop package under Soviet Mod Loader or the Workshop Bridge).
 static std::wstring ConfigPath()
 {
-    std::wstring ini = WideAnsi(H->pluginDir) + L"\\buildings_plus.ini";
+    // 0.1.11: the loader folder is named through baseDir. pluginDir is the folder of this
+    // DLL, which for a DLL loaded from a Workshop item is the package itself.
+    std::wstring ini = WideAnsi(H->baseDir) + L"\\plugins\\buildings_plus.ini";
     if (FileExists(ini)) return ini;
     static const char anchor = 0;
     HMODULE self = NULL;
@@ -1679,7 +1681,9 @@ static std::string LowerCopy(const std::string& s)
 
 static std::wstring CatalogPath()
 {
-    return WideAnsi(H->pluginDir) + L"\\" + Wide(CATALOG_NAME);
+    // Always in <loader>\plugins, never beside a DLL in a Workshop item: Steam rewrites that
+    // folder on every update, and the numbers in this file are part of the saved games.
+    return WideAnsi(H->baseDir) + L"\\plugins\\" + Wide(CATALOG_NAME);
 }
 
 static void LoadCatalog()
@@ -2078,7 +2082,7 @@ int wmain(int argc, wchar_t** argv)
     if (DirExists(root)) { printf("scratch folder must not exist yet: %ls\n", root.c_str()); return 2; }
     // A fixed owner, so the checks say the same thing on every machine and with
     // the Steam client signed out.
-    SetTestOwner(76561198017498697ULL);
+    SetTestOwner(76561198000012345ULL);
     std::wstring game = root + L"\\game", build = root + L"\\game\\tesmioloader\\build", plugins = build + L"\\plugins";
     EnsureDir(root); EnsureDir(game); EnsureDir(game + L"\\tesmioloader"); EnsureDir(build); EnsureDir(plugins);
     std::wstring media = game + L"\\media_soviet";
@@ -2170,13 +2174,13 @@ int wmain(int argc, wchar_t** argv)
     // game reports the building as a missing Workshop item on every save load.
     std::string cfg;
     Check(ReadTextFile(item + L"\\workshopconfig.ini", &cfg) &&
-          cfg.find("$OWNER_ID 76561198017498697\r\n") != std::string::npos,
+          cfg.find("$OWNER_ID 76561198000012345\r\n") != std::string::npos,
           "the workshopconfig carries the Steam owner id of whoever generated it");
     Put(item + L"\\workshopconfig.ini", "$ITEM_ID 9400000001\r\n\r\n$OWNER_ID 0\r\n\r\n$END\r\n");
     g_warnings = 0; g_errors = 0;
     Run(ini, "test");
     Check(ReadTextFile(item + L"\\workshopconfig.ini", &cfg) &&
-          cfg.find("$OWNER_ID 76561198017498697\r\n") != std::string::npos &&
+          cfg.find("$OWNER_ID 76561198000012345\r\n") != std::string::npos &&
           cfg.find("$OBJECT_BUILDING") != std::string::npos,
           "an up to date folder with $OWNER_ID 0 has the owner written into it");
 
@@ -2188,7 +2192,7 @@ int wmain(int argc, wchar_t** argv)
         "$ITEM_ID 9188000001\r\n\r\n$OWNER_ID 0\r\n\r\n$ITEM_TYPE WORKSHOP_ITEMTYPE_BUILDING\r\n\r\n"
         "$VISIBILITY 0\r\n$OBJECT_BUILDING SaltMine\r\n\r\n$ITEM_NAME \"Salt Mine\"\r\n\r\n$END\r\n";
     std::string smlWant = smlCfg;
-    smlWant.replace(smlWant.find("$OWNER_ID 0"), strlen("$OWNER_ID 0"), "$OWNER_ID 76561198017498697");
+    smlWant.replace(smlWant.find("$OWNER_ID 0"), strlen("$OWNER_ID 0"), "$OWNER_ID 76561198000012345");
     const std::string foreignStamp = "tesmioloader plugins\\buildings.dll generated this folder.\r\nhash=0\r\n";
     EnsureDir(out + L"\\9188000001"); Put(out + L"\\9188000001\\" + Wide(STAMP_NAME), foreignStamp);
     Put(out + L"\\9188000001\\workshopconfig.ini", smlCfg);
@@ -2375,7 +2379,7 @@ int wmain(int argc, wchar_t** argv)
           "a section SML numbered gets SML's number and its folder is written again from our declaration");
     Check(ReadTextFile(out + L"\\9150000001\\" + Wide(STAMP_NAME), &adoptedStamp) && Has(adoptedStamp, STAMP_MARK) && Has(adoptedStamp, "section=adopted donor="),
           "the taken-over folder carries our stamp with section= the way SML reads it");
-    Check(ReadTextFile(out + L"\\9150000001\\workshopconfig.ini", &adoptedCfg) && Has(adoptedCfg, "$OWNER_ID 76561198017498697"),
+    Check(ReadTextFile(out + L"\\9150000001\\workshopconfig.ini", &adoptedCfg) && Has(adoptedCfg, "$OWNER_ID 76561198000012345"),
           "and the owner id SML left at 0 is filled in");
     Check(ReadTextFile(CatalogPath(), &cat9) && Has(cat9, "adopted = 9150000001") && Has(cat9, "explicit_ok = 9150000004"),
           "our catalog records SML's numbers");

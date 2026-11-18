@@ -1,13 +1,13 @@
-// v0.1.75: add-only reconciliation at the native building-load call boundary.
+// Add-only reconciliation at the native building-load call boundary.
 // No polling, live UI mutation, raw memcpy of owning Storage objects, or use
 // of the plugin's C++ allocator for game-owned memory. See TECHNICAL_NOTES.md.
 #pragma once
 
-static const DWORD RVA_MIGRATION_BUILDING_LOAD = 0x001F0BE0;
-static const DWORD RVA_MIGRATION_BUILDING_LOAD_CALL = 0x004331D7;
+static const DWORD RVA_MIGRATION_BUILDING_LOAD = 0x001F0B60;
+static const DWORD RVA_MIGRATION_BUILDING_LOAD_CALL = 0x00433167;
 static const DWORD RVA_MIGRATION_STORAGE_PUSH = 0x000CC2F0;
 static const DWORD RVA_MIGRATION_VECTOR_DESTROY = 0x000B18F0;
-static const DWORD RVA_MIGRATION_STORAGE_CONTROLS = 0x001EBBF0;
+static const DWORD RVA_MIGRATION_STORAGE_CONTROLS = 0x001EBB70;
 static const size_t MIGRATION_TYPE_STORAGES = 0x3A0;
 
 struct MigrationVector { BYTE* begin; BYTE* end; BYTE* capacity; };
@@ -421,7 +421,7 @@ static bool InstallStorageMigrationHook()
     static const BYTE copy[] = { 0x48,0x8B,0xC4,0x48,0x89,0x48,0x08,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57 };
     static const BYTE controls[] = { 0x48,0x89,0x5C,0x24,0x10,0x57,0x48,0x83,0xEC,0x20,0x48,0x8B,0x51,0x08 };
     static const BYTE destroy[] = { 0x48,0x89,0x5C,0x24,0x10,0x56,0x48,0x83,0xEC,0x20,0x48,0x8B,0x19,0x48,0x8B,0xF1 };
-    static const BYTE call[] = { 0x48,0x8B,0xD6,0x4A,0x8B,0x0C,0xC1,0xE8,0x04,0xDA,0xDB,0xFF };
+    static const BYTE call[] = { 0x48,0x8B,0xD6,0x4A,0x8B,0x0C,0xC1,0xE8,0xF4,0xD9,0xDB,0xFF };
     if (!MigrationVerify(RVA_MIGRATION_BUILDING_LOAD_CALL - 7, call, sizeof(call), "load call + arguments") ||
         !MigrationVerify(RVA_MIGRATION_BUILDING_LOAD, load, sizeof(load), "loader") ||
         !MigrationVerify(RVA_MIGRATION_STORAGE_PUSH, push, sizeof(push), "push") ||

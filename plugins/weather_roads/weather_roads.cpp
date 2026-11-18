@@ -1,5 +1,5 @@
 // weather_roads - road snow, melting and material-aware protection.
-// Beta 0.2.9 retains verified weather/road/terrain hooks and save sidecars.
+// It retains only verified weather/road/terrain hooks and save sidecars.
 // Discovery breakpoints, memcpy/memset observers and unverified fade reads
 // are removed. Detailed event logging is opt-in; real warnings always remain.
 
@@ -17,7 +17,7 @@
 #pragma comment(lib, "gdi32.lib")
 
 #define PLUGIN_NAME       "weather_roads"
-#define PLUGIN_VERSION    "0.3.3"
+#define PLUGIN_VERSION    "0.3.5"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
 #define PLUGIN_LOG        "tesmioloader.weather_roads.log"
 
@@ -25,9 +25,9 @@
 #define SYM_MASK_TEXTURE_OPEN "?MaskTextureOpen@C3D_TERRAIN@@QEAAXXZ"
 #define SYM_MASK_TEXTURE_CLOSE "?MaskTextureClose@C3D_TERRAIN@@QEAAXXZ"
 
-#define EXPECTED_TIMESTAMP  0x6A3EB6ADu
+#define EXPECTED_TIMESTAMP  0x6A8D4087u
 #define EXPECTED_IMAGE_SIZE 0x00A9D000u
-#define EXPECTED_ENGINE_TIMESTAMP  0x6A3E75BCu
+#define EXPECTED_ENGINE_TIMESTAMP  0x6A8B496Du
 #define EXPECTED_ENGINE_IMAGE_SIZE 0x001F2000u
 
 // C3DAPI_D3D11_TEXTURE::TextureAccesSetTexel is the confirmed virtual writer
@@ -55,16 +55,16 @@ static const BYTE kEngineTextureSetTexel[] = {
 //
 //   xor edx,edx
 //   mov rcx,r14            ; the real weather/world object
-//   call 0x333BD0          ; weather tick (possibly detoured by daynight.dll)
+//   call 0x333B50          ; weather tick (possibly detoured by daynight.dll)
 //   xor edx,edx
 //   mov rcx,r14
 //
 // The generated stub captures r14, executes the weather call through its
 // public entry (therefore preserving any daynight hook), restores the final
 // rcx/edx setup and resumes at the following light-factor call.
-#define RVA_WEATHER_CALL_SITE   0x30D9D8
-#define RVA_WEATHER_TICK        0x333BD0
-#define RVA_WEATHER_CALL_RESUME 0x30D9E7
+#define RVA_WEATHER_CALL_SITE   0x30D958
+#define RVA_WEATHER_TICK        0x333B50
+#define RVA_WEATHER_CALL_RESUME 0x30D967
 
 static const BYTE kWeatherCallSite[] = {
     0x33, 0xD2,
@@ -74,11 +74,11 @@ static const BYTE kWeatherCallSite[] = {
     0x49, 0x8B, 0xCE
 };
 
-// Actual road-snow clearing routine.  The public entry at 0x6BC210 first
-// refuses a null road in rdx.  Hooking the body at 0x6BC219 keeps that guard
+// Actual road-snow clearing routine.  The public entry at 0x6BC3B0 first
+// refuses a null road in rdx.  Hooking the body at 0x6BC3B9 keeps that guard
 // untouched.  The displaced 17-byte prologue is position independent and is
 // therefore safe in the loader's trampoline.
-#define RVA_ROAD_SNOW_CLEAR_BODY 0x6BC219
+#define RVA_ROAD_SNOW_CLEAR_BODY 0x6BC3B9
 
 static const BYTE kRoadSnowClearBody[] = {
     0x48, 0x8B, 0xC4,
@@ -93,7 +93,7 @@ static const BYTE kRoadSnowClearBody[] = {
 // road snow vector and performs clamp(old + delta, 0, 255). Positive weather
 // calls pass +30; verified negative callers pass -30 or -255 and must remain
 // untouched by the accumulation experiment.
-#define RVA_ROAD_SNOW_ADJUST 0x42AF60
+#define RVA_ROAD_SNOW_ADJUST 0x42AEF0
 
 // The renderer calls this verified world-mask update once per requested mask
 // refresh. Weather writes 0x0101 to world + 0x5E4 immediately before its +30
@@ -101,7 +101,7 @@ static const BYTE kRoadSnowClearBody[] = {
 // function and +0x5E5 after it returns. Hooking the complete function lets the
 // protected plow texels be restored after the GPU snowfall command and before
 // the caller can present the completed frame.
-#define RVA_GLOBAL_MASK_UPDATE 0x40E7E0
+#define RVA_GLOBAL_MASK_UPDATE 0x40E720
 
 static const BYTE kGlobalMaskUpdate[] = {
     0x48, 0x8B, 0xC4,
@@ -113,8 +113,8 @@ static const BYTE kGlobalMaskUpdate[] = {
 // Both verified positive +30 weather branches return at one of these two
 // addresses.  Only these callers may use the gradual pre-mask queue; other
 // positive callers retain the existing immediate, scaled behaviour.
-#define RVA_WEATHER_SNOW_ADJUST_RETURN_1 0x5D0807
-#define RVA_WEATHER_SNOW_ADJUST_RETURN_2 0x5D08F5
+#define RVA_WEATHER_SNOW_ADJUST_RETURN_1 0x5D0797
+#define RVA_WEATHER_SNOW_ADJUST_RETURN_2 0x5D0885
 
 static const BYTE kRoadSnowAdjust[] = {
     0x48, 0x89, 0x5C, 0x24, 0x10,
@@ -126,15 +126,15 @@ static const BYTE kRoadSnowAdjust[] = {
 // The clearing routine contains four loops that execute one of these exact
 // zero stores.  Each 14-byte sequence is position independent and ends on an
 // instruction boundary, matching the loader's absolute-jump requirement.
-#define RVA_ROAD_SNOW_WRITE_1 0x6BC2A0
-#define RVA_ROAD_SNOW_WRITE_2 0x6BC370
-#define RVA_ROAD_SNOW_WRITE_3 0x6BC440
-#define RVA_ROAD_SNOW_WRITE_4 0x6BC4E0
+#define RVA_ROAD_SNOW_WRITE_1 0x6BC440
+#define RVA_ROAD_SNOW_WRITE_2 0x6BC510
+#define RVA_ROAD_SNOW_WRITE_3 0x6BC5E0
+#define RVA_ROAD_SNOW_WRITE_4 0x6BC680
 
 // The queued terrain edits are flushed through the executable's EditMask IAT
-// call at 0x40EE3B.  A direct call returns here.  The parameter signature is
+// call at 0x40ED7B.  A direct call returns here.  The parameter signature is
 // also checked, so a hook chained through another plugin remains observable.
-#define RVA_EDIT_MASK_FLUSH_RETURN 0x40EE41
+#define RVA_EDIT_MASK_FLUSH_RETURN 0x40ED81
 
 // Every verified executable caller of GetMaskPixelOverPoint loads the terrain
 // through this global game-world pointer and then world + 0xED8.  The regular
@@ -284,7 +284,7 @@ static BYTE g_visualSnowShaderAmount[256];
 #define MASK_CHANGE_EPSILON 0.0025f
 
 // Capture every texel touched by one verified brush. The world position forms
-// a spatially continuous trajectory that v0.2.6 can bind across the confirmed
+// a spatially continuous trajectory that the plugin can bind across the confirmed
 // render-thread/vehicle-thread boundary without mixing nearby vehicles.
 struct VisibleBrushCapture
 {
@@ -1405,13 +1405,13 @@ static bool VerifyExecutable()
     if (timestamp != EXPECTED_TIMESTAMP || imageSize != EXPECTED_IMAGE_SIZE)
     {
         Warn("unsupported SOVIET64.exe: TimeDateStamp=0x%08X, "
-             "SizeOfImage=0x%08X; expected WRSR 1.1.1.9 "
+             "SizeOfImage=0x%08X; expected WRSR 1.1.1.13 "
              "(0x%08X, 0x%08X). No worker or hook was installed",
              timestamp, imageSize, EXPECTED_TIMESTAMP, EXPECTED_IMAGE_SIZE);
         return false;
     }
 
-    Info("executable verified: WRSR 1.1.1.9, TimeDateStamp=0x%08X, "
+    Info("executable verified: WRSR 1.1.1.13, TimeDateStamp=0x%08X, "
          "SizeOfImage=0x%08X", timestamp, imageSize);
     return true;
 }
@@ -1449,7 +1449,7 @@ static bool VerifyEngine()
         imageSize != EXPECTED_ENGINE_IMAGE_SIZE)
     {
         Warn("unsupported C3DDLL64.dll: TimeDateStamp=0x%08X, "
-             "SizeOfImage=0x%08X; expected WRSR 1.1.1.9 engine "
+             "SizeOfImage=0x%08X; expected WRSR 1.1.1.13 engine "
              "(0x%08X, 0x%08X). No engine inline hook was installed",
              timestamp, imageSize, EXPECTED_ENGINE_TIMESTAMP,
              EXPECTED_ENGINE_IMAGE_SIZE);
@@ -3163,8 +3163,8 @@ static void ResetPlowVisualLogicalSnowBurst(void)
 // not pass through the observed CPU-side TextureAccessClose upload. A positive
 // authoritative road-snow adjustment or a scaled -30 natural-melt pulse
 // schedules one coalesced pass on the already verified game-update thread.
-// Version 0.1.38 deliberately waits 16 ms: the old inline pass usually ran
-// before the GPU write, while the pre-Present pass stalled rendering and was
+// The pass deliberately waits 16 ms: an inline pass usually ran
+// before the GPU write, while a pre-Present pass stalled rendering and was
 // still too late for the completed frame. There is no render-thread work and
 // no permanent one-second full-mask scan. The plow-only layer still waits for
 // verified plow texels. Each burst receives a generation number so repeated
@@ -3683,7 +3683,7 @@ static void SampleTrackedMaskPoints(void* weatherWorld, ULONGLONG now)
     if (!maskTexture || !ReadablePtr(maskTexture, 0x1C)) return;
     InterlockedExchangePointer(&g_terrainMaskTexture, maskTexture);
 
-    // Visible correction is event-driven in v0.1.38. A permanent full-mask
+    // Visible correction is event-driven. A permanent full-mask
     // readback here caused redundant work between snow impulses and could
     // visibly pull an already rendered mask backwards on the next sample.
     FlushExperimentalLimiterStatus(now);
@@ -4115,7 +4115,7 @@ static void SampleTrackedMaskPoints(void* weatherWorld, ULONGLONG now)
         if (shouldLog)
         {
             // EditMask's channel number 2 maps to C3DFCOLOR component 1 (the
-            // green RGBA value), as confirmed by the v0.1.6 runtime samples.
+            // green RGBA value), as confirmed by runtime samples.
             // Initial samples intentionally report a zero delta.
             if (initialLog) component1Delta = 0.0f;
             Event("terrain-mask sample: point=%u reason=%s age_since_paint_ms=%llu "
@@ -5726,7 +5726,7 @@ static VisibleBrushTrack* SelectVisibleTrackForClearLocked(
     return best;
 }
 
-// v0.2.6 binds the spatially continuous render-thread trajectory to one
+// Binds the spatially continuous render-thread trajectory to one
 // vehicle. Only still-open brushes on that trajectory are finalised here;
 // already finalised older road sections are never changed by a later dry pass.
 static void ApplyTreatmentToPendingVisibleBrushes(
@@ -8261,7 +8261,7 @@ static bool InstallWeatherCaptureProbe()
     if (memcmp(target, kWeatherCallSite, sizeof(kWeatherCallSite)) != 0)
     {
         Warn("weather probe refused: bytes at RVA 0x%X do not match the "
-             "verified v1.1.1.9 caller", RVA_WEATHER_CALL_SITE);
+             "verified v1.1.1.13 caller", RVA_WEATHER_CALL_SITE);
         return false;
     }
 
@@ -8295,7 +8295,7 @@ static bool InstallWeatherCaptureProbe()
 // ------------------------------------------------------- visible snow mask
 
 // This is the engine primitive that actually paints the visible cleared trail.
-// The game's road-snow path reaches it through the queue flushed at 0x40EE3B
+// The game's road-snow path reaches it through the queue flushed at 0x40ED7B
 // with channel=2, radii 0.50/0.75, delta=255, limit=-1 and on=false.  The hook
 // batches those final parameters, tracks a few spatially separated points and
 // forwards every call byte-for-byte unchanged.
@@ -8614,7 +8614,7 @@ static bool InstallDeepMaskWriteProbe()
                sizeof(kEngineTextureSetTexel)) != 0)
     {
         Warn("deep terrain-mask write observer refused: bytes at engine "
-             "RVA 0x%X do not match WRSR 1.1.1.9",
+             "RVA 0x%X do not match WRSR 1.1.1.13",
              RVA_ENGINE_TEXTURE_SET_TEXEL);
         return false;
     }
@@ -8664,7 +8664,7 @@ static bool InstallTextureAccessProbe()
         vtable[TEXTURE_VTABLE_SLOT_ACCESS_CLOSE] != expectedClose)
     {
         Warn("texture-access observer refused: vtable slots are already "
-             "changed or do not match WRSR 1.1.1.9; open=%p expected=%p, "
+             "changed or do not match WRSR 1.1.1.13; open=%p expected=%p, "
              "open2=%p expected=%p, close=%p expected=%p",
              vtable[TEXTURE_VTABLE_SLOT_ACCESS_OPEN], expectedOpen,
              vtable[TEXTURE_VTABLE_SLOT_ACCESS_OPEN2], expectedOpen2,
@@ -8715,7 +8715,7 @@ static bool InstallRoadSnowClearingProbe()
     if (memcmp(target, kRoadSnowClearBody, sizeof(kRoadSnowClearBody)) != 0)
     {
         Warn("road-snow clearing probe refused: bytes at RVA 0x%X do not "
-             "match the verified v1.1.1.9 function body; weather sampling "
+             "match the verified v1.1.1.13 function body; weather sampling "
              "can still run", RVA_ROAD_SNOW_CLEAR_BODY);
         return false;
     }
@@ -8743,7 +8743,7 @@ static bool InstallRoadSnowClearingProbe()
         if (memcmp(g_exeBase + sites[i].rva, sites[i].expected, 14) != 0)
         {
             Warn("exact road-snow write observation refused: bytes at "
-                 "RVA 0x%X do not match WRSR 1.1.1.9; no road hook was "
+                 "RVA 0x%X do not match WRSR 1.1.1.13; no road hook was "
                  "installed", sites[i].rva);
             return false;
         }
@@ -8803,8 +8803,8 @@ static bool InstallRoadSnowClearingProbe()
 
     Info("road-snow clearing observer installed at body RVA 0x%X; exact "
          "zero-write sites active=%u/4. Generated stubs only observe the old "
-         "byte and then replay the original game instructions; v0.1.18 keeps "
-         "these sites for diagnostics only",
+         "byte and then replay the original game instructions; these sites "
+         "are kept for diagnostics only",
          RVA_ROAD_SNOW_CLEAR_BODY, installedWrites);
     Info("road-snow clearing counter armed; if no 'road-snow clearing status' "
          "line appears, the game did not call the clearing function during "
@@ -8819,7 +8819,7 @@ static bool InstallInternalRoadSnowLimiter()
     if (memcmp(target, kRoadSnowAdjust, sizeof(kRoadSnowAdjust)) != 0)
     {
         Warn("internal road-snow adjustment experiment refused: bytes at "
-             "RVA 0x%X do not match the verified WRSR 1.1.1.9 function; "
+             "RVA 0x%X do not match the verified WRSR 1.1.1.13 function; "
              "no game value was changed", RVA_ROAD_SNOW_ADJUST);
         return false;
     }
@@ -8924,7 +8924,7 @@ static bool InstallGlobalMaskUpdateProbe()
     if (memcmp(target, kGlobalMaskUpdate, sizeof(kGlobalMaskUpdate)) != 0)
     {
         Warn("global snow-mask boundary refused: bytes at RVA 0x%X do not "
-             "match the verified WRSR 1.1.1.9 function; gradual internal "
+             "match the verified WRSR 1.1.1.13 function; gradual internal "
              "snow remains active without inline visual correction",
              RVA_GLOBAL_MASK_UPDATE);
         return false;
@@ -9244,9 +9244,9 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
              "%d-texel margin and short links up to %d texels are linked to "
                 "the game-time protection and salt phases; when the grit "
                 "service is active, each brush joins a bounded spatial "
-                "trajectory; v0.2.6 binds that trajectory to one vehicle "
-                "across the render/update thread boundary and finalises only "
-                "its still-open brush interval with Sand, Gravel or dry; "
+                "trajectory; that trajectory is bound to one vehicle "
+                "across the render/update thread boundary and only its "
+                "still-open brush interval is finalised with Sand, Gravel or dry; "
                "active-texel event "
                "sync uses one coalesced pass after 16 ms with %llu ms burst "
                "cooldown; each GPU "

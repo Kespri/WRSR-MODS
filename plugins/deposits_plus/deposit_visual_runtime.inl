@@ -35,7 +35,7 @@ static VsTextureResource vsResource=nullptr;
 static ComPtr<ID3D11Device> vsDevice;
 static ComPtr<ID3D11DeviceContext> vsContext;
 static ComPtr<ID3D11ShaderResourceView> vsMapView;
-// 0.4.1: one colour/normal pair per [sand_tile:] entry, loaded with the device.
+// One colour/normal pair per [sand_tile:] entry, loaded with the device.
 static ComPtr<ID3D11ShaderResourceView> vsTileColor[MAX_SAND_TILES],vsTileNormal[MAX_SAND_TILES];
 static bool vsTileReady[MAX_SAND_TILES]={};
 static int vsTilesReady=0;
@@ -116,8 +116,8 @@ static int h_VsLoad(void*self,const char*path){
 static bool VsAssetPathOk(const char*p){if(!p[0]||p[0]=='/'||p[0]=='\\'||strchr(p,':'))return false;for(const char*s=p;*s;++s)if(s[0]=='.'&&s[1]=='.'&&(s==p||s[-1]=='/'||s[-1]=='\\')&&(s[2]==0||s[2]=='/'||s[2]=='\\'))return false;return true;}
 static bool VsReadFile(const char*name,VSand::Bytes&bytes){
  // The assets live beside the DLL first (a Workshop package carries
- // hooks\deposits_plus\assets), then under the loader's plugins folder - the
- // local copy for anyone who keeps everything in tesmioloader\build.
+ // plugins\deposits_plus\assets), then under the loader's plugins folder - the
+ // local copy for anyone who installs by hand.
  char p[MAX_PATH];HANDLE h=INVALID_HANDLE_VALUE;
  if(g_selfDir[0]&&_snprintf_s(p,sizeof(p),_TRUNCATE,"%s\\deposits_plus\\assets\\%s",g_selfDir,name)>=0)
   h=CreateFileA(p,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
@@ -126,14 +126,14 @@ static bool VsReadFile(const char*name,VSand::Bytes&bytes){
   h=CreateFileA(p,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;
  }
  if(!vsAssetDirLogged){vsAssetDirLogged=true;char dir[MAX_PATH];strncpy_s(dir,p,_TRUNCATE);char*slash=strrchr(dir,'\\');if(slash)*slash=0;Logf("sand surface assets from %s",dir);}
- LARGE_INTEGER n;bool ok=GetFileSizeEx(h,&n)&&n.QuadPart>0&&n.QuadPart<=48*1024*1024;   // 0.4.1: room for 2048 and 4096 tiles
+ LARGE_INTEGER n;bool ok=GetFileSizeEx(h,&n)&&n.QuadPart>0&&n.QuadPart<=48*1024*1024;   // room for 2048 and 4096 tiles
  if(ok){try{bytes.resize((size_t)n.QuadPart);}catch(...){CloseHandle(h);throw;}DWORD got=0;ok=ReadFile(h,bytes.data(),(DWORD)bytes.size(),&got,nullptr)&&got==bytes.size();}
  CloseHandle(h);return ok;
 }
 static bool VsDds(ID3D11Device*d,const char*name,unsigned fourcc,ComPtr<ID3D11ShaderResourceView>&view){
  VSand::Bytes b;if(!VsReadFile(name,b)||b.size()<128||memcmp(b.data(),"DDS ",4)||VSand::Read(b.data()+4)!=124||
   VSand::Read(b.data()+76)!=32||VSand::Read(b.data()+84)!=fourcc)return false;
- // 0.4.1: any square power-of-two side from 256 to 4096 with a complete mip chain (1024 and 2048 in practice).
+ // Any square power-of-two side from 256 to 4096 with a complete mip chain (1024 and 2048 in practice).
  unsigned side=VSand::Read(b.data()+16),mips=VSand::Read(b.data()+28),levels=0;
  if(VSand::Read(b.data()+12)!=side||side<256||side>4096||(side&(side-1)))return false;
  for(unsigned s=side;s;s>>=1)++levels;
@@ -153,7 +153,7 @@ static bool VsResources(ID3D11Device*device){
  for(int t=0;t<MAX_SAND_TILES;++t){vsTileColor[t].Reset();vsTileNormal[t].Reset();vsTileReady[t]=false;}vsTilesReady=0;
  vsMapView.Reset();vsMapResource.Reset();vsBuffer.Reset();vsSampler.Reset();vsContext.Reset();vsDevice=device;
  device->GetImmediateContext(&vsContext);
- // 0.4.1: every [sand_tile:] pair; a missing or malformed pair only leaves its base texture native.
+ // Every [sand_tile:] pair; a missing or malformed pair only leaves its base texture native.
  for(int t=0;t<g_tileCount;++t){
   vsTileReady[t]=VsDds(device,g_tiles[t].color,0x31545844,vsTileColor[t])&&VsDds(device,g_tiles[t].normal,0x35545844,vsTileNormal[t]);
   if(vsTileReady[t])++vsTilesReady;
@@ -168,7 +168,7 @@ static bool VsResources(ID3D11Device*device){
  s.ComparisonFunc=D3D11_COMPARISON_NEVER;s.MaxLOD=D3D11_FLOAT32_MAX;
  return SUCCEEDED(device->CreateSamplerState(&s,&vsSampler));
 }
-// 0.4.1: which [sand_tile:] entry belongs to a material's base texture (slot 5), by the
+// Which [sand_tile:] entry belongs to a material's base texture (slot 5), by the
 // path the engine holds for it with its folder, matched as a whole path element from the
 // end. 0 = no entry, the base stays native (snow, desert, another mod's material).
 static void VsCanonical(const char*in,char*out,size_t n){size_t i=0;for(;in[i]&&i+1<n;++i){char c=in[i];out[i]=c=='\\'?'/':(c>='A'&&c<='Z')?(char)(c+32):c;}out[i]=0;}
@@ -228,7 +228,7 @@ struct VsBinding {
   // No other renderer/mod may own the reserved slots. Never overwrite it.
   bool occupied=oldBuffer||oldSampler;for(auto*v:oldViews)occupied|=v!=nullptr;
   if(occupied){vsFault=true;Logf("sand surface WARN reserved D3D slots already occupied; native terrain retained");return false;}
-  // 0.4.1: an entry whose pair failed to load falls back to native.
+  // An entry whose pair failed to load falls back to native.
   for(int i=0;i<2;++i)if(kinds[i]>0&&!vsTileReady[kinds[i]-1])kinds[i]=0;
   flags[0]=kinds[0]?1.f:0.f;flags[1]=kinds[1]?1.f:0.f;if(!flags[0]&&!flags[1])return false;
   float data[8]={};data[g_dep[vsDeposit].component]=vsStrength;data[4]=flags[0];data[5]=flags[1];
@@ -265,7 +265,7 @@ static bool VsInstall(){
  if(!GenerationNumber(setting,0,1,&n)){Logf("sand surface WARN invalid strength (expected 0..1); disabled");return false;}vsStrength=(float)n;
  H->configString(ini,"deposits_plus","sand_surface_token",setting,sizeof(setting),"$TYPE_MINE_SAND");
  for(int i=0;i<g_depCount;++i)if(!_stricmp(g_dep[i].token,setting))vsDeposit=i;
- // 0.4.1: tile table; an INI without [sand_tile:] sections keeps the classic meadow pair.
+ // Tile table; an INI without [sand_tile:] sections keeps the classic meadow pair.
  if(!g_tileCount){
   static const struct{const char*id,*base,*color,*normal;} classic[]={{"meadow","tiles_normal/grass2.dds","sand_meadow_color.dds","sand_meadow_normal.dds"},{"meadow_autumn","tiles_normal/grass2_fall.dds","sand_meadow_autumn_color.dds","sand_meadow_autumn_normal.dds"}};
   for(const auto&c:classic){SandTile&t=g_tiles[g_tileCount++];strcpy_s(t.id,c.id);strcpy_s(t.base,c.base);strcpy_s(t.color,c.color);strcpy_s(t.normal,c.normal);}
@@ -274,7 +274,7 @@ static bool VsInstall(){
  int kept=0;
  for(int t=0;t<g_tileCount;++t){
   SandTile&x=g_tiles[t];
-  // 0.4.2: color/normal are paths relative to the assets folder (set folders like "Siberia/x.dds"
+  // color/normal are paths relative to the assets folder (set folders like "Siberia/x.dds"
   // allowed); climbing out, drive letters and absolute paths are refused.
   if(!x.base[0]||!x.color[0]||!x.normal[0]||!VsAssetPathOk(x.color)||!VsAssetPathOk(x.normal)){Logf("sand surface WARN [sand_tile:%s] needs base, color and normal (files relative to deposits_plus\\assets, no '..', no absolute paths); ignored",x.id);continue;}
   if(kept!=t)g_tiles[kept]=x;++kept;
@@ -287,7 +287,7 @@ static bool VsInstall(){
  if(!ReadablePtr(dos,sizeof(IMAGE_DOS_HEADER))||dos->e_magic!=IMAGE_DOS_SIGNATURE){Logf("sand surface WARN engine module has no readable DOS header; disabled");return false;}
  auto*nt=(IMAGE_NT_HEADERS*)((BYTE*)g_engine+dos->e_lfanew);
  if(!ReadablePtr(nt,sizeof(IMAGE_NT_HEADERS))||nt->Signature!=IMAGE_NT_SIGNATURE){Logf("sand surface WARN engine module has no readable PE header; disabled");return false;}
- if(nt->FileHeader.TimeDateStamp!=0x6A3E75BCu||nt->OptionalHeader.SizeOfImage!=0x1F2000u){Logf("sand surface WARN unsupported engine build; disabled");return false;}
+ if(nt->FileHeader.TimeDateStamp!=0x6A8B496Du||nt->OptionalHeader.SizeOfImage!=0x1F2000u){Logf("sand surface WARN unsupported engine build; disabled");return false;}
  auto*create=(BYTE*)GetProcAddress(g_engine,"?CreateShaders@C3DAPI_D3D11_SHADERS@@UEAAHPEBD@Z");
  const BYTE expected[]={0x4c,0x8b,0x0d,0x3f,0x07,0x1c,0x00};
  if(!create||!ReadablePtr(create+0x2ba,7)||memcmp(create+0x2ba,expected,7)){Logf("sand surface WARN D3D device accessor signature differs; disabled");return false;}

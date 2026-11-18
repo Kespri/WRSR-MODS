@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.5.21: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.6.13: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -237,10 +237,10 @@ namespace TesmioAutoload
         public string CountId { get { return Ini.Id(CountSection, CountKey); } }
     }
 
-    // Tolerant reader for soviet.mod.ini. Soviet Mod Loader allows a directive to
-    // repeat (several `dll =` lines under [hooks]) and keeps commented-out sections
-    // around; the strict Ini class rejects both on purpose, so the manifest gets
-    // its own reader. Nothing here is executed or resolved - it is text.
+    // Tolerant reader for a package manifest: rmm.mod.ini, or an older soviet.mod.ini. Old
+    // manifests repeat directives and carry sections this program no longer uses; the strict Ini
+    // class rejects both on purpose, so the manifest gets its own reader. Nothing here is
+    // executed or resolved - it is text.
     public sealed class Manifest
     {
         readonly Dictionary<string, List<KeyValuePair<string, string>>> sections = new Dictionary<string, List<KeyValuePair<string, string>>>(StringComparer.OrdinalIgnoreCase);
@@ -338,21 +338,35 @@ namespace TesmioAutoload
             return s.TrimEnd();
         }
         static string OneLine(string text) { return text.Replace("\r", " ").Replace("\n", " ").Replace("\0", "").Trim(); }
+        // A comment line that only draws a rule ("=====", "-----", "* * *"): decoration, not text.
+        static bool Ruler(string comment)
+        {
+            string s = comment.Trim();
+            return s.Length >= 3 && s.All(c => "=-*#~_+ ".IndexOf(c) >= 0) && s.Any(c => c != ' ');
+        }
         public static Ini Build(Package p)
         {
             var b = new StringBuilder(); var lines = p.Defaults.Lines;
-            var header = new List<string>();
+            // The file's opening comment. Many INIs start with a banner - a rule, a title line
+            // such as "Name 1.2 - Configuration", a rule - and only then say what the plugin
+            // does. Rules are dropped, and what stands between the first two rules is the banner.
+            var header = new List<string>(); var framed = new List<string>(); int rules = 0;
             for (int i = 0; i < lines.Count; i++)
             {
                 string t = lines[i].Trim();
                 if (t.StartsWith("[")) break;
-                if (t.StartsWith(";") || t.StartsWith("#")) header.Add(Clean(t));
+                if (!t.StartsWith(";") && !t.StartsWith("#")) continue;
+                string text = Clean(t);
+                if (Ruler(text)) { rules++; continue; }
+                if (rules == 1) framed.Add(text); else header.Add(text);
             }
+            // A single rule with nothing closing it framed no banner: its lines are the text.
+            if (rules == 1) header.AddRange(framed);
             // The header goes into the one-line heading area: first paragraph only,
             // cut at a sentence end once it gets long.
             var firstParagraph = new List<string>();
             foreach (string h in header) { if (h.Length == 0 && firstParagraph.Count > 0) break; if (h.Length > 0) firstParagraph.Add(h); }
-            string description = OneLine(String.Join(" ", firstParagraph));
+            string description = Regex.Replace(OneLine(String.Join(" ", firstParagraph)), @"\s{2,}", " ");
             if (description.Length > 200)
             {
                 int cut = description.LastIndexOf(". ", 200, StringComparison.Ordinal);
@@ -381,7 +395,7 @@ namespace TesmioAutoload
                 // presentation turns back into line breaks; an INI value itself cannot
                 // hold a newline. Runs of blank comment lines collapse to one.
                 var kept = new List<string>();
-                foreach (string line in block) { if (line.Length == 0 && (kept.Count == 0 || kept[kept.Count - 1].Length == 0)) continue; kept.Add(line); }
+                foreach (string line in block) { if (Ruler(line)) continue; if (line.Length == 0 && (kept.Count == 0 || kept[kept.Count - 1].Length == 0)) continue; kept.Add(line); }
                 while (kept.Count > 0 && kept[kept.Count - 1].Length == 0) kept.RemoveAt(kept.Count - 1);
                 string text = OneLine(String.Join("\\n", kept));
                 string type, range = "";
@@ -405,7 +419,14 @@ namespace TesmioAutoload
     public sealed class Package
     {
         public string Root, Id, Name, Version, Target, ConfigName, DllPath, DefaultsPath, SchemaPath, EnabledField;
-        public bool LocalCopyOffered; public string AssetsDir, AssetsFolder = ""; public readonly List<string> AssetFiles = new List<string>();
+        public string AssetsDir, AssetsFolder = ""; public readonly List<string> AssetFiles = new List<string>();
+        // The manifest this package was read from ("" for a DLL that has none), and the key of the
+        // plugin this one takes the place of ("" = none): [mod] replaces.
+        public string ManifestPath = "", Replaces = "";
+        // A schema from settings_schemas beside rmm.exe that describes this plugin ("" = none);
+        // its language files lie beside it, not in the package.
+        public string LocalSchemaPath = "";
+        public const string ManifestName = "rmm.mod.ini", LegacyManifestName = "soviet.mod.ini";
         // 0.4.80: a content package's INI fragments by kind (resources, deposits, needs, buildings).
         public readonly Dictionary<string, string> ContentFragments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // A keyed editor schema (editor_type = keyed_*) shipped in the package: the
@@ -413,17 +434,21 @@ namespace TesmioAutoload
         public string EditorSchema; public bool EditorManaged;
         public byte[] Dll, DefaultsBytes = new byte[0];
         public Ini Defaults, Schema;
-        // "plugin": a native hook DLL this application can deploy and configure.
-        // "content": SML resources/deposits/needs/buildings only - listed, never deployed.
+        // "plugin": a plugin DLL the loader finds; this application switches and configures it.
+        // "content": resources/deposits/needs/buildings fragments without a DLL of their own.
         public string Kind = "plugin";
         // Generic: no launcher schema shipped, user interface derived from the INI.
-        // UserOverlay: the plugin reads user_config\<name>.ini itself, so the
-        // original INI is deployed byte for byte and never carries personal values.
+        // UserOverlay: the INI beside the DLL is the author's original and is never written;
+        // personal values live in user_config\<name>.ini only. True for every Workshop DLL.
         // HasConfig: false for a DLL that ships without any INI.
         public bool Generic, UserOverlay, HasConfig = true;
-        // The SML capability that takes this package's place while SML runs ("" = none).
-        public string ReplacedBySml = "";
-        // Installed: a DLL found in build\plugins without a Workshop package. Its
+        // EffectiveIni ([configuration] effective_ini = 1 in the manifest): the plugin opens its
+        // INI by path - <loader>\plugins\<key>.ini when that file exists, else the one beside its
+        // DLL - and never looks into user_config. Personal values are still stored there, and a
+        // save also writes the finished INI (original plus personal values) to
+        // <loader>\plugins\<key>.ini, where the plugin reads it.
+        public bool EffectiveIni;
+        // Installed: a DLL found in <loader>\plugins, which no Workshop update replaces. Its
         // configuration is managed as a protected base (see InstalledPlugins):
         // UpstreamPath keeps the original INI, RefreshUpstream says that the INI
         // currently in plugins\ is the (new) original and must be copied there.
@@ -490,14 +515,84 @@ namespace TesmioAutoload
             }
             if (p.AssetFiles.Count > 512) throw new FormatException(Msg.Key("err_zu_viele_asset_dateien"));
         }
+        // rmm.mod.ini, else an older soviet.mod.ini, else null.
+        public static string FindManifest(string folder)
+        {
+            foreach (string name in new[] { ManifestName, LegacyManifestName }) { string path = Path.Combine(folder, name); if (File.Exists(path)) return path; }
+            return null;
+        }
+        // The package folder of a plugin DLL: the nearest folder upwards with a manifest, else the
+        // Workshop item folder (the one directly below "784150"), else the DLL's own folder.
+        public static string RootOf(string dllPath)
+        {
+            string home = Path.GetDirectoryName(Path.GetFullPath(dllPath)), dir = home, item = null;
+            for (int depth = 0; depth < 5 && !String.IsNullOrEmpty(dir); depth++)
+            {
+                if (FindManifest(dir) != null) return dir;
+                string parent = Path.GetDirectoryName(dir);
+                if (parent != null && Path.GetFileName(parent).Equals("784150", StringComparison.OrdinalIgnoreCase)) { item = dir; break; }
+                dir = parent;
+            }
+            return item ?? home;
+        }
+        static List<FoundPlugin> PluginsBelow(string root) { return PluginScan.Discover("", root); }
+        // root: a package folder, or the full path of one plugin DLL (the only way to name a DLL
+        // that shares its folder with another one).
         public static Package Load(string root)
         {
-            var p = new Package(); p.Root = Path.GetFullPath(root); SafeFiles.NoLinks(p.Root);
-            string manifestPath = SafeFiles.Child(p.Root, "soviet.mod.ini");
-            byte[] manifestBytes = SafeFiles.Read(manifestPath, 1024 * 1024);
-            var manifest = Manifest.Parse(SafeFiles.Decode(manifestBytes));
-            p.InputHashes.Add(manifestPath, SafeFiles.Hash(manifestBytes));
-            p.Id = manifest.Required("mod", "id"); p.Name = manifest.Required("mod", "name"); p.Version = manifest.Get("mod", "version", "?");
+            var p = new Package(); string full = Path.GetFullPath(root), chosenDll = null;
+            if (full.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && File.Exists(full)) { chosenDll = full; full = RootOf(full); }
+            p.Root = full; SafeFiles.NoLinks(p.Root);
+            string manifestPath = FindManifest(p.Root);
+            Manifest manifest;
+            if (manifestPath != null)
+            {
+                byte[] manifestBytes = SafeFiles.Read(manifestPath, 1024 * 1024);
+                manifest = Manifest.Parse(SafeFiles.Decode(manifestBytes));
+                p.InputHashes.Add(manifestPath, SafeFiles.Hash(manifestBytes)); p.ManifestPath = manifestPath;
+            }
+            else manifest = Manifest.Parse("");
+            // The plugin DLL: the one named by the caller, the one an old manifest names, [mod]
+            // plugin, or the only one below the package folder.
+            var declaredDlls = manifest.All("hooks", "dll");
+            if (declaredDlls.Count > 1) throw new FormatException(Msg.Key("err_mehrere_native_hooks_in", declaredDlls.Count));
+            // A DLL named by the caller in a folder that holds several: the manifest belongs to
+            // one of them only - the one [mod] plugin names, the one an old [hooks] dll names, or
+            // the one called like the last part of the id. The others have no manifest.
+            if (chosenDll != null && manifestPath != null)
+            {
+                var siblings = PluginsBelow(p.Root).SelectMany(x => new[] { x }.Concat(x.Shadowed)).ToList();
+                if (siblings.Count > 1)
+                {
+                    string key = Path.GetFileNameWithoutExtension(chosenDll), named = manifest.Get("mod", "plugin", ""), last = manifest.Get("mod", "id", ""); last = last.Substring(last.LastIndexOf('.') + 1);
+                    bool mine = named.Length > 0 ? PluginScan.SameKey(named, key)
+                        : declaredDlls.Count == 1 ? String.Equals(SafeFiles.Child(p.Root, declaredDlls[0]), chosenDll, StringComparison.OrdinalIgnoreCase)
+                        : PluginScan.SameKey(last, key);
+                    if (!mine) { p.InputHashes.Remove(manifestPath); manifestPath = null; p.ManifestPath = ""; manifest = Manifest.Parse(""); declaredDlls = manifest.All("hooks", "dll"); }
+                }
+            }
+            if (chosenDll == null && declaredDlls.Count == 1) { string declared = SafeFiles.Child(p.Root, declaredDlls[0]); if (File.Exists(declared)) chosenDll = declared; }
+            if (chosenDll == null)
+            {
+                var below = PluginsBelow(p.Root).SelectMany(x => new[] { x }.Concat(x.Shadowed)).ToList();
+                string wanted = manifest.Get("mod", "plugin", "");
+                if (wanted.Length > 0) below = below.Where(x => PluginScan.SameKey(x.Key, wanted)).ToList();
+                if (below.Count > 1 && manifestPath != null)
+                {
+                    string last = manifest.Get("mod", "id", ""); last = last.Substring(last.LastIndexOf('.') + 1);
+                    var named = below.Where(x => PluginScan.SameKey(x.Key, last)).ToList(); if (named.Count == 1) below = named;
+                }
+                if (below.Count > 1) throw new FormatException(Msg.Key("err_mehrere_plugin_dlls", below.Count));
+                if (below.Count == 1) chosenDll = below[0].Path;
+                else if (wanted.Length > 0) throw new FormatException(Msg.Key("err_manifest_plugin_fehlt", wanted));
+            }
+            if (manifestPath == null && chosenDll == null) throw new FormatException(Msg.Key("err_ordner_ohne_plugin"));
+            string derivedKey = chosenDll != null ? Path.GetFileNameWithoutExtension(chosenDll) : "";
+            p.Id = manifestPath != null ? manifest.Required("mod", "id") : "local." + derivedKey;
+            p.Name = manifestPath != null ? manifest.Required("mod", "name") : derivedKey;
+            p.Version = manifest.Get("mod", "version", "?");
+            p.Replaces = manifest.Get("mod", "replaces", "").Trim();
+            if (p.Replaces.Length > 0 && !SafeToken(p.Replaces, 64)) throw new FormatException(Msg.Key("err_ungueltige_oder_doppelte_kennung", "replaces"));
             if (manifest.Get("mod", "enabled", "1") != "1") throw new FormatException(Msg.Key("err_paket_ist_im_manifest"));
             if (!SafeToken(p.Id, 160)) throw new FormatException(Msg.Key("err_ungueltige_paket_id", p.Id));
             if (p.Name.Length > 200 || p.Name.Any(Char.IsControl) || p.Version.Length > 80 || p.Version.Any(Char.IsControl)) throw new FormatException(Msg.Key("err_ungueltiger_paketname_oder_version"));
@@ -509,19 +604,13 @@ namespace TesmioAutoload
                 if ((apiMinRaw.Length > 0 && !Int32.TryParse(apiMinRaw, out apiMin)) || (apiMaxRaw.Length > 0 && !Int32.TryParse(apiMaxRaw, out apiMax)) || apiMin > 4 || apiMax < 4)
                     throw new FormatException(Msg.Key("err_tesmioloader_api_4_liegt"));
             }
-            // [autoload] and [configuration] are optional overrides of what is derived below.
-            string format = manifest.Get("autoload", "format", ""), declaredKind = manifest.Get("autoload", "kind", "");
-            if (format.Length > 0 && format != "1") throw new FormatException(Msg.Key("err_republic_mod_manager_unterstuetzt"));
-            if (declaredKind.Length > 0 && declaredKind != "plugin" && declaredKind != "content") throw new FormatException(Msg.Key("err_unbekannte_autoload_kind", declaredKind));
-            var dlls = manifest.All("hooks", "dll");
             var content = manifest.Keys("content");
             var dependencies = manifest.Keys("dependencies");
-            if (dlls.Count > 1) throw new FormatException(Msg.Key("err_mehrere_native_hooks_in", dlls.Count));
-            if (dlls.Count == 0)
+            if (chosenDll == null)
             {
                 if (content.Count == 0) throw new FormatException(Msg.Key("err_manifest_ohne_hooks_dll"));
-                // A content package (the Soviet Mod Loader convention): SML merges it at game
-                // start; RMM provides it through the editors of the target plugins (0.4.80).
+                // A content package: no DLL of its own. Its fragments reach the game through the
+                // editors of the target plugins, its files through the loader's vfs.
                 p.Kind = "content"; p.HasConfig = false; p.Target = ""; p.ConfigName = ""; p.Visible = false;
                 foreach (string key in ContentTargets.Keys)
                 {
@@ -533,9 +622,8 @@ namespace TesmioAutoload
                     p.ContentFragments[key] = text; p.InputHashes.Add(path, SafeFiles.Hash(bytes));
                 }
                 foreach (string key in content)
-                    // allow_settings is Soviet Mod Loader's switch for the [custom:] sections of a
-                    // package; RMM reads those sections anyway, so the key is simply not ours to
-                    // complain about (0.5.9).
+                    // allow_settings belongs to older manifests; the [custom:] sections of a
+                    // fragment are read anyway, so the key is not ours to complain about.
                     if (!ContentTargets.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) && !key.Equals("assets", StringComparison.OrdinalIgnoreCase) && !key.Equals("allow_settings", StringComparison.OrdinalIgnoreCase)) p.Hints.Add(Msg.Key("hint_content_unknown_kind", key));
                 LoadAssets(p, manifest.Get("content", "assets", ""));
                 if (p.ContentFragments.Count == 0 && p.AssetFiles.Count == 0) throw new FormatException(Msg.Key("err_inhaltspaket_ohne_inhalt"));
@@ -544,45 +632,35 @@ namespace TesmioAutoload
                     if (!SafeToken(id, 160)) throw new FormatException(Msg.Key("err_ungueltige_abhaengigkeits_id", id));
                     p.Dependencies.Add(new Dependency { Id = id, Constraint = manifest.Get("dependencies", id, "").Trim() });
                 }
-                p.Hints.Add(Msg.Key("hint_sml_content_package", String.Join(", ", p.ContentFragments.Keys.Concat(p.AssetFiles.Count > 0 ? new[] { "assets" } : new string[0]))));
+                p.Hints.Add(Msg.Key("hint_content_package", String.Join(", ", p.ContentFragments.Keys.Concat(p.AssetFiles.Count > 0 ? new[] { "assets" } : new string[0]))));
                 p.Defaults = new Ini(""); p.Schema = new Ini("[launcher]\nlayout_version = 1\nvisible = 0\nid = " + p.Id + "\nconfig = none.ini\n");
                 return p;
             }
-            if (declaredKind == "content") throw new FormatException(Msg.Key("err_autoload_kind_content_passt"));
-            p.DllPath = SafeFiles.Child(p.Root, dlls[0]);
+            p.DllPath = chosenDll;
+            if (!(p.DllPath.TrimEnd('\\') + "\\").StartsWith(p.Root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) throw new FormatException(Msg.Key("err_ordner_ohne_plugin"));
             p.Target = Path.GetFileNameWithoutExtension(p.DllPath);
             if (!SafeToken(p.Target, 64)) throw new FormatException(Msg.Key("err_ungueltiger_dll_name_als", p.Target));
-            string declaredTarget = manifest.Get("autoload", "target", "");
-            if (declaredTarget.Length > 0 && !declaredTarget.Equals(p.Target, StringComparison.OrdinalIgnoreCase))
-                throw new FormatException(Msg.Key("err_dll_dateiname_und_autoload"));
-            if (content.Count > 0) p.Hints.Add(Msg.Key("hint_sml_content_extra", String.Join(", ", content)));
+            if (content.Count > 0) p.Hints.Add(Msg.Key("hint_content_extra", String.Join(", ", content)));
             foreach (string id in dependencies)
             {
                 if (!SafeToken(id, 160)) throw new FormatException(Msg.Key("err_ungueltige_abhaengigkeits_id", id));
                 p.Dependencies.Add(new Dependency { Id = id, Constraint = manifest.Get("dependencies", id, "").Trim() });
             }
+            // Older manifests name plugins they need or cannot share the game with by DLL name.
+            // A needed one is a dependency like any other; RequiresLocal also tells a collection
+            // where its list may come from.
             p.RequiresLocal.AddRange(Tokens(manifest.Get("autoload", "requires_local", ""), "requires_local"));
+            foreach (string needed in p.RequiresLocal) if (!p.Dependencies.Any(d => d.Id.Equals(needed, StringComparison.OrdinalIgnoreCase))) p.Dependencies.Add(new Dependency { Id = needed });
+            foreach (Dependency d in p.Dependencies) if (!p.RequiresLocal.Contains(d.Id, StringComparer.OrdinalIgnoreCase)) p.RequiresLocal.Add(d.Id);
             p.ConflictsLocal.AddRange(Tokens(manifest.Get("autoload", "conflicts_local", ""), "conflicts_local"));
-            p.ConfigName = manifest.Get("configuration", "user_config", p.Target + ".ini");
-            if (Path.GetFileName(p.ConfigName) != p.ConfigName || !p.ConfigName.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) || !SafeToken(Path.GetFileNameWithoutExtension(p.ConfigName), 64))
-                throw new FormatException(Msg.Key("err_user_config_muss_ein"));
-            p.UserOverlay = manifest.Get("configuration", "user_overlay", "0") == "1";
-            // local_copy = 1: the author allows the package to be copied into plugins\ as a
-            // whole ("Dateien nur lokal"); [assets] dir names a folder that travels with the DLL.
-            p.LocalCopyOffered = manifest.Get("configuration", "local_copy", "0") == "1";
-            // 0.5.3: replaced_by_sml = resources | deposits | needs | buildings. The package does
-            // the same job as one of the capabilities Soviet Mod Loader has compiled in, and its
-            // plugin steps aside while SML runs. RMM then shows it as paused instead of pretending
-            // it is off, and says why. Anything else in the key is a manifest error.
-            p.ReplacedBySml = manifest.Get("configuration", "replaced_by_sml", "").Trim().ToLowerInvariant();
-            if (p.ReplacedBySml.Length > 0 && !Sml.Embedded.Contains(p.ReplacedBySml))
-                throw new FormatException(Msg.Key("err_unbekannte_sml_faehigkeit", p.ReplacedBySml, String.Join(", ", Sml.Embedded.OrderBy(x => x, StringComparer.Ordinal))));
-            LoadAssets(p, manifest.Get("assets", "dir", ""));
+            // The loader hands a plugin the INI beside its DLL, named like the DLL.
+            p.ConfigName = p.Target + ".ini";
+            p.UserOverlay = true;
+            string effectiveIni = manifest.Get("configuration", "effective_ini", "0").Trim();
+            if (effectiveIni != "0" && effectiveIni != "1") throw new FormatException(Msg.Key("err_effective_ini_wert"));
+            p.EffectiveIni = effectiveIni == "1";
             FormatException defaultsProblem = null;
-            string declaredDefaults = manifest.Get("configuration", "defaults", "");
-            p.DefaultsPath = declaredDefaults.Length > 0 ? SafeFiles.Child(p.Root, declaredDefaults) : Path.Combine(Path.GetDirectoryName(p.DllPath), p.ConfigName);
-            if (!String.Equals(Path.Combine(Path.GetDirectoryName(p.DllPath), p.ConfigName), p.DefaultsPath, StringComparison.OrdinalIgnoreCase))
-                throw new FormatException(Msg.Key("err_fuer_sml_muss_die"));
+            p.DefaultsPath = Path.Combine(Path.GetDirectoryName(p.DllPath), p.ConfigName);
             p.Dll = SafeFiles.Read(p.DllPath, 64 * 1024 * 1024); SafeFiles.RequireX64Dll(p.Dll);
             p.InputHashes.Add(p.DllPath, SafeFiles.Hash(p.Dll));
             if (File.Exists(p.DefaultsPath))
@@ -598,7 +676,6 @@ namespace TesmioAutoload
             }
             else
             {
-                if (declaredDefaults.Length > 0) throw new FormatException(Msg.Key("err_deklarierte_standard_ini_fehlt", declaredDefaults));
                 p.HasConfig = false; p.Defaults = new Ini(""); p.InputHashes.Add(p.DefaultsPath, "absent");
                 p.Hints.Add(Msg.Key("hint_no_ini"));
             }
@@ -606,6 +683,26 @@ namespace TesmioAutoload
             string conventionalSchema = Path.Combine(p.Root, "config", p.Target + ".launcher.ini");
             if (declaredSchema.Length > 0) p.SchemaPath = SafeFiles.Child(p.Root, declaredSchema);
             else if (File.Exists(conventionalSchema)) p.SchemaPath = conventionalSchema;
+            // Second tier: a schema beside rmm.exe for a plugin whose package ships none. It
+            // describes an INI it does not own, so values are read leniently.
+            Ini localSchema = null;
+            if (p.SchemaPath == null && !String.IsNullOrWhiteSpace(Catalog.SchemaRoot))
+            {
+                string candidatePath = Path.Combine(Path.GetFullPath(Catalog.SchemaRoot), p.Target + ".launcher.ini");
+                if (File.Exists(candidatePath))
+                {
+                    SafeFiles.NoLinks(candidatePath);
+                    byte[] bytes = SafeFiles.Read(candidatePath, 1024 * 1024); var candidate = new Ini(SafeFiles.Decode(bytes));
+                    // Keyed editors are list entries of their own (LocalEditorSpec).
+                    if (candidate.Get("launcher", "editor_type", "").Length == 0)
+                    {
+                        if (candidate.Get("launcher", "config", "") != p.ConfigName) throw new FormatException(Msg.Key("err_lokales_schema_passt_nicht", candidatePath));
+                        localSchema = candidate; p.LenientValues = true; p.InputHashes.Add(candidatePath, SafeFiles.Hash(bytes));
+                        p.LocalSchemaPath = candidatePath;
+                        if (manifestPath == null) { p.Id = candidate.Get("launcher", "id", p.Id); p.Name = candidate.Get("launcher", "name", p.Name); }
+                    }
+                }
+            }
             if (p.SchemaPath != null)
             {
                 try { if (new Ini(SafeFiles.Decode(SafeFiles.Read(p.SchemaPath, 1024 * 1024))).Get("launcher", "editor_type", "").Length > 0) { p.EditorSchema = p.SchemaPath; p.EditorManaged = true; p.SchemaPath = null; } }
@@ -621,13 +718,21 @@ namespace TesmioAutoload
                 schema = new Ini(SafeFiles.Decode(schemaBytes));
                 if (schema.Get("launcher", "id") != p.Id || schema.Get("launcher", "config") != p.ConfigName) throw new FormatException(Msg.Key("err_schema_passt_nicht_zu"));
             }
+            else if (localSchema != null) schema = localSchema;
             else
             {
                 p.Generic = true; schema = GenericSchema.Build(p);
                 if (p.HasConfig && !p.EditorManaged) p.Hints.Add(Msg.Key("hint_no_schema_comments"));
             }
-            if (p.UserOverlay) p.Hints.Add(Msg.Key("hint_overlay", p.ConfigName));
+            if (p.HasConfig && !p.EditorManaged) p.Hints.Add(Msg.Key(p.EffectiveIni ? "hint_effective" : "hint_overlay", p.ConfigName));
             p.ApplySchema(schema);
+            if (p.LenientValues)
+            {
+                // Keys the INI has and the local schema does not: not editable here, but named.
+                var known = new HashSet<string>(p.Fields.Select(f => f.Id), StringComparer.OrdinalIgnoreCase);
+                var missing = p.Defaults.Values.Keys.Where(k => !known.Contains(k)).ToList();
+                if (missing.Count > 0) p.Hints.Add(Msg.Key("hint_not_in_schema", String.Join(", ", missing)));
+            }
             return p;
         }
         // Shared by Workshop packages and installed plugins: turns the schema into
@@ -893,14 +998,11 @@ namespace TesmioAutoload
 
     public static class InstalledPlugins
     {
-        static readonly Regex LogLine = new Regex(@"^\[[^\]]*\]\s+plugin\s+(\S+)\s+(\S+)\s+from\s+(\S+)\.dll", RegexOptions.Multiline);
-        // The bridge logs "bridge   hook <name> <version> from <folder>\hooks\<file>.dll". The name is
-        // the plugin's display name and may carry spaces ("UI Layout Fixes 0.3.0 from ..."), so it is
-        // everything up to the version token right before "from" (0.4.46); the key is the DLL name.
-        static readonly Regex BridgeLine = new Regex(@"^\[[^\]]*\]\s+bridge\s+hook\s+(.+?)\s+(\S+)\s+from\s+\S*?([^\\/\s]+)\.dll", RegexOptions.Multiline);
+        // "plugin   <name> <version> from <full path>\<file>.dll": the path may carry spaces
+        // ("C:\Program Files (x86)\..."), so the key is the last path part before ".dll".
+        static readonly Regex LogLine = new Regex(@"^\[[^\]]*\]\s+plugin\s+(?!service\s)(\S[^\r\n]*?)\s+(\S+)\s+from\s+[^\r\n]*?([^\\/\r\n]+)\.dll[ \t]*\r?$", RegexOptions.Multiline);
         public static string UpstreamPath(string build, string name) { return SafeFiles.Child(Path.GetFullPath(build), "user_config\\.autoload\\" + name + ".upstream.ini"); }
-        // Versions as the loader reported them on its last start ("plugin <name> <version> from <file>.dll"),
-        // including hooks the Workshop Bridge loaded.
+        // Versions as the loader reported them on its last start, by DLL key.
         public static Dictionary<string, string> LoaderVersions(string build)
         {
             var versions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -910,14 +1012,13 @@ namespace TesmioAutoload
                 if (!File.Exists(log)) return versions;
                 string text = GameLogs.Read(log);
                 foreach (Match m in LogLine.Matches(text)) versions[m.Groups[3].Value] = m.Groups[2].Value;
-                foreach (Match m in BridgeLine.Matches(text)) versions[m.Groups[3].Value] = m.Groups[2].Value;
             }
             catch (Exception) { }
             return versions;
         }
-        // 0.5.17: plugins that stepped aside on the last start ("<name>  idle - ..."): the forks and
-        // Deposits Plus do that while Soviet Mod Loader hosts their capability. The loader prints no
-        // "plugin <name> <version>" line for them, so without this they would read as "not loaded".
+        // Plugins that stepped aside on the last start ("<name>  idle - ..."): a replacement does
+        // that while the plugin it replaces is loaded. The loader prints no "plugin <name>
+        // <version>" line for them, so without this they would read as "not loaded".
         static readonly Regex IdleLine = new Regex(@"^\[[^\]]*\]\s+(\S+)\s+idle - ", RegexOptions.Multiline);
         public static HashSet<string> IdleAtLastStart(string build)
         {
@@ -1040,257 +1141,108 @@ namespace TesmioAutoload
         }
     }
 
-    // Soviet Mod Loader as a neighbour. When SML is installed and switched on it
-    // loads hook DLLs straight out of the Workshop packages, so this application
-    // must not put a second copy into plugins\ - it only provides the INI (or the
-    // overlay). SML also embeds four capabilities that otherwise are separate
-    // plugins, which is what requires_local aliases against.
-    public static class Sml
+    // The loader's own files. TesmioLoader finds every plugin DLL itself - <loader>\plugins and, in
+    // any depth, the Steam Workshop folder - and tesmioloader.ini says which of them it loads:
+    // [plugins] <key> = 0|1, where the key is the DLL's file name without ".dll" and a missing key
+    // means on. This program lists what the loader finds and writes those switches; it never
+    // copies a DLL.
+    public static class LoaderFiles
     {
-        public static readonly string[] Names = { "soviet_mod_loader", "000_soviet_mod_loader" };
-        public static readonly HashSet<string> Embedded = new HashSet<string>(new[] { "resources", "deposits", "needs", "buildings" }, StringComparer.OrdinalIgnoreCase);
-        public static bool Active(string build)
+        public static string IniPath(string build) { return SafeFiles.Child(Path.GetFullPath(build), "tesmioloader.ini"); }
+        static Ini Read(string build)
+        {
+            string path = IniPath(build);
+            try { return File.Exists(path) ? new Ini(SafeFiles.Text(path)) : new Ini(""); }
+            catch (FormatException) { return new Ini(""); }
+        }
+        // [tesmioloader] plugins = 0 keeps the loader from loading any plugin at all.
+        public static bool PluginsAllowed(string build) { return Read(build).Get("tesmioloader", "plugins", "1") != "0"; }
+        public static bool Enabled(string build, string key) { return Read(build).Get("plugins", key, "1") != "0"; }
+        // The switches of several keys from one read of the file.
+        public static Dictionary<string, bool> Switches(string build, IEnumerable<string> keys)
+        {
+            Ini ini = Read(build); var result = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (string key in keys) result[key] = ini.Get("plugins", key, "1") != "0";
+            return result;
+        }
+        // The file with the given switches set, edited in place so that its comments and every
+        // other line survive, never written with a BOM.
+        public static byte[] Render(string build, IDictionary<string, bool> switches)
+        {
+            string path = IniPath(build);
+            var change = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in switches) change[Ini.Id("plugins", pair.Key)] = pair.Value ? "1" : "0";
+            if (File.Exists(path)) return SafeFiles.Utf8.GetBytes(new Ini(SafeFiles.Text(path)).Render(change));
+            var text = new StringBuilder("[plugins]\r\n");
+            foreach (var pair in switches) text.Append(pair.Key + "=" + (pair.Value ? "1" : "0") + "\r\n");
+            return SafeFiles.Utf8.GetBytes(text.ToString());
+        }
+        // Where the loader looks for Workshop plugins: [tesmioloader] workshop_path, else from its
+        // own folder upwards to "steamapps" and down to workshop\content\784150. "" when neither
+        // gives a folder.
+        public static string WorkshopRoot(string build)
+        {
+            string declared = (Read(build).Get("tesmioloader", "workshop_path", "") ?? "").Trim().Trim('"');
+            return declared.Length > 0 ? declared : PluginScan.WorkshopDefault(Path.GetFullPath(build));
+        }
+        // Every plugin DLL the loader will consider on its next start, in its load order.
+        public static List<FoundPlugin> Plugins(string build, string workshop)
+        { return PluginScan.Discover(Path.Combine(Path.GetFullPath(build), "plugins"), workshop ?? ""); }
+        // The last search, kept so that "is this plugin there" does not walk the Workshop folder
+        // on every question. The catalog renews it with every scan; Forget drops it.
+        static string knownBuild = "", knownWorkshop = ""; static List<FoundPlugin> known;
+        public static void Remember(string build, string workshop, List<FoundPlugin> found)
+        { knownBuild = Path.GetFullPath(build); knownWorkshop = workshop ?? ""; known = found; }
+        public static void Forget() { known = null; }
+        public static List<FoundPlugin> Known(string build)
+        {
+            string full = Path.GetFullPath(build);
+            if (known == null || !knownBuild.Equals(full, StringComparison.OrdinalIgnoreCase))
+            {
+                // A search for another loader folder than the remembered one keeps the Workshop
+                // folder the window was told to use only when the loader itself names none.
+                string workshop = WorkshopRoot(full);
+                Remember(full, workshop, Plugins(full, workshop));
+            }
+            return known;
+        }
+        // The DLL the loader takes for a key, or null when it finds none. A DLL put into plugins\
+        // since the last search is seen at once: a local DLL wins its key anyway.
+        public static FoundPlugin Find(string build, string key)
+        {
+            if (String.IsNullOrWhiteSpace(key)) return null;
+            string full = Path.GetFullPath(build), local = Path.Combine(full, "plugins", key + ".dll");
+            FoundPlugin hit = Known(full).FirstOrDefault(f => PluginScan.SameKey(f.Key, key));
+            if (hit != null && hit.Local && File.Exists(hit.Path)) return hit;
+            if (File.Exists(local) && PluginScan.HasPluginExports(local))
+                return new FoundPlugin { Path = local, File = key + ".dll", Key = key, Ini = local.Substring(0, local.Length - 4) + ".ini", Local = true };
+            return hit != null && File.Exists(hit.Path) ? hit : null;
+        }
+        public static bool Present(string build, string key) { return Find(build, key) != null; }
+        // Whether this tesmioloader.dll lays user_config\<name>.ini over a plugin's INI for plugins
+        // that read their settings through the host table. The loader shipped with this program
+        // does; without it only plugins that merge the file themselves see personal values.
+        public static bool LaysOverlay(string build)
         {
             try
             {
-                string root = Path.GetFullPath(build);
-                string cfg = Path.Combine(root, "tesmioloader.ini");
-                Ini settings = File.Exists(cfg) ? new Ini(SafeFiles.Text(cfg)) : new Ini("");
-                if (settings.Get("tesmioloader", "plugins", "1") == "0") return false;
-                foreach (string name in Names)
-                    if (File.Exists(Path.Combine(root, "plugins", name + ".dll")) && settings.Get("plugins", name, "1") != "0") return true;
+                string dll = SafeFiles.Child(Path.GetFullPath(build), "tesmioloader.dll");
+                if (!File.Exists(dll)) return false;
+                byte[] data = SafeFiles.Read(dll, 64 * 1024 * 1024), mark = Encoding.Unicode.GetBytes("user_config");
+                for (int i = 0; i + mark.Length <= data.Length; i++)
+                {
+                    int k = 0; while (k < mark.Length && data[i + k] == mark[k]) k++;
+                    if (k == mark.Length) return true;
+                }
                 return false;
             }
             catch (Exception) { return false; }
         }
-        // 0.5.1: one of the four embedded capabilities, with no DLL of its own in plugins\.
-        // Its plugins\<name>.ini is then generated output - the first line of the file says
-        // "generated by Soviet Mod Loader" - so nothing here may open an editor on it.
-        public static bool Hosts(string build, string plugin)
-        {
-            if (String.IsNullOrWhiteSpace(build) || String.IsNullOrWhiteSpace(plugin) || !Embedded.Contains(plugin)) return false;
-            try { if (File.Exists(Path.Combine(Path.GetFullPath(build), "plugins", plugin + ".dll"))) return false; }
-            catch (Exception) { return false; }
-            return Active(build);
-        }
-        // 0.5.3: where SML keeps its own state. [loader] state_dir names the folder next to the
-        // loader; "soviet_mod_loader" is its default and what every normal installation uses.
-        public static string StateDir(string build)
-        {
-            string root = Path.GetFullPath(build), fallback = Path.Combine(root, "soviet_mod_loader");
-            foreach (string name in Names)
-            {
-                string settings = Path.Combine(root, "plugins", name + ".ini");
-                try
-                {
-                    if (!File.Exists(settings)) continue;
-                    string value = new LooseIni(SafeFiles.Text(settings)).Get("loader", "state_dir");
-                    if (String.IsNullOrWhiteSpace(value)) continue;
-                    return SafeFiles.Child(root, GenericSchema.StripComment(value).Trim());
-                }
-                catch (Exception) { }
-            }
-            return fallback;
-        }
-        // The baseline SML merges the packages over. It snapshots it once from plugins\<name>.ini
-        // and from then on only reads it - so this, not the generated file, is where personal
-        // entries belong. Null means there is nothing to edit: no SML, or it has not run yet.
-        // A path as it is worth showing: relative to the loader folder, so the box reads
-        // "soviet_mod_loader\base\resources.ini" and not a line of Steam library.
-        public static string Show(string build, string path)
-        {
-            try
-            {
-                string root = Path.GetFullPath(build).TrimEnd('\\') + "\\", full = Path.GetFullPath(path);
-                return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full.Substring(root.Length) : full;
-            }
-            catch (Exception) { return path; }
-        }
-        // 0.5.9: SML searches ONE folder for mods - [loader] workshop_root, with "auto" meaning the
-        // Steam Workshop folder of the game library. There is no second root, so a package that is
-        // not from the Workshop has to live there too.
-        public static string WorkshopRoot(string build)
-        {
-            foreach (string name in Names)
-            {
-                try
-                {
-                    string settings = Path.Combine(Path.GetFullPath(build), "plugins", name + ".ini");
-                    if (!File.Exists(settings)) continue;
-                    string value = new LooseIni(SafeFiles.Text(settings)).Get("loader", "workshop_root");
-                    if (String.IsNullOrWhiteSpace(value)) continue;
-                    value = GenericSchema.StripComment(value).Trim();
-                    if (value.Length == 0 || value.Equals("auto", StringComparison.OrdinalIgnoreCase)) break;
-                    return Path.GetFullPath(value);
-                }
-                catch (Exception) { }
-            }
-            try { string game = GameBuildings.GameRoot(build); return game == null ? "" : (GameBuildings.SteamWorkshopFor(game) ?? ""); }
-            catch (Exception) { return ""; }
-        }
-        // 0.5.12: the order SML merged the resources in, from <state>\catalog.ini [resource_order]
-        // (id -> index). Empty when there is no catalogue. Read only.
-        public static Dictionary<string, int> CatalogOrder(string build)
-        {
-            var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                string path = Path.Combine(StateDir(build), "catalog.ini");
-                if (!File.Exists(path)) return result;
-                foreach (var pair in new LooseIni(SafeFiles.Text(path)).Entries("resource_order"))
-                {
-                    int at; if (Int32.TryParse((pair.Value ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out at)) result[pair.Key.Trim()] = at;
-                }
-            }
-            catch (Exception) { result.Clear(); }
-            return result;
-        }
-        // 0.5.15: the deposit type numbers SML gave the packages' deposits, from catalog.ini
-        // [deposit_types] ("<mod id>::<section>" -> number). Read only.
-        public static Dictionary<string, int> CatalogDepositTypes(string build)
-        {
-            var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                string path = Path.Combine(StateDir(build), "catalog.ini");
-                if (!File.Exists(path)) return result;
-                foreach (var pair in new LooseIni(SafeFiles.Text(path)).Entries("deposit_types"))
-                {
-                    int at; if (Int32.TryParse((pair.Value ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out at)) result[pair.Key.Trim()] = at;
-                }
-            }
-            catch (Exception) { result.Clear(); }
-            return result;
-        }
-        public static string Baseline(string build, string plugin, string configName)
-        {
-            if (!Hosts(build, plugin)) return null;
-            try
-            {
-                string path = SafeFiles.Child(StateDir(build), "base\\" + configName);
-                return File.Exists(path) ? path : null;
-            }
-            catch (Exception) { return null; }
-        }
     }
 
-    // workshop_bridge: the loader plugin that loads Workshop hook DLLs when SML
-    // is absent. Its allowlist is [packages] <Workshop folder> = 1/0 in
-    // user_config\workshop_bridge.ini, which only Republic Mod Manager writes; the
-    // base INI beside the DLL carries the policy (list = only listed, all).
-    public static class Bridge
-    {
-        public const string Name = "workshop_bridge";
-        public static bool Present(string build)
-        {
-            try
-            {
-                string root = Path.GetFullPath(build);
-                if (!File.Exists(Path.Combine(root, "plugins", Name + ".dll"))) return false;
-                string cfg = Path.Combine(root, "tesmioloader.ini");
-                Ini settings = File.Exists(cfg) ? new Ini(SafeFiles.Text(cfg)) : new Ini("");
-                return settings.Get("tesmioloader", "plugins", "1") != "0" && settings.Get("plugins", Name, "1") != "0";
-            }
-            catch (Exception) { return false; }
-        }
-        // Present, switched on, and not shadowed by SML (the bridge idles under SML).
-        public static bool Active(string build) { return Present(build) && !Sml.Active(build) && Enabled(build); }
-        public static string OverlayPath(string build) { return SafeFiles.Child(build, "user_config\\" + Name + ".ini"); }
-        static string BasePath(string build) { return SafeFiles.Child(build, "plugins\\" + Name + ".ini"); }
-        // Overlay first, then base - the same rule the DLL applies.
-        static string Setting(string build, string section, string key, string fallback)
-        {
-            foreach (string path in new[] { OverlayPath(build), BasePath(build) })
-            {
-                try
-                {
-                    if (!File.Exists(path)) continue;
-                    string value = new Ini(SafeFiles.Text(path)).Get(section, key, null);
-                    if (value != null) return GenericSchema.StripComment(value);
-                }
-                catch (FormatException) { }
-            }
-            return fallback;
-        }
-        static bool Enabled(string build) { return Setting(build, "bridge", "enabled", "1") != "0"; }
-        public static string Policy(string build) { return Setting(build, "bridge", "policy", "list").ToLowerInvariant() == "all" ? "all" : "list"; }
-        // The folder name is the key: the Workshop item number for a subscription.
-        public static string Key(Package package) { return Path.GetFileName(package.Root.TrimEnd('\\', '/')); }
-        // Whether the bridge would load this package as the files stand now.
-        public static bool Listed(string build, string key)
-        {
-            string value = Setting(build, "packages", key, null);
-            if (value != null) return value != "0";
-            return Policy(build) == "all";
-        }
-        public static byte[] Render(string build, string key, bool enabled)
-        {
-            string path = OverlayPath(build);
-            var change = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { Ini.Id("packages", key), enabled ? "1" : "0" } };
-            // 0.4.52: an overlay written by the old Tesmio Settings keeps its header line; rename it in passing.
-            string text = File.Exists(path) ? new Ini(SafeFiles.Text(path)).Render(change).Replace("; Written by Tesmio Settings:", "; Written by Republic Mod Manager:")
-                : "; Written by Republic Mod Manager: which Workshop packages workshop_bridge loads.\r\n[packages]\r\n" + key + " = " + (enabled ? "1" : "0") + "\r\n";
-            return SafeFiles.Utf8.GetBytes(text);
-        }
-        // 0.4.53: the folder the DLL walks - the workshop_root setting, "auto" resolved the way the DLL
-        // does it (the Workshop folder of the Steam library the game sits in); "" when it cannot be told.
-        public static string Root(string build)
-        {
-            string setting = Setting(build, "bridge", "workshop_root", "auto").Trim();
-            if (setting.Length == 0 || setting.Equals("auto", StringComparison.OrdinalIgnoreCase))
-            { string game = GameBuildings.GameRoot(build); string steam = game == null ? null : GameBuildings.SteamWorkshopFor(game); return steam ?? ""; }
-            try { return Path.GetFullPath(setting); } catch (Exception) { return setting; }
-        }
-        // The [packages] lines of one file: line index and key.
-        static List<KeyValuePair<int, string>> PackageEntries(string[] lines)
-        {
-            var result = new List<KeyValuePair<int, string>>(); bool inside = false;
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string line = lines[i].Trim();
-                if (line.StartsWith("[")) { inside = line.Equals("[packages]", StringComparison.OrdinalIgnoreCase); continue; }
-                if (!inside || line.Length == 0 || line.StartsWith(";") || line.StartsWith("#")) continue;
-                int eq = line.IndexOf('='); if (eq <= 0) continue;
-                result.Add(new KeyValuePair<int, string>(i, line.Substring(0, eq).Trim()));
-            }
-            return result;
-        }
-        static string[] LinesOf(string text) { return text.Replace("\r\n", "\n").Split('\n'); }
-        // Every key under [packages] of overlay and base, in file order, without duplicates.
-        public static List<string> PackageKeys(string build)
-        {
-            var keys = new List<string>();
-            foreach (string path in new[] { OverlayPath(build), BasePath(build) })
-            {
-                if (!File.Exists(path)) continue;
-                foreach (var entry in PackageEntries(LinesOf(SafeFiles.Text(path)))) if (!keys.Contains(entry.Value, StringComparer.OrdinalIgnoreCase)) keys.Add(entry.Value);
-            }
-            return keys;
-        }
-        // Drops the [packages] lines whose key `keep` rejects - in the overlay and in the base, every
-        // other line untouched - through one transaction. Returns the backup note, "" when nothing changed.
-        public static string Prune(string build, Func<string, bool> keep, Action guard, out List<string> removed)
-        {
-            removed = new List<string>();
-            var writes = new Dictionary<string, byte[]>(); var before = new Dictionary<string, string>();
-            foreach (string path in new[] { OverlayPath(build), BasePath(build) })
-            {
-                if (!File.Exists(path)) continue;
-                string text = SafeFiles.Text(path); string newline = text.Contains("\r\n") ? "\r\n" : "\n";
-                string[] lines = LinesOf(text); var drop = new HashSet<int>();
-                foreach (var entry in PackageEntries(lines)) if (!keep(entry.Value)) { drop.Add(entry.Key); if (!removed.Contains(entry.Value, StringComparer.OrdinalIgnoreCase)) removed.Add(entry.Value); }
-                if (drop.Count == 0) continue;
-                before[path] = SafeFiles.HashFile(path); writes[path] = SafeFiles.Utf8.GetBytes(String.Join(newline, lines.Where((l, i) => !drop.Contains(i))));
-            }
-            if (writes.Count == 0) return "";
-            return Transaction.Apply(build, Name, writes, before, guard);
-        }
-    }
-
-    // Update detection: the receipt written at the last deployment remembers
-    // the package version and the hashes of what was deployed. A package whose
-    // DLL or default INI no longer matches has been updated (Steam, or the
-    // author) since then; saving takes the new files over.
+    // Update detection: the receipt written at the last save remembers the package
+    // version and the hashes of its DLL and INI. A package whose DLL or INI no longer
+    // matches has been updated (Steam, or the author) since then; saving acknowledges it.
     public sealed class UpdateState
     {
         public bool Deployed, Pending;
@@ -1310,11 +1262,10 @@ namespace TesmioAutoload
                 var r = new Ini(SafeFiles.Text(receipt));
                 if (r.Get("state", "id", "") != package.Id) return state;
                 state.Deployed = true; state.PreviousVersion = r.Get("state", "version", "");
-                string mode = r.Get("state", "mode", "package");
-                // The DLL only counts where this program copied it; under SML or the
-                // bridge the game loads the package copy and is current by itself.
+                // The game always loads the package's own DLL, so a changed DLL needs nothing
+                // from the player; the mark only says that Steam brought a new one.
                 string dllHash = r.Get("state", "dll_hash", "");
-                state.DllChanged = mode == "package" && dllHash.Length > 0 && dllHash != "absent" && package.Dll != null && dllHash != SafeFiles.Hash(package.Dll);
+                state.DllChanged = dllHash.Length > 0 && dllHash != "absent" && package.Dll != null && dllHash != SafeFiles.Hash(package.Dll);
                 state.DefaultsChanged = package.HasConfig && r.Get("state", "defaults_hash", "") != package.DefaultsHash;
                 state.Pending = state.DllChanged || state.DefaultsChanged;
             }
@@ -1323,7 +1274,8 @@ namespace TesmioAutoload
         }
     }
 
-    // One line of an SML manifest's [dependencies]: `mod.id = >=1.2.0`.
+    // One line of a manifest's [dependencies]: `mod.id = >=1.2.0`, or a plugin key
+    // (`resources = *`). A plugin that replaces the named one satisfies it as well.
     public sealed class Dependency
     {
         public string Id, Constraint = "";
@@ -1379,8 +1331,8 @@ namespace TesmioAutoload
     public static class GameVersion
     {
         public static bool CheckEnabled = true;
-        static readonly Dictionary<uint, string> supported = new Dictionary<uint, string> { { 0x6A3EB6ADu, "1.1.1.9" } };
-        static readonly Dictionary<uint, string> retired = new Dictionary<uint, string> { { 0x69C4098Cu, "1.1.1.7" } };
+        static readonly Dictionary<uint, string> supported = new Dictionary<uint, string> { { 0x6A8D4087u, "1.1.1.13" } };
+        static readonly Dictionary<uint, string> retired = new Dictionary<uint, string> { { 0x6A3EB6ADu, "1.1.1.9" }, { 0x69C4098Cu, "1.1.1.7" } };
         // settings_schemas\game_versions.ini: [supported] 6A3EB6AD = 1.1.1.9
         public static void LoadTable(string schemaRoot)
         {
@@ -1407,7 +1359,15 @@ namespace TesmioAutoload
                 if (File.Exists(cfg)) { string exe = new Ini(SafeFiles.Text(cfg)).Get("tesmioloader", "game_exe", ""); if (exe.Length > 0 && File.Exists(exe)) return Path.GetFullPath(exe); }
             }
             catch (Exception) { }
-            return Path.GetFullPath(Path.Combine(root, "..\\..\\SOVIET64.exe"));
+            // The loader lies in the game folder itself, in <game>\tesmioloader or in
+            // <game>\tesmioloader\build: the first folder upwards with the game's exe.
+            string dir = root;
+            for (int depth = 0; depth < 4 && !String.IsNullOrEmpty(dir); depth++)
+            {
+                string exe = Path.Combine(dir, "SOVIET64.exe"); if (File.Exists(exe)) return exe;
+                dir = Path.GetDirectoryName(dir);
+            }
+            return Path.GetFullPath(Path.Combine(root, "..\\SOVIET64.exe"));
         }
         // 0 when the file is not a PE image.
         public static uint Stamp(string exe)
@@ -1452,69 +1412,42 @@ namespace TesmioAutoload
 
     public static class RuntimeStatus
     {
-        // 0.5.3: the package declares that SML replaces it, and SML really hosts that capability.
-        // The plugin then steps aside at startup - not off, not broken, just not its turn.
-        public static bool BlockedBySml(CatalogEntry entry, string build)
-        {
-            if (entry == null || !entry.Supported || entry.Problem.Length > 0 || entry.Installed) return false;
-            // 0.5.10: a local editor schema may declare replaced_by_sml as well (Resources Plus).
-            if (entry.LocalEditor)
-            {
-                try { var spec = LocalEditorSpec.Load(entry.Root); return spec.ReplacedBySml.Length > 0 && Sml.Hosts(build, spec.ReplacedBySml); }
-                catch (Exception) { return false; }
-            }
-            try { return Blocked(Package.Load(entry.Root), build); }
-            catch (Exception) { return false; }
-        }
-        public static bool Blocked(LocalEditorSpec spec, string build)
-        { return spec != null && spec.ReplacedBySml.Length > 0 && Sml.Hosts(build, spec.ReplacedBySml); }
-        public static bool Blocked(Package package, string build)
-        { return package != null && package.ReplacedBySml.Length > 0 && Sml.Hosts(build, package.ReplacedBySml); }
+        // The package behind a list entry: a DLL in <loader>\plugins, or a package below the
+        // Workshop folder.
+        public static Package Load(CatalogEntry entry, string build)
+        { return entry.Installed ? InstalledPlugins.Load(build, entry.Target, Catalog.SchemaRoot) : Package.Load(entry.Root); }
+        // Whether the entry runs on the next game start as far as files can tell: the loader
+        // finds its DLL and has it switched on, and the plugin's own switch is not off.
         public static bool ConfiguredActive(CatalogEntry entry, string build)
         {
             if (entry == null || !entry.Supported || entry.Problem.Length > 0) return false;
-            // 0.5.16: a fork that SML pushes aside is paused, not active - amber in the list, like Deposits Plus.
-            if(entry.LocalEditor)return !BlockedBySml(entry,build)&&LocalResourceRuntime.Active(entry,build);
+            if(entry.LocalEditor)return LocalResourceRuntime.Active(entry,build);
             try
             {
-                Package package=entry.Installed?InstalledPlugins.Load(build,entry.Target,Catalog.SchemaRoot):Package.Load(entry.Root);
-                if (Blocked(package, build)) return false;
-                if (package.Kind != "plugin") return package.Kind == "content" && (ContentSession.IsProvided(build, package.Id) || ContentSession.MergedByLoader(build, package));
+                Package package=Load(entry,build);
+                if (package.Kind != "plugin") return package.Kind == "content" && ContentSession.IsProvided(build, package.Id);
                 string root = Path.GetFullPath(build);
-                string dll = SafeFiles.Child(root, "plugins\\"+package.Target+".dll");
-                // Under SML a Workshop package's DLL is loaded from the package itself;
-                // under the bridge only when the package is on its list.
-                if (!File.Exists(dll))
-                {
-                    if (package.Installed) return false;
-                    if (!Sml.Active(root) && !(Bridge.Active(root) && Bridge.Listed(root, Bridge.Key(package)))) return false;
-                }
+                if (!File.Exists(package.DllPath)) return false;
                 if (package.HasConfig && !package.EditorManaged)
                 {
-                    string ini = SafeFiles.Child(root, "plugins\\"+package.ConfigName);
-                    Ini plugin;
-                    if (File.Exists(ini)) { plugin = new Ini(SafeFiles.Text(ini)); ConfigRules.Validate(package,plugin); }
-                    // 0.5.2: nothing deployed to plugins\ yet. Loaded from the package (SML or the
-                    // bridge), the DLL reads the INI beside itself, so that one says what runs.
-                    else if (!File.Exists(dll) && package.DefaultsBytes != null) plugin = new Ini(SafeFiles.Decode(package.DefaultsBytes));
-                    else return false;
-                    // With an overlay the deployed INI is the untouched original; the
-                    // personal value of the switch lives in user_config.
-                    string overlayPath = SafeFiles.Child(root, "user_config\\"+package.ConfigName);
-                    var overlay = package.UserOverlay && File.Exists(overlayPath) ? new Ini(SafeFiles.Text(overlayPath)) : null;
+                    // An installed plugin reads plugins\<key>.ini, a Workshop plugin the INI beside
+                    // its DLL; the personal value of the switch in user_config wins over both.
+                    Ini plugin = package.Defaults;
+                    if (package.Installed)
+                    {
+                        string ini = SafeFiles.Child(root, "plugins\\"+package.ConfigName);
+                        if (!File.Exists(ini)) return false;
+                        plugin = new Ini(SafeFiles.Text(ini)); ConfigRules.Validate(package,plugin);
+                    }
                     if (package.EnabledField.Length>0)
                     {
+                        string overlayPath = SafeFiles.Child(root, "user_config\\"+package.ConfigName);
+                        var overlay = File.Exists(overlayPath) ? new Ini(SafeFiles.Text(overlayPath)) : null;
                         string state; if (overlay == null || !overlay.Values.TryGetValue(package.EnabledField, out state)) plugin.Values.TryGetValue(package.EnabledField, out state);
                         if (GenericSchema.StripComment(state) != "1") return false;
                     }
                 }
-                string loaderPath = SafeFiles.Child(root, "tesmioloader.ini");
-                var loader = File.Exists(loaderPath) ? new Ini(SafeFiles.Text(loaderPath)) : new Ini("");
-                if (loader.Get("tesmioloader", "plugins", "1") == "0") return false;
-                // A bridge-loaded package has no [plugins] key of its own: the bridge's
-                // switch and its list decide.
-                if (!File.Exists(dll)) return Sml.Active(root) || loader.Get("plugins", Bridge.Name, "1") != "0";
-                return loader.Get("plugins", package.Target, "1") != "0";
+                return LoaderFiles.PluginsAllowed(root) && LoaderFiles.Enabled(root, package.Target);
             }
             catch (Exception) { return false; }
         }
@@ -1676,130 +1609,55 @@ namespace TesmioAutoload
             return false;
         }
 
-        // 0.4.27: whether a found dependency is really loaded on the next game start,
-        // by the same rules Check applies below: SML content and hooks, a folder on the
-        // bridge list, or an enabled plugins\<target>.dll. False for unresolved ones.
-        public static bool Provisioned(Session session, Dependency d)
+        // Whether a found dependency really loads on the next game start: a provided content
+        // package, or a plugin DLL the loader finds and has switched on. False for unresolved ones.
+        public static bool Provisioned(string build, Dependency d)
         {
             if(!d.Found||!d.VersionOk) return false;
-            string build=session.Build; bool sml=Sml.Active(build);
-            if(d.Kind=="content") return sml||ContentSession.IsProvided(build,d.Id);
-            if(sml||d.Target.Length==0) return true;
-            if(session.BridgeActive&&d.Root.Length>0&&Bridge.Listed(build,Path.GetFileName(d.Root.TrimEnd('\\','/')))) return true;
-            if(!File.Exists(SafeFiles.Child(build,"plugins\\"+d.Target+".dll"))) return false;
-            string cfg=SafeFiles.Child(build,"tesmioloader.ini");
-            Ini settings=File.Exists(cfg)?new Ini(SafeFiles.Text(cfg)):new Ini("");
-            return settings.Get("plugins",d.Target,"1")!="0";
+            if(d.Kind=="content") return ContentSession.IsProvided(build,d.Id);
+            if(d.Target.Length==0) return true;
+            return LoaderFiles.Enabled(build,d.Target);
         }
+        public static bool Provisioned(Session session, Dependency d) { return Provisioned(session.Build,d); }
+        // What must hold before anything is written for a package: no game, a loader, and a
+        // loader that loads plugins at all. What a plugin needs from other plugins is a matter
+        // of the game start (Startup.Unmet), not of saving its settings.
         public static void Check(Session session)
         {
-            string build=session.Build;Package package=session.Package;
+            string build=session.Build;
             NoGameRunning(build);
-            foreach (string file in new[] { "tesmioloader.dll", "tesmiolauncher.exe" })
-                if (!File.Exists(SafeFiles.Child(build, file))) throw new IOException(Msg.Key("err_benoetigte_lokale_datei_fehlt", file));
-            string cfg = SafeFiles.Child(build, "tesmioloader.ini");
-            Ini settings = File.Exists(cfg) ? new Ini(SafeFiles.Text(cfg)) : new Ini("");
-            if (settings.Get("tesmioloader", "plugins", "1") == "0")throw new IOException(Msg.Key("err_plugins_sind_im_vorhandenen"));
-            bool sml = Sml.Active(build);
-            foreach(string dependency in package.RequiresLocal)
-            {
-                // SML brings resources/deposits/needs/buildings along; with SML active
-                // those are satisfied without a separate DLL.
-                if(sml && Sml.Embedded.Contains(dependency)) continue;
-                // 0.5.11: a fork with the same service (resources_plus for resources) satisfies the
-                // requirement - the first one installed counts, the original last.
-                string provider=ContentTargets.PluginsFor(dependency).FirstOrDefault(p=>File.Exists(SafeFiles.Child(build,"plugins\\"+p+".dll")))??dependency;
-                if(!File.Exists(SafeFiles.Child(build,"plugins\\"+provider+".dll")))throw new IOException(Msg.Key("err_benoetigte_lokale_plugin_dll", dependency));
-                if(settings.Get("plugins",provider,"1")=="0")throw new IOException(Msg.Key("err_benoetigtes_lokales_plugin_ist", provider));
-            }
-            // First what the Workshop folder lacks, then what is not deployed yet.
-            foreach(Dependency d in package.Dependencies)
-            {
-                if(!d.Found)throw new IOException(Msg.Key("err_abhaengigkeit_nicht_im_workshop", d.Id, (d.Constraint.Length>0?" ("+d.Constraint+")":"")));
-                if(!d.VersionOk)throw new IOException(Msg.Key("err_abhaengigkeit_in_falscher_version", d.Id, d.Version, d.Constraint));
-            }
-            foreach(Dependency d in package.Dependencies)
-            {
-                if(d.Kind=="content"){if(!sml&&!ContentSession.IsProvided(build,d.Id))throw new IOException(Msg.Key("err_abhaengigkeit_ist_sml_inhalt", d.Id));continue;}
-                if(sml||d.Target.Length==0)continue;      // SML loads hook packages itself
-                if(session.BridgeActive&&d.Root.Length>0&&Bridge.Listed(build,Path.GetFileName(d.Root.TrimEnd('\\','/'))))continue;   // the bridge loads it
-                if(!File.Exists(SafeFiles.Child(build,"plugins\\"+d.Target+".dll")))throw new IOException(Msg.Key("err_abhaengigkeit_ist_nicht_bereitgestellt", d.Id, d.Target));
-                if(settings.Get("plugins",d.Target,"1")=="0")throw new IOException(Msg.Key("err_abhaengigkeit_ist_im_tesmiolauncher", d.Id, d.Target));
-            }
-            // With SML active the package DLL must not also sit in plugins\, or the
-            // game loads it twice - once from the Workshop, once from here.
-            if(sml && !package.Installed && File.Exists(session.LocalDll))
-                throw new IOException(Msg.Key("err_sml_ist_aktiv_und", package.Target));
-            foreach(string conflict in package.ConflictsLocal)if(File.Exists(SafeFiles.Child(build,"plugins\\"+conflict+".dll"))&&settings.Get("plugins",conflict,"1")!="0")
-                throw new IOException(Msg.Key("err_konflikt_plugin_ist_noch", conflict));
+            if (!File.Exists(SafeFiles.Child(build, "tesmioloader.dll"))) throw new IOException(Msg.Key("err_benoetigte_lokale_datei_fehlt", "tesmioloader.dll"));
+            if (!LoaderFiles.PluginsAllowed(build)) throw new IOException(Msg.Key("err_plugins_sind_im_vorhandenen"));
         }
     }
 
     public sealed class Session
     {
         public readonly Package Package;
+        // LocalDll is the DLL the loader takes: the package's own file below the Workshop folder,
+        // or <loader>\plugins\<key>.dll for an installed plugin. It is never written.
         public readonly string Build, LocalDll, LocalIni, UserIni, Receipt, Upstream, LoaderIni;
         public readonly Dictionary<string, string> Overrides;
         public readonly Dictionary<string, string> Before = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> Notes = new List<string>();
-        // SML installed and enabled in this loader folder: the DLL is SML's business.
-        public readonly bool SmlActive;
-        // workshop_bridge installed and on, SML absent, and this is a Workshop
-        // package: the bridge loads the DLL from the package, Republic Mod Manager
-        // deploys the INI only and keeps the package on the bridge's list.
-        public readonly bool BridgeActive;
-        // A plugins\<target>.dll that Republic Mod Manager itself deployed earlier (the
-        // receipt proves it): with the bridge active it is removed on the next
-        // save, so the package copy is the one that runs. Any other local copy is
-        // the user's and stays; the bridge then skips the package.
-        public readonly bool RemoveOwnDll, ForeignLocalDll;
-        public readonly string BridgeIni;
         // What the last receipt says about this package versus the files now.
         public readonly UpdateState Update;
-        // The loader's own switch, [plugins] <target> in tesmioloader.ini - whether
-        // TesmioLoader loads the DLL at all. Meaningless for a package under SML
-        // (SML loads it from the Workshop) and for content packages. Under the
-        // bridge the same switch is the package's line in the bridge's list.
+        // The loader's own switch, [plugins] <key> in tesmioloader.ini - whether TesmioLoader
+        // loads the DLL at all. A content package has no DLL and no such switch.
         public readonly bool LoaderSwitchApplies;
         public bool LoaderEnabled { get; private set; }
-        // What the single "plugin active" switch controls here: the loader entry (or
-        // the bridge list) with the INI's enabled field set alongside, only the INI
-        // field when SML loads the package, or nothing at all.
-        public string SwitchMode { get { return LoaderSwitchApplies ? "loader" : Package.EnabledField.Length > 0 ? "ini" : "none"; } }
+        // What the single "plugin active" switch controls here: the loader entry, with the INI's
+        // enabled field set alongside, or nothing at all.
+        public string SwitchMode { get { return LoaderSwitchApplies ? "loader" : "none"; } }
+        // Plugins that must not run beside this one, by key: the ones it replaces, and the ones
+        // that replace it. The window fills both from the catalog before the first save.
+        public readonly List<string> Replaced = new List<string>(), Replacing = new List<string>();
+        readonly bool enabledAtLoad;
+        // A plugins\<key>.ini left behind for a Workshop plugin by an earlier version of this
+        // program (its receipt proves it). The plugin would read it instead of the package's own
+        // INI, so the next save removes it; any other local INI is the player's and stays.
+        readonly bool ownStaleLocalIni;
         bool restoring;
-        // "Dateien nur lokal": the author allows it (local_copy = 1), the bridge would
-        // otherwise load the package, and the user chose the local copy. Then the
-        // package is deployed like any plain package - DLL, INI and the assets folder
-        // go to plugins\ - and the bridge skips it because the DLL is there.
-        public readonly bool LocalCopyOffered, PreferLocal;
-        public readonly List<string> AssetTargets = new List<string>();
-        public bool LocalCopyChanged { get { return LocalCopyOffered && PreferLocal != ReceiptPrefersLocal(Build, Package); } }
-        public static bool ReceiptPrefersLocal(string build, Package package)
-        {
-            try
-            {
-                string receipt = SafeFiles.Child(Path.GetFullPath(build), "user_config\\.autoload\\" + package.Target + ".receipt.ini");
-                if (!File.Exists(receipt)) return false;
-                var r = new Ini(SafeFiles.Text(receipt)); return r.Get("state", "id") == package.Id && r.Get("state", "local_copy", "0") == "1";
-            }
-            catch (Exception) { return false; }
-        }
-        // Asset files an earlier local copy put under plugins\, as the receipt lists them.
-        static List<string> ReceiptAssets(string receipt)
-        {
-            var list = new List<string>();
-            try { if (File.Exists(receipt)) foreach (var pair in new Ini(SafeFiles.Text(receipt)).Values) if (pair.Key.StartsWith("state/asset.", StringComparison.OrdinalIgnoreCase)) list.Add(pair.Value); }
-            catch (FormatException) { }
-            return list;
-        }
-        string AssetTarget(string relativeToPlugins) { return SafeFiles.Child(Build, "plugins\\" + relativeToPlugins); }
-        // What a local copy puts into plugins\, relative to that folder.
-        public List<string> LocalCopyFiles()
-        {
-            var files = new List<string> { Package.Target + ".dll" }; if (Package.HasConfig) files.Add(Package.ConfigName);
-            files.AddRange(Package.AssetFiles.Select(x => Package.AssetsFolder + "\\" + x)); return files;
-        }
-        public Session(Package package, string build) : this(package, build, ReceiptPrefersLocal(build, package)) { }
 
         // A local INI written from an earlier package revision may lack keys the
         // package added since, or carry keys it dropped. It is read on top of the
@@ -1818,43 +1676,25 @@ namespace TesmioAutoload
             }
             var merged = new Ini(Package.Defaults.Render(known)); ConfigRules.Validate(Package, merged); return merged;
         }
-        public Session(Package package, string build, bool preferLocal)
+        public Session(Package package, string build)
         {
-            Package = package; Build = Path.GetFullPath(build); SmlActive = Sml.Active(Build);
-            LoaderIni = SafeFiles.Child(Build, "tesmioloader.ini"); BridgeIni = Bridge.OverlayPath(Build);
-            LocalDll = SafeFiles.Child(Build, "plugins\\"+Package.Target+".dll"); LocalIni = SafeFiles.Child(Build, "plugins\\"+Package.ConfigName);
+            Package = package; Build = Path.GetFullPath(build);
+            LoaderIni = LoaderFiles.IniPath(Build);
+            LocalDll = Package.Installed ? SafeFiles.Child(Build, "plugins\\"+Package.Target+".dll") : Package.DllPath;
+            LocalIni = SafeFiles.Child(Build, "plugins\\"+Package.ConfigName);
             UserIni = SafeFiles.Child(Build, "user_config\\"+Package.ConfigName); Receipt = SafeFiles.Child(Build, "user_config\\.autoload\\"+Package.Target+".receipt.ini");
             Upstream = Package.Installed ? InstalledPlugins.UpstreamPath(Build, Package.Target) : null;
-            bool bridge = Package.Kind == "plugin" && !Package.Installed && !SmlActive && Bridge.Active(Build);
-            LocalCopyOffered = Package.LocalCopyOffered && bridge; PreferLocal = preferLocal && LocalCopyOffered;
-            if (PreferLocal) bridge = false;
-            if (bridge && File.Exists(LocalDll))
-            {
-                bool own = false;
-                try { if (File.Exists(Receipt)) { var r = new Ini(SafeFiles.Text(Receipt)); own = r.Get("state", "id") == Package.Id && r.Get("state", "mode") == "package" && r.Get("state", "dll_hash") == SafeFiles.HashFile(LocalDll); } }
-                catch (FormatException) { own = false; }
-                RemoveOwnDll = own; ForeignLocalDll = !own;
-                if (ForeignLocalDll) bridge = false;      // the local copy runs; treat it as a plain deployment
-            }
-            BridgeActive = bridge;
             Update = UpdateCheck.Of(Package, Build);
-            LoaderSwitchApplies = Package.Kind == "plugin" && (Package.Installed || !SmlActive);
-            LoaderEnabled = !LoaderSwitchApplies || ReadLoaderSwitch();
+            LoaderSwitchApplies = Package.Kind == "plugin";
+            LoaderEnabled = !LoaderSwitchApplies || ReadLoaderSwitch(); enabledAtLoad = LoaderEnabled;
             if (!Package.Installed)
             {
                 string packagePrefix = Package.Root.TrimEnd('\\', '/') + "\\", buildPrefix = Build.TrimEnd('\\', '/') + "\\";
                 if (packagePrefix.StartsWith(buildPrefix, StringComparison.OrdinalIgnoreCase) || buildPrefix.StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase))
                     throw new IOException(Msg.Key("err_paket_und_loader_ordner"));
             }
-            foreach (string path in new[] { LocalDll, LocalIni, UserIni, Receipt, LoaderIni }) Before[path] = SafeFiles.HashFile(path);
+            foreach (string path in new[] { LocalIni, UserIni, Receipt, LoaderIni }) Before[path] = SafeFiles.HashFile(path);
             if (Upstream != null) Before[Upstream] = SafeFiles.HashFile(Upstream);
-            if (BridgeActive) Before[BridgeIni] = SafeFiles.HashFile(BridgeIni);
-            if (Package.Kind == "plugin" && !Package.Installed && !SmlActive)
-            {
-                foreach (string relative in Package.AssetFiles) { string target = AssetTarget(Package.AssetsFolder + "\\" + relative); if (!AssetTargets.Contains(target)) AssetTargets.Add(target); }
-                foreach (string relative in ReceiptAssets(Receipt)) { string target = AssetTarget(relative); if (!AssetTargets.Contains(target)) AssetTargets.Add(target); }
-                foreach (string target in AssetTargets) Before[target] = SafeFiles.HashFile(target);
-            }
             Overrides = File.Exists(UserIni) ? new Ini(SafeFiles.Text(UserIni)).Values : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach(string id in Overrides.Keys.Where(id=>Package.IsDefault(id,Overrides[id])).ToList())Overrides.Remove(id);
             if (Package.Installed)
@@ -1863,43 +1703,32 @@ namespace TesmioAutoload
                 // already chose it and told the package whether the copy must be refreshed.
                 foreach (string hint in Package.Hints) if (Msg.KeyOf(hint).StartsWith("hint_installed_")) Notes.Add(hint);
             }
-            else if (File.Exists(Receipt))
+            else if (!Package.EditorManaged && File.Exists(LocalIni))
             {
-                var receipt = new Ini(SafeFiles.Text(Receipt));
-                // With SML active the DLL in plugins\ is never ours, so only the INI counts.
-                // Under the bridge the DLL is either our own earlier copy (checked above) or absent.
-                if (receipt.Get("state", "id") != Package.Id || (!Package.EditorManaged && receipt.Get("state", "ini_hash") != Before[LocalIni]) || (!SmlActive && !BridgeActive && receipt.Get("state", "dll_hash") != Before[LocalDll]))
-                    throw new IOException(Msg.Key("err_lokale_dll_ini_wurde"));
-                string currentDefaultsHash=Package.DefaultsHash;
-                if(!Package.EditorManaged&&File.Exists(LocalIni)&&receipt.Get("state","defaults_hash","")!=currentDefaultsHash)
+                // A Workshop plugin with an INI of the same name in <loader>\plugins. Whoever
+                // wrote it, the values it changed are worth keeping as personal values.
+                Ini receipt = null;
+                try { if (File.Exists(Receipt)) receipt = new Ini(SafeFiles.Text(Receipt)); } catch (FormatException) { receipt = null; }
+                bool ours = receipt != null && receipt.Get("state", "id", "") == Package.Id && receipt.Get("state", "ini_hash", "") == Before[LocalIni];
+                // For a package with an effective INI that file is no leftover: it is what the
+                // last save wrote for the plugin to read.
+                ownStaleLocalIni = ours && !Package.EffectiveIni;
+                if (!(Package.EffectiveIni && ours) && (ownStaleLocalIni || !File.Exists(UserIni)))
                 {
-                    var local=StaleLocal(LocalIni);
-                    foreach(CollectionSpec collection in Package.Collections.Where(x=>x.UserOwned&&!Overrides.ContainsKey(x.CountId)))
+                    try
                     {
-                        var localState=CollectionRules.State(collection,local);var packageState=CollectionRules.State(collection,Package.Defaults);
-                        bool changed=localState.Count!=packageState.Count||localState.Any(x=>!packageState.ContainsKey(x.Key)||packageState[x.Key]!=x.Value);
-                        if(!changed)continue;
-                        foreach(var pair in localState)if(!Package.IsDefault(pair.Key,pair.Value))Overrides[pair.Key]=pair.Value;
-                        Notes.Add(Msg.Key("note_collection_kept", collection.Id));
+                        var local = StaleLocal(LocalIni);
+                        foreach (var pair in local.Values)
+                            if (!Overrides.ContainsKey(pair.Key) && !Package.IsDefault(pair.Key,pair.Value)) Overrides[pair.Key] = pair.Value;
+                        if (!File.Exists(UserIni)) Notes.Add(Msg.Key("note_first_import"));
                     }
+                    catch (FormatException) { }
                 }
-            }
-            else if (!Package.EditorManaged && File.Exists(LocalIni) && !File.Exists(UserIni))
-            {
-                var local = StaleLocal(LocalIni);
-                foreach (var pair in local.Values)
-                {
-                    if (!Overrides.ContainsKey(pair.Key) && !Package.IsDefault(pair.Key,pair.Value)) Overrides[pair.Key] = pair.Value;
-                }
-                Notes.Add(Msg.Key("note_first_import"));
+                if (!Package.EffectiveIni) Notes.Add(Msg.Key(ownStaleLocalIni ? "note_local_ini_removed" : "note_local_ini_shadows", "plugins\\" + Package.ConfigName));
             }
             Notes.Add(Msg.Key("note_originals_safe"));
-            if (SmlActive && !Package.Installed) Notes.Add(Msg.Key("note_sml_active"));
             if (Update.Pending) Notes.Add(Msg.Key("note_update_pending", Update.PreviousVersion.Length > 0 ? Update.PreviousVersion : "?", Update.CurrentVersion, (Update.DllChanged ? "DLL" : "") + (Update.DllChanged && Update.DefaultsChanged ? ", " : "") + (Update.DefaultsChanged ? "INI" : "")));
-            if (BridgeActive) Notes.Add(Msg.Key("note_bridge_active"));
-            if (RemoveOwnDll) Notes.Add(Msg.Key("note_bridge_remove_copy", "plugins\\" + Package.Target + ".dll"));
-            if (ForeignLocalDll) Notes.Add(Msg.Key("note_bridge_foreign_copy", "plugins\\" + Package.Target + ".dll"));
-            if (Package.UserOverlay) Notes.Add(Msg.Key("note_overlay", Package.ConfigName));
+            if (!Package.Installed && Package.HasConfig && !Package.EditorManaged) Notes.Add(Msg.Key(Package.EffectiveIni ? "note_effective" : "note_overlay", Package.ConfigName));
             if (!Package.HasConfig) Notes.Add(Msg.Key("note_no_ini"));
             if (Package.Generic && Package.HasConfig) Notes.Add(Msg.Key("note_no_schema"));
             Effective();
@@ -1908,22 +1737,29 @@ namespace TesmioAutoload
         {
             string text = Package.Defaults.Render(Overrides); ConfigRules.Validate(Package,new Ini(text)); return text;
         }
-        bool ReadLoaderSwitch()
-        {
-            if (BridgeActive) return Bridge.Listed(Build, Bridge.Key(Package));
-            try { return !File.Exists(LoaderIni) || new Ini(SafeFiles.Text(LoaderIni)).Get("plugins", Package.Target, "1") != "0"; }
-            catch (FormatException) { return true; }
-        }
+        bool ReadLoaderSwitch() { return LoaderFiles.Enabled(Build, Package.Target); }
         public void SetLoaderEnabled(bool enabled) { if (LoaderSwitchApplies) LoaderEnabled = enabled; }
-        public bool LoaderChanged { get { return LoaderSwitchApplies && LoaderEnabled != ReadLoaderSwitch(); } }
+        // The plugins this save switches off because this one is on: always the ones it replaces,
+        // and the ones replacing it when the player has just switched it on. Two plugins doing the
+        // same job never load together; without this the brake inside the replacement would idle it.
+        public List<string> SwitchesOff()
+        {
+            var off = new List<string>();
+            if (!LoaderSwitchApplies || !LoaderEnabled) return off;
+            var candidates = Replaced.Concat(enabledAtLoad ? Enumerable.Empty<string>() : Replacing).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (candidates.Count == 0) return off;
+            var switches = LoaderFiles.Switches(Build, candidates);
+            foreach (string key in candidates) if (switches[key] && !key.Equals(Package.Target, StringComparison.OrdinalIgnoreCase)) off.Add(key);
+            return off;
+        }
+        public bool LoaderChanged { get { return LoaderSwitchApplies && (LoaderEnabled != ReadLoaderSwitch() || SwitchesOff().Count > 0); } }
         // tesmioloader.ini is the launcher's file: edited in place so its comments
         // and the other plugins' switches survive, never written with a BOM.
         byte[] RenderLoaderIni()
         {
-            if (BridgeActive) return Bridge.Render(Build, Bridge.Key(Package), LoaderEnabled);
-            var change = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { Ini.Id("plugins", Package.Target), LoaderEnabled ? "1" : "0" } };
-            string text = File.Exists(LoaderIni) ? new Ini(SafeFiles.Text(LoaderIni)).Render(change) : "[plugins]\r\n" + Package.Target + "=" + (LoaderEnabled ? "1" : "0") + "\r\n";
-            return SafeFiles.Utf8.GetBytes(text);
+            var switches = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase) { { Package.Target, LoaderEnabled } };
+            foreach (string key in SwitchesOff()) switches[key] = false;
+            return LoaderFiles.Render(Build, switches);
         }
         public void Set(Field field, string value)
         {
@@ -1939,13 +1775,15 @@ namespace TesmioAutoload
             Package.AssertUnchanged();
             foreach (var pair in Before) { SafeFiles.NoLinks(pair.Key); if (SafeFiles.HashFile(pair.Key) != pair.Value) throw new IOException(Msg.Key("err_datei_inzwischen_geaendert_neu", pair.Key)); }
         }
-        // Shared files RMM writes when another entry is saved (0.4.71): the loader's plugin switches
-        // and the bridge list. Their hashes are taken afresh, so the next commit of this session does
-        // not mistake RMM's own write for a foreign change; every other file stays guarded.
-        public void RehashShared() { foreach (string path in new[] { LoaderIni, BridgeIni }) if (path != null && Before.ContainsKey(path)) Before[path] = SafeFiles.HashFile(path); }
+        // The loader's plugin switches are a shared file: this program writes it when another
+        // entry is saved. Its hash is taken afresh, so the next commit of this session does not
+        // mistake that write for a foreign change; every other file stays guarded.
+        public void RehashShared() { if (Before.ContainsKey(LoaderIni)) Before[LoaderIni] = SafeFiles.HashFile(LoaderIni); }
+        // deploy = false writes the personal values and the switch only; true also brings the
+        // files in the loader folder into line (the effective INI of an installed plugin, the
+        // receipt).
         public string Commit(bool deploy, Action guard)
         {
-            // Caller confirms native-code trust for this exact loaded package/hash.
             string mutexName = "Local\\TesmioAutoload_" + SafeFiles.Hash(SafeFiles.Utf8.GetBytes(Build.ToUpperInvariant()));
             using (var mutex = new Mutex(false, mutexName))
             {
@@ -1957,60 +1795,40 @@ namespace TesmioAutoload
                     guard(); AssertUnchanged();
                     byte[] effective = SafeFiles.Utf8.GetBytes(Effective());
                     var writes = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-                    if (Package.HasConfig && !Package.EditorManaged)
-                    {
-                        var personal = Overrides;
-                        if (Package.Target.Equals(Bridge.Name, StringComparison.OrdinalIgnoreCase) && File.Exists(UserIni))
-                        {
-                            // The bridge's overlay doubles as its package list: [packages]
-                            // lines survive every save and even "restore original".
-                            personal = new Dictionary<string, string>(Overrides, StringComparer.OrdinalIgnoreCase);
-                            foreach (var pair in new Ini(SafeFiles.Text(UserIni)).Values)
-                                if (pair.Key.StartsWith("packages/", StringComparison.OrdinalIgnoreCase) && !personal.ContainsKey(pair.Key)) personal[pair.Key] = pair.Value;
-                        }
+                    // No personal value and no file yet: nothing to write. An empty overlay would
+                    // only make the loader report personal values that do not exist.
+                    if (Package.HasConfig && !Package.EditorManaged && (Overrides.Count > 0 || File.Exists(UserIni)))
                         writes[UserIni] = SafeFiles.Utf8.GetBytes(File.Exists(UserIni)
-                            ? new Ini(SafeFiles.Text(UserIni)).RewriteValues(personal) : Ini.Sparse(personal));
-                    }
-                    if (LoaderChanged) writes[BridgeActive ? BridgeIni : LoaderIni] = RenderLoaderIni();
+                            ? new Ini(SafeFiles.Text(UserIni)).RewriteValues(Overrides) : Ini.Sparse(Overrides));
+                    if (LoaderChanged) writes[LoaderIni] = RenderLoaderIni();
                     if (deploy)
                     {
-                        // Overlay plugins read user_config themselves: the deployed INI is
-                        // the package original, byte for byte. Everything else gets the
-                        // effective INI (defaults plus personal values). Restoring an
-                        // installed plugin writes the protected original back verbatim.
-                        string iniHash = Before[LocalIni];
-                        if (Package.HasConfig && !Package.EditorManaged)
-                        {
-                            byte[] local = (Package.UserOverlay || restoring) ? Package.DefaultsBytes : effective;
-                            writes[LocalIni] = local; iniHash = SafeFiles.Hash(local);
-                        }
-                        string dllHash = Before[LocalDll]; var copiedAssets = new List<string>();
+                        string iniHash = "absent";
                         if (Package.Installed)
                         {
-                            // Never the DLL - it is the user's own installation. The original
-                            // INI is copied once, and again whenever it changed outside.
+                            // An installed plugin reads plugins\<key>.ini: it gets the effective INI
+                            // (original plus personal values), and the original is kept once, and
+                            // again whenever it changed outside. Restoring writes it back verbatim.
+                            // The DLL is the player's own installation and is never touched.
+                            iniHash = Before[LocalIni];
+                            if (Package.HasConfig && !Package.EditorManaged)
+                            {
+                                byte[] local = restoring ? Package.DefaultsBytes : effective;
+                                writes[LocalIni] = local; iniHash = SafeFiles.Hash(local);
+                            }
                             if (Package.HasConfig && (Package.RefreshUpstream || !File.Exists(Upstream))) writes[Upstream] = Package.DefaultsBytes;
                         }
-                        else if (BridgeActive)
+                        else if (ownStaleLocalIni) writes[LocalIni] = null;
+                        else if (Package.EffectiveIni && Package.HasConfig && !Package.EditorManaged)
                         {
-                            // The bridge takes over: our own DLL copy and the assets we copied go.
-                            if (RemoveOwnDll) { writes[LocalDll] = null; dllHash = "absent"; foreach (string target in AssetTargets) if (File.Exists(target)) writes[target] = null; }
+                            // The plugin reads <loader>\plugins\<key>.ini before the INI beside its
+                            // DLL and knows nothing of user_config: with personal values it gets the
+                            // finished INI there; without any, the file goes away again, so the
+                            // plugin reads the author's INI and every update of it arrives.
+                            if (Overrides.Count > 0) { writes[LocalIni] = effective; iniHash = SafeFiles.Hash(effective); }
+                            else if (File.Exists(LocalIni)) writes[LocalIni] = null;
                         }
-                        else if (!SmlActive)
-                        {
-                            writes[LocalDll] = Package.Dll; dllHash = SafeFiles.Hash(Package.Dll);
-                            foreach (string relative in Package.AssetFiles)
-                            {
-                                string entry = Package.AssetsFolder + "\\" + relative;
-                                writes[AssetTarget(entry)] = SafeFiles.Read(Path.Combine(Package.AssetsDir, relative), 64 * 1024 * 1024); copiedAssets.Add(entry);
-                            }
-                            // Assets of an earlier package version that the current one no longer ships.
-                            foreach (string target in AssetTargets) if (!writes.ContainsKey(target) && File.Exists(target)) writes[target] = null;
-                        }
-                        var receipt = new StringBuilder("[state]\r\nid = " + Package.Id + "\r\nversion = " + Package.Version + "\r\nmode = " + (Package.Installed ? "installed" : SmlActive ? "sml" : BridgeActive ? "bridge" : "package") + "\r\ndll_hash = " + dllHash + "\r\nini_hash = " + iniHash + "\r\ndefaults_hash = "+Package.DefaultsHash+"\r\n");
-                        if (LocalCopyOffered || PreferLocal) receipt.Append("local_copy = " + (PreferLocal ? "1" : "0") + "\r\n");
-                        for (int i = 0; i < copiedAssets.Count; ++i) receipt.Append("asset." + i + " = " + copiedAssets[i] + "\r\n");
-                        writes[Receipt] = SafeFiles.Utf8.GetBytes(receipt.ToString());
+                        writes[Receipt] = SafeFiles.Utf8.GetBytes("[state]\r\nid = " + Package.Id + "\r\nversion = " + Package.Version + "\r\nmode = " + (Package.Installed ? "installed" : "workshop") + "\r\ndll_hash = " + SafeFiles.Hash(Package.Dll) + "\r\nini_hash = " + iniHash + "\r\ndefaults_hash = "+Package.DefaultsHash+"\r\n");
                     }
                     string backup = Transaction.Apply(Build, Package.Id, writes, Before, guard);
                     foreach (string path in Before.Keys.ToList()) Before[path] = SafeFiles.HashFile(path);
@@ -2230,29 +2048,18 @@ namespace TesmioAutoload
             }
             return result.ToList();
         }
-        public static List<string> FindPackages(List<string> diagnostics)
+        // The folder tesmioloader.dll lies in: beside this program, else in a Steam library - the
+        // game folder's "tesmioloader", its "build" below that (older installations), or the game
+        // folder itself. null when no loader is found.
+        public static readonly string[] LoaderPlaces = { @"steamapps\common\SovietRepublic\tesmioloader", @"steamapps\common\SovietRepublic\tesmioloader\build", @"steamapps\common\SovietRepublic" };
+        public static bool HasLoader(string folder) { return !String.IsNullOrEmpty(folder) && File.Exists(Path.Combine(folder, "tesmioloader.dll")); }
+        public static string LoaderFolder(string exeDir, IEnumerable<string> libraries)
         {
-            var result = new List<string>();
-            foreach (string library in SteamLibraries())
-            {
-                string root = Path.Combine(library, @"steamapps\workshop\content\784150");
-                if (!Directory.Exists(root)) continue;
-                try
-                {
-                    SafeFiles.NoLinks(root);
-                    foreach (string dir in Directory.GetDirectories(root))
-                    {
-                        if (!File.Exists(Path.Combine(dir, "soviet.mod.ini"))) continue;
-                        // 0.5.9: our own overlay layer is not an entry of its own - it belongs to the
-                        // editors that write it (see SmlOverlay).
-                        if (SmlOverlay.IsOverlay(Path.Combine(dir, "soviet.mod.ini"))) continue;
-                        try { var p = Package.Load(dir); result.Add(p.Root); }
-                        catch (Exception e) { diagnostics.Add(dir + ": " + e.Message); }
-                    }
-                }
-                catch (Exception e) { diagnostics.Add(root + ": " + e.Message); }
-            }
-            return result;
+            if (HasLoader(exeDir)) return Path.GetFullPath(exeDir);
+            foreach (string library in libraries)
+                foreach (string place in LoaderPlaces)
+                { string candidate = Path.Combine(library, place); if (HasLoader(candidate)) return Path.GetFullPath(candidate); }
+            return null;
         }
     }
 }

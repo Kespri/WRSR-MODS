@@ -1,8 +1,8 @@
-# 🧰 Resources Button Fix 0.4.0
+# 🧰 Resources Button Fix 0.4.3
 
 **TesmioLoader-Plugin für kompakte Werkzeugraster im Geländeeditor**
 
-Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Workers & Resources: Soviet Republic* 1.1.1.9 neu: im Fenster **Resources** stehen die Malen-Schaltflächen blockweise über ihren Löschen-Schaltflächen, im Fenster **Rocks/Gravel** wahlweise nebeneinander oder in zwei Reihen. Zusätzliche Werkzeuge aus deposits.dll oder Deposits Plus, etwa Sand, werden automatisch einbezogen.
+Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Workers & Resources: Soviet Republic* 1.1.1.13 neu: im Fenster **Resources** stehen die Malen-Schaltflächen blockweise über ihren Löschen-Schaltflächen, im Fenster **Rocks/Gravel** wahlweise nebeneinander oder in zwei Reihen. Zusätzliche Werkzeuge aus deposits.dll oder Deposits Plus, etwa Sand, werden automatisch einbezogen.
 
 ---
 
@@ -26,12 +26,12 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
+- WRSR 1.1.1.13
+- TesmioLoader ab b0.3.7 (API 4)
 - Optional: deposits.dll oder Deposits Plus – deren zusätzliche Ressourcen- und Geländewerkzeuge werden im jeweils richtigen Fenster mit eingeordnet.
 
 ### In drei Schritten
-1. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
+1. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
 2. **Spiel starten**, im Geländeeditor das Fenster Resources oder Rocks/Gravel öffnen.
 3. **Anpassen**, wenn gewünscht: Spalten, Blöcke, Größe und Abstände stehen in `resources_button_fix.ini`, am bequemsten über Republic Mod Manager. Die meisten Änderungen gelten sofort beim nächsten Öffnen des Fensters.
 
@@ -48,76 +48,50 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 
 ### 🆕 Neu in 0.4.0
 - ✅ Alle Texte für Republic Mod Manager im Spieler-Stil: Hinweis-Box auf Allgemein, Karte „Fehlersuche“ mit dem ausführlichen Protokoll, EIN/AUS statt 1/0, „Button“ statt „Schaltfläche“.
-- ✅ **INI neben der DLL:** Fehlt `plugins\resources_button_fix.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket unter Soviet Mod Loader oder der Workshop Bridge. Das Plugin läuft damit direkt aus dem Steam-Abo, ohne dass etwas kopiert werden muss.
+- ✅ **INI neben der DLL:** Fehlt `tesmioloader\plugins\resources_button_fix.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Das Plugin läuft damit direkt aus dem Steam-Abo, ohne dass etwas kopiert werden muss.
 - ✅ Die gewählte Konfigurationsdatei steht beim Start im Log; das Live-Neuladen folgt dieser Datei.
 
 ---
 
 ## 💾 Installation
 
-Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden.
+Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ---
 
-### Methode 1️⃣: Klassischer TesmioLoader
+### Methode 1️⃣: Steam Workshop (empfohlen)
 
 ```
-1. Kopiere resources_button_fix.dll und resources_button_fix.ini aus hooks\
-   → tesmioloader\build\plugins\
-
-2. Aktiviere resources_button_fix im TesmioLauncher
-3. Spiel vollständig neu starten
+1. Workshop-Objekt abonnieren
+2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+   von selbst im Workshop-Ordner – nichts wird kopiert
+3. Steam-Updates gelten ab dem nächsten Spielstart
 ```
+
+Ein neu gefundenes Plugin ist eingeschaltet. Aus- und einschalten kannst du es im TesmioLauncher oder mit „Plugin aktiv“ im Republic Mod Manager.
 
 ---
 
-### Methode 2️⃣: Soviet Mod Loader (SML)
+### Methode 2️⃣: Von Hand in den Loader-Ordner
 
 ```
-1. Workshop-Objekt abonnieren – SML liest abonnierte Pakete von selbst
-2. SML lädt die DLL über soviet.mod.ini aus dem Paket, die INI liegt daneben
-3. Eine lokale resources_button_fix.dll in plugins\ vorher entfernen oder abschalten
+1. Kopiere resources_button_fix.dll und resources_button_fix.ini aus plugins\
+   → <Spiel>\tesmioloader\plugins\
 ```
 
----
-
-### Methode 3️⃣: Workshop Bridge (ohne SML)
-
-```
-1. Paket in Republic Mod Manager auswählen
-2. „Plugin aktiv“ einschalten
-3. workshop_bridge lädt die DLL direkt aus dem Paket
-4. Steam-Updates gelten sofort
-```
-
----
-
-### Methode 4️⃣: Republic Mod Manager mit „Dateien nur lokal“
-
-```
-1. Paket in Republic Mod Manager auswählen, Einstellungen anpassen, Speichern
-2. Reiter „Allgemein“, Karte „Hinweise“: „Dateien nur lokal“ einschalten
-3. Bestätigung mit Dateiliste → DLL und INI werden beim Speichern
-   nach tesmioloader\build\plugins\ kopiert
-4. Die Workshop Bridge überspringt das Paket danach automatisch
-```
-
-**„Dateien nur lokal“ im Detail**
-- Für alle, die das Plugin ohne Steam-Abo weiterbenutzen wollen
-- Steam-Updates gelten bei lokalen Dateien erst nach erneutem Speichern (gelbe Marke „Update“)
-- Ausschalten entfernt nur die von Republic Mod Manager kopierten Dateien wieder
+Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloader\plugins` hat Vorrang vor der gleichnamigen aus dem Workshop; Updates kopierst du dann selbst nach.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager zeigt Resources Button Fix damit in drei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Resources Button Fix damit in drei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knopf für diese Anleitung und die Fehlersuche (Detail-Log)
+- **Allgemein:** Hinweise, Knopf für diese Anleitung und die Fehlersuche (Detail-Log)
 - **Ressourcenfenster:** Anordnung (Spalten, Blöcke, Größe, Abstände) sowie Position, Fenster und Alles-löschen-Knopf
 - **Felsen-/Kiesfenster:** Anordnung (P E P E oder zwei Reihen, Größe, Abstände) sowie Position und Fenster
 
-Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1`. Republic Mod Manager schreibt die wirksame Fassung nach `plugins\resources_button_fix.ini`; persönliche Werte liegen getrennt in `user_config\resources_button_fix.ini`, die INI im Paket bleibt unverändert. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
+Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1`. Persönliche Werte legt Republic Mod Manager getrennt in `tesmioloader\user_config\resources_button_fix.ini` ab und schreibt beim Speichern die fertige INI nach `tesmioloader\plugins\resources_button_fix.ini` – dort liest das Plugin sie. Die INI im Paket bleibt unverändert. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
 
 ---
 
@@ -126,10 +100,10 @@ Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1
 ### Hauptdatei: `resources_button_fix.ini`
 
 Die DLL liest in dieser Reihenfolge:
-- **Zuerst:** `tesmioloader\build\plugins\resources_button_fix.ini`, falls vorhanden (klassische Installation, „Dateien nur lokal“ oder die von Republic Mod Manager geschriebene wirksame INI)
-- **Sonst:** die INI neben der DLL, im Paket `hooks\resources_button_fix.ini` (Soviet Mod Loader, Workshop Bridge)
+- **Zuerst:** `tesmioloader\plugins\resources_button_fix.ini`, falls vorhanden (von Hand installiert oder von Republic Mod Manager geschrieben)
+- **Sonst:** die INI neben der DLL, im Workshop-Paket `plugins\resources_button_fix.ini`
 
-⚠️ **Die Datei wird streng geprüft.** UTF-8 ohne BOM; genau ein Abschnitt `[general]`, `[resources_window]` und `[rocks_window]`; keine unbekannten oder doppelten Abschnitte und Schlüssel; jeder Schlüssel mit Wert; Schalter nur `0` oder `1`; Zahlen im dokumentierten Bereich; Kommentare nur in eigenen Zeilen mit `;` oder `#`, nie hinter einem Wert. Ein fehlender einzelner Schlüssel verwendet den eingebauten Standard; ein fehlender Pflichtabschnitt oder eine anderweitig ungültige Datei verhindert beim Spielstart jede Änderung am Spiel. Die Datei darf höchstens 16 MiB groß sein, ein Wert höchstens 63 Zeichen.
+⚠️ **Die Datei wird streng geprüft.** UTF-8 ohne BOM; genau ein Abschnitt `[general]`, `[resources_window]` und `[rocks_window]`; keine unbekannten oder doppelten Abschnitte und Schlüssel; jeder Schlüssel mit Wert; Schalter nur `0` oder `1`; Zahlen im dokumentierten Bereich; Kommentare nur in eigenen Zeilen mit `;` oder `#`, nie hinter einem Wert. Ein fehlender einzelner Schlüssel verwendet den eingebauten Standard, und das ist derselbe Wert wie in der mitgelieferten INI (Spalte „Standard“ unter Wertebereiche); ein fehlender Pflichtabschnitt oder eine anderweitig ungültige Datei verhindert beim Spielstart jede Änderung am Spiel. Die Datei darf höchstens 16 MiB groß sein, ein Wert höchstens 63 Zeichen.
 
 ### Abschnitt `[general]`
 
@@ -239,7 +213,7 @@ Die DLL prüft diese Grenzen bei jedem Einlesen. Ein Wert außerhalb lehnt die g
 Fast alle Einstellungen gelten ohne Neustart:
 
 ```
-1. INI speichern (oder in Republic Mod Manager Speichern)
+1. INI von Hand ändern und speichern (Republic Mod Manager speichert nur, wenn das Spiel aus ist)
 2. Das Fenster Resources oder Rocks/Gravel erneut öffnen
 3. Beim ersten erkannten Werkzeugknopf wird die geänderte Datei eingelesen
 ```
@@ -257,7 +231,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 ## 💾 Kompatibilität
 
 ### Spiel und Loader
-- Feste, für 1.1.1.9 geprüfte Codepositionen; eine andere Spielversion wird abgelehnt, bevor ein Hook installiert wird
+- Feste, für 1.1.1.13 geprüfte Codepositionen; eine andere Spielversion wird abgelehnt, bevor ein Hook installiert wird
 - Vor jeder Änderung werden PE-Signatur, 64-Bit-Maschinentyp, Zeitstempel, Image-Größe, die Bytes des gemeinsamen Schaltflächen-Hooks und die Reichweite aller Sprünge geprüft
 - Aufrufe aus Bäumen und anderen Fenstern werden unverändert weitergereicht; ein Laufzeitfehler schaltet die Layoutänderung für die Sitzung sicher ab
 - Ohne nahen Speicher für die optionalen Übergänge bleibt die Anordnung aktiv, nur die nachfolgenden Bedienelemente behalten dann ihre Position
@@ -266,6 +240,9 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
+- **0.4.3:** Fehlt ein Wert in der INI, gilt jetzt derselbe Standard wie in der mitgelieferten INI. Vorher wichen drei eingebaute Standards ab: Spalten je Block und Schaltflächengröße im Fenster Resources, Abstand zum Pinsel im Fenster Rocks/Gravel. Dazu aufgeräumte Log-Texte; mit vollständiger INI ändert sich im Spiel nichts
+- **0.4.2:** Die zusätzlichen Schaltflächen von Deposits Plus werden jetzt auch erkannt. Vorher suchte das Plugin nur nach dem Original-Plugin deposits, und die zusätzlichen Paare liefen aus dem Fenster Resources heraus
+- **0.4.1:** Für WRSR 1.1.1.13
 - **0.4.0:** erste veröffentlichte Fassung
 
 ---
@@ -276,7 +253,7 @@ Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schalt
 
 | Problem | Ursache | Lösung |
 |---|---|---|
-| Plugin tut nichts | `enabled = 0`, Spielversion nicht 1.1.1.9 oder INI ungültig | Log auf `unsupported-build` oder `configuration` prüfen |
+| Plugin tut nichts | `enabled = 0`, Spielversion nicht 1.1.1.13 oder INI ungültig | Log auf `unsupported-build` oder `configuration` prüfen |
 | Änderung wird nicht sichtbar | Fenster nicht neu geöffnet oder Live-Neuladen abgewiesen | Fenster schließen und öffnen; Log auf `reload-rejected` prüfen |
 | Schaltflächen zu klein | automatische Untergrenze 0.25 erreicht | weniger Spalten, mehr Blöcke oder `expand_window = 1` |
 | Werkzeuge fehlen im Raster | Kapazität überschritten | `columns_per_block` oder `maximum_blocks` erhöhen |
@@ -285,7 +262,7 @@ Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schalt
 ### Logging
 
 Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader.resources_button_fix.log`. Jede Meldung nennt Stufe, Quelle und Regelname; Initialisierung und Start enden mit einer Zusammenfassung.
-- In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
+- In **Republic Mod Manager** öffnet das Protokoll-Symbol in der Seitenleiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
 - `Configuration file` → welche INI die DLL gewählt hat
@@ -297,10 +274,10 @@ Suche nach:
 
 ## 📦 Dateistruktur
 
-**Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
+**Workshop-Paket** (Steam-Abo)
 ```
-resources_button_fix\
-├── hooks\
+<Workshop-Objekt>\
+├── plugins\
 │   ├── resources_button_fix.dll    (Plugin)
 │   └── resources_button_fix.ini    (Original-INI)
 ├── config\                         (Launcher-Schema für Republic Mod Manager)
@@ -308,24 +285,25 @@ resources_button_fix\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (Manifest für SML, Bridge und Republic Mod Manager)
+├── rmm.mod.ini                     (Manifest für Republic Mod Manager)
 ├── workshopconfig.ini              (Steam-Workshop-Eintrag)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader-Ordner** (Methode 1 von Hand oder „Dateien nur lokal“)
+**Loader-Ordner** (nur bei Methode 2 oder mit Republic Mod Manager)
 ```
-tesmioloader\build\
+<Spiel>\tesmioloader\
 ├── plugins\
-│   ├── resources_button_fix.dll
-│   └── resources_button_fix.ini    (wirksame INI)
+│   ├── resources_button_fix.dll    (nur bei Methode 2)
+│   └── resources_button_fix.ini    (Methode 2, oder die fertige INI aus Republic Mod Manager)
 └── user_config\
     └── resources_button_fix.ini    (persönliche Werte aus Republic Mod Manager)
 ```
 
-Über die Bridge oder SML liegt in `plugins` nur die wirksame INI, die DLL bleibt im Paket. Ohne Republic Mod Manager liest die DLL die INI direkt aus dem Paket.
+Aus dem Workshop geladen, bleiben DLL und INI im Paket. Die DLL liest die INI dann direkt von dort, solange keine `tesmioloader\plugins\resources_button_fix.ini` liegt.
 
 ---
 
@@ -356,5 +334,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung und prü
 
 ---
 
-**Letzte Aktualisierung:** Resources Button Fix 0.4.0  
-**Für:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Letzte Aktualisierung:** Resources Button Fix 0.4.3  
+**Für:** WRSR 1.1.1.13 | TesmioLoader API 4

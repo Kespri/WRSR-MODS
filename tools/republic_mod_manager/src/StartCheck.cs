@@ -31,7 +31,6 @@ namespace TesmioAutoload
             var steps=Startup.Order(build,list);
             var late=Startup.LateDependencies(steps,list);
             // What counts as "loads": a step of the order that belongs to a known entry.
-            int problems=list.Count(e=>e.Problem.Length>0||e.Dependencies.Any(d=>!d.Found||!d.VersionOk));
             int updates=list.Count(e=>e.Updated);
             int off=list.Count(e=>e.Supported&&e.Problem.Length==0&&!steps.Any(s=>Belongs(s,e))&&e.Kind!="content");
 
@@ -46,25 +45,32 @@ namespace TesmioAutoload
             bool any=false;
             foreach(CatalogEntry entry in list.Where(e=>e.Problem.Length>0).OrderBy(e=>e.Name,StringComparer.CurrentCultureIgnoreCase))
             { Line(trouble,entry.Name+" - "+language.Localize(entry.Problem),Theme.Danger,entry.Root); any=true; }
-            foreach(CatalogEntry entry in list)
-                foreach(Dependency dependency in entry.Dependencies.Where(d=>!d.Found||!d.VersionOk))
-                { Line(trouble,language.Format("startcheck_dependency",entry.Name,dependency.Id),Theme.Danger,entry.Root); any=true; }
+            // What a plugin that will load says it needs and does not get.
+            foreach(UnmetNeed need in Startup.Unmet(build,list))
+            {
+                string what=need.Dependency.Name.Length>0?need.Dependency.Name:need.Dependency.Id;
+                Line(trouble,language.Format(need.Reason=="off"?"startcheck_dependency_off":need.Reason=="version"?"startcheck_dependency_version":"startcheck_dependency",need.Entry.Name,what),Theme.Danger,need.Entry.Root); any=true;
+            }
+            // A replacement and the plugin it replaces, both switched on.
+            foreach(var pair in Catalog.OpenReplacements(list,build))
+            { Line(trouble,language.Format("startcheck_replacement",pair.Key.Name,pair.Value.Name),Theme.Amber,pair.Key.Root); any=true; }
+            // The same key twice: the loader takes one file.
+            foreach(CatalogEntry entry in list.Where(e=>e.PassedOver.Count>0))
+            { Line(trouble,language.Format("startcheck_same_key",entry.Name,entry.Dll),Theme.Amber,entry.Root); any=true; }
             foreach(var pair in late)
             { Line(trouble,language.Format("startcheck_late",pair.Key,pair.Value),Theme.Amber,""); any=true; }
             // 0.5.13: a building line naming a resource nothing publishes ends the game at start.
             foreach(MissingResource missing in Startup.MissingResources(build,steps))
-            { Line(trouble,language.Format("startcheck_missing_resource",missing.Plugin,missing.Section,missing.Resource),Theme.Danger,""); any=true; }
+            { Line(trouble,language.Format(missing.Folder?"startcheck_missing_resource_folder":"startcheck_missing_resource",missing.Plugin,missing.Section,missing.Resource),Theme.Danger,""); any=true; }
             foreach(CatalogEntry entry in list.Where(e=>e.Updated).OrderBy(e=>e.Name,StringComparer.CurrentCultureIgnoreCase))
             { Line(trouble,language.Format("startcheck_update_row",entry.Name,entry.PreviousVersion,entry.Version),Theme.Amber,entry.Root); any=true; }
             if(!any)Line(trouble,language.T("startcheck_clean"),Color.FromArgb(26,132,61),null);
 
             var order=Card(stack,language.T("startcheck_order"));
-            // 0.5.4: who hands the packages over decides the order, so the sentence has to follow.
-            bool sml=Sml.Active(build);
-            Line(order,language.T(sml?"startcheck_order_help_sml":"startcheck_order_help"),Theme.Muted,null);
+            Line(order,language.T("startcheck_order_help"),Theme.Muted,null);
             foreach(LoadStep step in steps)
             {
-                string where=step.Bridge?language.T(sml?"startcheck_from_sml":"startcheck_from_bridge"):language.T("startcheck_from_plugins");
+                string where=language.T(step.Workshop?"startcheck_from_workshop":"startcheck_from_plugins");
                 Line(order,(step.Index+1).ToString().PadLeft(2)+".  "+step.Name+"   ("+where+")",Theme.Ink,null);
             }
             if(steps.Count==0)Line(order,language.T("startcheck_order_empty"),Theme.Muted,null);
@@ -75,9 +81,7 @@ namespace TesmioAutoload
         }
         static bool Belongs(LoadStep step,CatalogEntry entry)
         {
-            string folder=System.IO.Path.GetFileName((entry.Root??"").TrimEnd('\\'));
-            return step.Bridge?step.Key.Equals(folder,StringComparison.OrdinalIgnoreCase)
-                :entry.Target.Length>0&&step.Target.Equals(entry.Target,StringComparison.OrdinalIgnoreCase);
+            return entry.Key.Length>0&&PluginScan.SameKey(step.Key,entry.Key);
         }
         // A card is a panel with a header stripe; its rows live in a table inside it, the same way
         // the plugin pages build theirs.

@@ -10,59 +10,58 @@ If you do not want AI in your code, just stick to the base game. No hard feeling
 
 ## About
 
-Native plugins for *Workers & Resources: Soviet Republic* 1.1.1.9, loaded by the
-[TesmioLoader](https://github.com/MaxLegend/TesmioLoader) (API 4), the Soviet Mod Loader
-or the Workshop Bridge. Every plugin ships as a Steam Workshop package with a settings
-schema for the Republic Mod Manager. This repository holds the source code, as the
-GNU GPL v3 requires; there are no ready-made DLLs, textures or models here - those come with
-the Workshop packages.
+Native plugins for *Workers & Resources: Soviet Republic* 1.1.1.13, loaded by the
+[TesmioLoader](https://github.com/MaxLegend/TesmioLoader) (API 4). The loader finds plugin DLLs
+by itself, in its own `plugins` folder and in subscribed Steam Workshop items; the Republic Mod
+Manager lists what the loader finds, edits the settings and checks the start. Every plugin is
+packaged for the Steam Workshop with a settings schema for the Republic Mod Manager. This
+repository holds the source code, as the GNU GPL v3 requires; there are no ready-made DLLs,
+textures or models here - those come with the Workshop packages.
 
 ## Plugins
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [Deposits Plus](plugins/deposits_plus) | 0.4.10 | New deposit types, natural generation, sandy meadow, working vehicles |
+| [Deposits Plus](plugins/deposits_plus) | 0.4.17 | New deposit types, natural generation, sandy meadow, working vehicles |
 | [Localization](plugins/localization) | 0.4.0 | Translation service: text packs become extended language files |
-| [Rail Physics Fix](plugins/rail_physics_fix) | 1.3.5 | Train physics: traction, braking, grades, curve and station limits, consumption |
 | [Research Expansion](plugins/research_expansion) | 0.4.2 | New research and changes to the research tree |
-| [Resources Button Fix](plugins/resources_button_fix) | 0.4.0 | Compact tool grids in the terrain editor |
-| [Technical Service Storage](plugins/technical_service_storage) | 0.3.3 | Grit storages, material priorities and snowplow tanks |
-| [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.0 | Row spacing in the customs house, text wrapping in info windows |
-| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.4 | Temporary changes to building files without touching the originals |
-| [Vehicle Materials](plugins/vehicle_materials) | 0.4.0 | Extra materials for vehicle production |
-| [Weather Roads](plugins/weather_roads) | 0.3.3 | Road snow, melting and protection after plowing |
+| [Resources Button Fix](plugins/resources_button_fix) | 0.4.3 | Compact tool grids in the terrain editor |
+| [Technical Service Storage](plugins/technical_service_storage) | 0.3.5 | Grit storages, material priorities and snowplow tanks |
+| [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.1 | Row spacing in the customs house, text wrapping in info windows |
+| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.5 | Temporary changes to building files without touching the originals |
+| [Vehicle Materials](plugins/vehicle_materials) | 0.4.1 | Extra materials for vehicle production |
+| [Weather Roads](plugins/weather_roads) | 0.3.5 | Road snow, melting and protection after plowing |
 
-These four travel with the Republic Mod Manager package:
+These three travel with the Republic Mod Manager package:
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [Workshop Bridge](plugins/workshop_bridge) | 0.2.0 | Loads Workshop packages without the Soviet Mod Loader |
-| [Buildings Plus](plugins/buildings_plus) | 0.1.10 | New buildings from a declaration: donor building plus changed lines, generated at game start |
-| [Resources Plus](plugins/resources_plus) | 0.1.2 | Own resources from `plugins\resources_plus.ini`, fork of resources: fixes the crash on exit, its own INI taken over from resources.ini once, idles beside the original and SML |
-| [Needs Plus](plugins/needs_plus) | 0.1.1 | Own citizen needs from `plugins\needs_plus.ini`, fork of needs: its own INI taken over automatically, duplicate names refused, idles beside the original and SML |
+| [Buildings Plus](plugins/buildings_plus) | 0.1.11 | New buildings from a declaration: donor building plus changed lines, generated at game start |
+| [Resources Plus](plugins/resources_plus) | 0.1.5 | Own resources from `plugins\resources_plus.ini`, fork of resources: fixes the crash on exit, takes over the list of the original once, names per game language, pauses while the original is loaded |
+| [Needs Plus](plugins/needs_plus) | 0.1.3 | Own citizen needs from `plugins\needs_plus.ini`, fork of needs: takes over the list of the original once, duplicate names refused, pauses while the original is loaded |
 
 Each plugin folder has its own guide in two languages (`README_DE.md`, `README_EN.md`)
 and English build notes (`BUILD_INFO.md`). Shared files: `plugins/grit_spreader_api.h`
 (service between Technical Service Storage and Weather Roads) and `plugins/tesmio_config.h`
-(INI base and personal overlay). `src/` holds the two SDK headers `tesmio_api.h` and
-`tesmio_plugin.h` from the TesmioLoader by MaxLegend (GPL v3), so the plugins build from this
-repository with their relative include paths. `tesmio_plugin.h` carries one local change:
-`TsmOpenLog` writes the plugin detail logs into `tesmioloader\build\logs\`.
-`src/tesmioloader.cpp` is the loader itself in the corrected build b0.3.6-rmm.1 that the Republic
-Mod Manager package ships and installs over the upstream DLL (same API, same log lines; what
-changed is in `src/BUILD_INFO.md`).
+(INI base and personal overlay). `src/` holds the three SDK headers `tesmio_api.h`,
+`tesmio_plugin.h` and `tesmio_discovery.h` from the TesmioLoader by MaxLegend (GPL v3), so the
+plugins and the loader build from this repository with their relative include paths.
+`tesmio_plugin.h` carries one local change: `TsmOpenLog` writes the plugin detail logs into
+`tesmioloader\logs\`. `src/tesmioloader.cpp` is the loader itself in the corrected build
+b0.3.7-rmm.2 that the Republic Mod Manager package ships and installs over the upstream DLL
+(same API, same log lines; what changed is in `src/BUILD_INFO.md`).
 
 ## Tools
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.5.21 | Windows program: settings, switching and loading of the plugins; its Workshop item brings the installer, the loader and the four plugins above |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.6.13 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
 
 ## Installing
 
-Subscribe to the Workshop package and switch the plugin on in the Republic Mod Manager.
-The plugin guides describe the ways to load a plugin: classic TesmioLoader, Soviet Mod Loader,
-Workshop Bridge and Republic Mod Manager.
+Subscribe to the Workshop package; the TesmioLoader finds the plugin by itself at the next game
+start. Settings and switches are in the Republic Mod Manager. The plugin guides also describe
+the way by hand: DLL and INI into `tesmioloader\plugins`.
 
 ## Building
 
@@ -73,21 +72,19 @@ inside the plugin folder:
 cl /nologo /O2 /MT /W3 /EHsc /std:c++17 /LD /Fo"build\\" /Fd"build\\" /Fe"build\<name>.dll" <name>.cpp /link kernel32.lib
 ```
 
-Rail Physics Fix brings its own `build.bat`. The Republic Mod Manager builds with
+The Republic Mod Manager builds with
 `tools/republic_mod_manager/build.bat` (C# compiler of the .NET Framework 4). The exports
 `TsmPluginApiVersion`, `TsmPluginInit` and `TsmPluginStart` are the loader's plugin contract
-(API 4). Addresses and signatures are valid for game build 1.1.1.9 (Steam build 23935965) only.
+(API 4). Addresses and signatures are valid for game build 1.1.1.13 (PE stamp 0x6A8D4087) only.
 
 ## Bug reports
 
 Please open an issue with the game version, the loader version, the active plugins and the
-logs `tesmioloader.log` from `tesmioloader\build` and `tesmioloader.<plugin>.log` from `tesmioloader\build\logs`.
+logs `tesmioloader.log` from `tesmioloader` and `tesmioloader.<plugin>.log` from `tesmioloader\logs`.
 
 ## Credits and licence
 
 GNU GPL v3, see [LICENSE](LICENSE). Deposits Plus, Buildings Plus, Resources Plus and Needs Plus
 continue plugins from the TesmioLoader by MaxLegend (Tesmio), and `src/tesmioloader.cpp` is his
-loader with corrections. Rail Physics Fix is a reworked version of
-[RailPhysics 1.3.0](https://github.com/TheRealMeowMeow00/WRSR_RailPhysics) by Meow Meow
-(TheRealMeowMeow00). `plugins/deposits_plus/third_party` contains Microsoft code under the
+loader with corrections. `plugins/deposits_plus/third_party` contains Microsoft code under the
 University of Illinois Open Source License (see `LICENSE.TXT` there).

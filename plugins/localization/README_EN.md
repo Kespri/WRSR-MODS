@@ -2,7 +2,7 @@
 
 **TesmioLoader plugin for custom texts and translations**
 
-Adds custom names, descriptions and labels to *Workers & Resources: Soviet Republic* 1.1.1.9 without touching the original language files. Text packs are plain INI files; at game start the plugin builds extended `soviet*.btf` language files from them in the TesmioLoader virtual file system (VFS) and provides a translation service to other plugins. The package contains the text packs of Research Expansion, Technical Service Storage and the shared pack `tesmio_lang`.
+Adds custom names, descriptions and labels to *Workers & Resources: Soviet Republic* 1.1.1.13 without touching the original language files. Text packs are plain INI files; at game start the plugin builds extended `soviet*.btf` language files from them in the TesmioLoader virtual file system (VFS) and provides a translation service to other plugins. The package contains the text packs of Research Expansion, Technical Service Storage and the shared pack `tesmio_lang`.
 
 ---
 
@@ -27,13 +27,13 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4 with VFS enabled
+- WRSR 1.1.1.13
+- TesmioLoader b0.3.7 or newer (API 4) with VFS enabled
 - At least one valid text pack (three are included)
 
 ### In three steps
-1. **Choose one installation method** (see below) and enable the plugin.
-2. **Check the text packs:** the included packs need no setting. Own packs go as folders to `plugins\localization\<packname>` with `localization.ini` and at least the fallback language file.
+1. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
+2. **Check the text packs:** the included packs need no setting. Own packs go as folders to `tesmioloader\plugins\localization\<packname>` with `localization.ini` and at least the fallback language file.
 3. **Restart the game completely.** `logs\tesmioloader.localization.log` names the configuration file, the pack folders, the loaded packs and the generated language files under `tesmioloader\vfs\media_soviet`.
 
 ---
@@ -46,80 +46,55 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 - ✅ Text IDs in the reserved range 2,000,000 to 2,999,999, assigned deterministically at every start
 - ✅ Service `localization` for other plugins: key to text ID
 - ✅ Strict validation of encoding, sections, keys, escape sequences and BTF format; a faulty pack is rejected alone
-- ✅ Generated files are removed before every start and when the plugin is switched off; the originals under `media_soviet` are never changed
+- ✅ Generated files are removed first at every game start and not rebuilt with `enabled = 0`; the originals under `media_soviet` are never changed
 
 ### 🆕 New in 0.4.0
-- ✅ **INI and text packs beside the DLL:** when `plugins\localization.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. Text packs are loaded from `plugins\localization` **and** from the folder `localization` beside the DLL. Both paths are logged.
-- ✅ **Local text packs are merged instead of replacing:** a pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key. Your own texts and languages stay, new keys and languages from a Workshop update still arrive; for the same key your local text wins. The local `localization.ini` decides namespace, fallback and missingText.
+- ✅ **INI and text packs beside the DLL:** when `tesmioloader\plugins\localization.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package. Text packs are loaded from `tesmioloader\plugins\localization` **and** from the folder `localization` beside the DLL. Both paths are logged.
+- ✅ **Local text packs are merged instead of replacing:** a pack folder under `tesmioloader\plugins\localization` is laid over the folder of the same name beside the DLL key by key. Your own texts and languages stay, new keys and languages from a Workshop update still arrive; for the same key your local text wins. The local `localization.ini` decides namespace, fallback and missingText.
 - ✅ The text packs `research_expansion`, `technical_service_storage` and `tesmio_lang` travel with the package.
-- ✅ Republic Mod Manager: tabs General (notices, guide, troubleshooting) and Plugin ("Apply extension" with the switch-off order, text packs as a list with a short text and origin).
+- ✅ Republic Mod Manager: tabs General (notes, guide, troubleshooting) and Plugin ("Apply extension" with the switch-off order, text packs as a list with a short text and origin).
 
 ---
 
 ## 💾 Installation
 
-Choose **one** of the four methods. The same DLL must never be loaded twice, and the service name `localization` may be registered only once.
+Choose **one** of the two methods. The same DLL must never be loaded twice, and the service name `localization` may be registered only once.
 
 ---
 
-### Method 1️⃣: Classic TesmioLoader
+### Method 1️⃣: Steam Workshop (recommended)
 
 ```
-1. Copy localization.dll and localization.ini from hooks\
-   → tesmioloader\build\plugins\
-
-2. Copy the folder hooks\localization (the text packs)
-   → tesmioloader\build\plugins\localization\
-
-3. Enable localization in the TesmioLauncher
-4. Restart the game completely
+1. Subscribe to the Workshop item
+2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+   by itself on the next game start – nothing is copied
+3. The DLL finds INI and text packs next to itself in the package
+4. Steam updates apply from the next game start
 ```
+
+A newly found plugin is switched on. You switch it off and on in TesmioLauncher or with "Plugin active" in Republic Mod Manager. Read the warning under Configuration before you switch it off.
 
 ---
 
-### Method 2️⃣: Soviet Mod Loader (SML)
+### Method 2️⃣: By hand into the loader folder
 
 ```
-1. Subscribe to the Workshop item – SML reads subscribed packages by itself
-2. SML loads the DLL through soviet.mod.ini from the package; INI and text packs sit beside it
-3. Remove or disable a local localization.dll in plugins\ first
+1. Copy localization.dll and localization.ini from plugins\
+   → <game>\tesmioloader\plugins\
+
+2. Copy the folder plugins\localization (the text packs)
+   → <game>\tesmioloader\plugins\localization\
 ```
 
----
-
-### Method 3️⃣: Workshop Bridge (without SML)
-
-```
-1. Select the package in Republic Mod Manager
-2. Switch "Plugin enabled" on
-3. workshop_bridge loads the DLL straight from the package; it finds INI and text packs beside itself
-4. Steam updates apply immediately
-```
-
----
-
-### Method 4️⃣: Republic Mod Manager with "Files local only"
-
-```
-1. Select the package in Republic Mod Manager, adjust the settings, Save
-2. Tab "General", card "Notes": switch "Files local only" on
-3. Confirmation with file list → DLL, INI and the folder localization with the
-   text packs are copied to tesmioloader\build\plugins\ when saving
-4. The Workshop Bridge skips the package automatically afterwards
-```
-
-**"Files local only" in detail**
-- For everyone who wants to keep using the plugin without a Steam subscription
-- With local files Steam updates apply only after saving again (yellow "Update" mark)
-- Switching it off removes only the files Republic Mod Manager copied
+For everyone who wants to use the plugin without the Steam subscription. A DLL in `tesmioloader\plugins` takes priority over the one of the same name from the Workshop; you then copy updates yourself.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-The package contains a presentation schema in the `config` folder. Republic Mod Manager shows Localization on one tab, German and English: notes, "Files local only", a button for this guide, the two switches (plugin enabled, verbose log) and an overview of the included text packs. Text packs themselves are not edited in the manager; they are folders with INI files.
+The package contains a presentation schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Localization on two tabs, German and English: on **General** the notes, the button for this guide and the Troubleshooting card (verbose log), on **Plugin** the switch "Apply extension" and an overview of the text packs. Text packs themselves are not edited in the manager; they are folders with INI files.
 
-Republic Mod Manager writes the effective file `plugins\localization.ini` as UTF-8 without BOM; the INI in the package stays unchanged.
+Republic Mod Manager never changes the INI in the package. It keeps your personal values in `tesmioloader\user_config\localization.ini` and writes the finished INI to `tesmioloader\plugins\localization.ini` on saving – that is where the plugin reads it.
 
 ---
 
@@ -128,8 +103,8 @@ Republic Mod Manager writes the effective file `plugins\localization.ini` as UTF
 ### Main file: `localization.ini`
 
 The DLL reads in this order:
-- **First:** `tesmioloader\build\plugins\localization.ini` when it exists (classic installation, "Files local only" or the effective INI written by Republic Mod Manager)
-- **Otherwise:** the INI beside the DLL, in the package `hooks\localization.ini` (Soviet Mod Loader, Workshop Bridge)
+- **First:** `tesmioloader\plugins\localization.ini` when it exists (installed by hand, or the finished INI from Republic Mod Manager)
+- **Otherwise:** the INI beside the DLL, in the Workshop package `plugins\localization.ini`
 
 The main file must be **UTF-8 without BOM**. Exactly one section `[localization]` with the keys `enabled` and `verbose` is allowed, both exactly `0` or `1`. Unknown or duplicate sections and keys are rejected; the plugin then stays inactive and the Vanilla language files apply.
 
@@ -146,10 +121,10 @@ verbose = 0
 ### Pack folders
 
 Text packs are loaded from two folders:
-- `tesmioloader\build\plugins\localization\<packname>` (classic installation, "Files local only", own packs)
-- the folder `localization` beside the DLL, in the package `hooks\localization` (Soviet Mod Loader, Workshop Bridge)
+- `tesmioloader\plugins\localization\<packname>` (installed by hand, own packs)
+- the folder `localization` beside the DLL, in the Workshop package `plugins\localization`
 
-A pack folder under `plugins\localization` is laid over the folder of the same name beside the DLL key by key: local texts win, everything else still comes from the package, including languages and keys a Workshop update adds. That way you can adapt an included text pack locally without falling behind. At most 256 pack folders in total.
+A pack folder under `tesmioloader\plugins\localization` is laid over the folder of the same name beside the DLL key by key: local texts win, everything else still comes from the package, including languages and keys a Workshop update adds. That way you can adapt an included text pack locally without falling behind. At most 256 pack folders in total.
 
 ---
 
@@ -246,7 +221,7 @@ The IDs lie between 2,000,000 and 2,999,999 and fit `$NAME` and `$DESC` in game 
 ## 💾 Compatibility
 
 ### Savegames
-Language files are not part of the savegame. Texts of a research or resource a savegame knows need the same key after an update so the ID stays stable: IDs are assigned in a fixed order of packs and keys.
+Language files are not part of the savegame. Texts of a research or resource a savegame knows need the same key after an update: plugins ask for the ID by key again at every start. The ID itself can change as soon as keys are added or removed, because IDs are assigned anew at every start in a fixed order of packs and keys.
 
 ### Other plugins
 - **Research Expansion** requires this service.
@@ -267,11 +242,11 @@ Language files are not part of the savegame. Texts of a research or resource a s
 |---|---|---|
 | `main-config`, `unknown-section`, `unknown-key`, `invalid-value` | main file faulty | only `[localization]` with `enabled`/`verbose` as 0 or 1 |
 | `utf8-bom` | main file saved with BOM | save as UTF-8 without BOM |
-| `pack-root` | neither `plugins\localization` nor a folder `localization` beside the DLL | provide text packs |
+| `pack-root` | neither `tesmioloader\plugins\localization` nor a folder `localization` beside the DLL | provide text packs |
 | `Pack was rejected because its localization.ini is invalid` | required setting missing or value invalid | check the pack configuration |
 | `Fallback ... has no valid language file` | fallback file missing or faulty | create or correct the file |
 | `Invalid escape sequence` | sequence other than `\n` or `\\` | correct the text |
-| `namespace-collision` | two packs with the same namespace | rename one; between `plugins\localization` and the folder beside the DLL only the folder name counts, not the namespace |
+| `namespace-collision` | two packs with the same namespace | rename one; between `tesmioloader\plugins\localization` and the folder beside the DLL only the folder name counts, not the namespace |
 | `missing-key` | a plugin asks for a key that is in no language file | add the key to the fallback file |
 | `id-collision` | assigned text ID collides with an existing one | check the log; all generated files are removed |
 | `cleanup`, `cleanup-scan` | a generated VFS file could not be removed | close the game and programs accessing it |
@@ -280,21 +255,21 @@ Language files are not part of the savegame. Texts of a research or resource a s
 ### Logging
 
 All messages go to `tesmioloader.log` and the detail log `logs\tesmioloader.localization.log` with file, line, rule and reason.
-- In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
+- In **Republic Mod Manager** the log icon in the sidebar opens the log view with filter and sender.
 
 Search for:
 - `Configuration file` and `Pack folders` → which INI and which pack folders were chosen
 - `Ready:` → number of loaded packs and keys
-- `is skipped; plugins\localization has a folder of that name` → a local pack overrode the package copy
+- `local folder merged over the shipped one` → a local pack was laid over the package copy (with the number of added and replaced keys)
 
 ---
 
 ## 📦 File structure
 
-**Workshop package** (Steam subscription, SML, Workshop Bridge)
+**Workshop package** (Steam subscription)
 ```
-localization\
-├── hooks\
+<Workshop item>\
+├── plugins\
 │   ├── localization.dll            (plugin)
 │   ├── localization.ini            (original INI)
 │   └── localization\               (text packs)
@@ -306,26 +281,28 @@ localization\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (manifest for SML, Bridge and Republic Mod Manager)
+├── rmm.mod.ini                     (manifest for Republic Mod Manager)
 ├── workshopconfig.ini              (Steam Workshop entry)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader folder** (method 1 by hand or "Files local only")
+**Loader folder**
 ```
-tesmioloader\
-├── build\
-│   ├── plugins\
-│   │   ├── localization.dll
-│   │   ├── localization.ini        (effective INI)
-│   │   └── localization\           (text packs, own and included)
-│   ├── logs\
-│   │   └── tesmioloader.localization.log
-│   └── tesmioloader.log
-└── vfs\media_soviet\               (generated soviet*.btf)
+<game>\tesmioloader\
+├── plugins\
+│   ├── localization.dll            (method 2 only)
+│   ├── localization.ini            (method 2, or the finished INI from Republic Mod Manager)
+│   └── localization\               (own text packs; with method 2 also the included ones)
+├── logs\
+│   └── tesmioloader.localization.log
+├── vfs\media_soviet\               (generated soviet*.btf)
+└── tesmioloader.log
 ```
+
+Loaded from the Workshop, DLL, INI and the included text packs stay in the package; `tesmioloader\plugins\localization` then holds only your own or adapted text packs.
 
 ---
 
@@ -343,13 +320,13 @@ tesmioloader\
 A: No. The extended files are created in the loader's VFS; the originals under `media_soviet` are only read.
 
 **Q: How do I add my own texts?**
-A: Create a folder under `plugins\localization\<name>` with `localization.ini` (namespace, fallback) and at least the fallback language file, keys under `[strings]`, restart the game.
+A: Create a folder under `tesmioloader\plugins\localization\<name>` with `localization.ini` (namespace, fallback) and at least the fallback language file, keys under `[strings]`, restart the game.
 
 **Q: Can I adapt an included text pack?**
-A: Yes: copy the folder to `plugins\localization` and change it there. Your keys win over the package copy, the rest still comes from the package, and Workshop updates leave your files alone.
+A: Yes: copy the folder to `tesmioloader\plugins\localization` and change it there. Your keys win over the package copy, the rest still comes from the package, and Workshop updates leave your files alone.
 
 **Q: How do I get rid of the extended language files again?**
-A: Switch the plugin off, start the game once, then disable the DLL.
+A: Set `enabled = 0` first ("Apply extension" OFF in Republic Mod Manager), start the game once, then disable the DLL.
 
 **Q: Do I have to edit the INI by hand?**
 A: No. Republic Mod Manager offers the two switches; text packs are folders with INI files.
@@ -357,4 +334,4 @@ A: No. Republic Mod Manager offers the two switches; text packs are folders with
 ---
 
 **Last update:** Localization 0.4.0  
-**For:** WRSR 1.1.1.9 | TesmioLoader API 4
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

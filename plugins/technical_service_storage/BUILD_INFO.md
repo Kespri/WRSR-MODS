@@ -1,10 +1,40 @@
 # Technical Service Storage – build notes
 
-Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: MSVC x64, `/std:c++17 /O2 /MT /W4 /EHsc /LD`,
+Target: WRSR 1.1.1.13 (PE stamp 0x6A8D4087), TesmioLoader API 4. Build: MSVC x64, `/std:c++17 /O2 /MT /W4 /EHsc /LD`,
 kernel32.lib only. Companion plugins: weather_roads (consumer of the `tss.grit_spreader`
 service), vanilla_buildings (depot storage definitions), localization (text pack
 `technical_service_storage`). History newest first.
 
+## 0.3.5 (2026-11-18)
+
+Texts only, no behaviour change. The startup line `Grit spreader policy: ...` in the log no
+longer carries a version number from before the first publication; it now reads "priorities
+and vehicle grit tanks use separate versioned sidecars". Source comments in
+technical_service_storage.cpp, sand_spreader_diagnostic.h and storage_migration.h were reworded
+the same way, so that they state what the code does instead of when it changed. Addresses,
+signatures, configuration keys, save and sidecar formats are those of 0.3.4.
+
+## 0.3.4 (2026-11-16)
+
+Ported to WRSR 1.1.1.13; 1.1.1.9 is refused by the PE stamp. No behaviour change.
+
+- Technical Services panel 0x74C500 -> 0x74C6A0, native storage renderer 0x706C00 -> 0x706DA0,
+  post-storage helper 0x6F4B40 -> 0x6F4CE0 and every site inside them (both calls, the warning
+  transition, the discard gate, the 27 priority-row sites) moved by +0x1A0; so did the vehicle
+  window reads (0x7C0C99, 0x7C0CA2) and the engine-label call (0x7DC0A7).
+- Office priority row 0x2734F0 -> 0x273470 and its label call 0x27356B (-0x80).
+- Storage migration: loader 0x1F0B60 and controls 0x1EBB70 (-0x80), load call 0x433167 (-0x70);
+  push 0xCC2F0, vector destructor 0xB18F0 and deep copy 0x10C500 did not move.
+- Spreader: skill check 0x3E2260 (-0xC0), static-game LEA 0x43969A and world-save call 0x42CD3E
+  (-0x70), world save 0x7C20 unchanged, every other site +0x1A0.
+- Float pool (.rdata) +0x10: arg13 0x90A970 (24), arg14 0x90A938 (20), warning padding 0x90A8DC
+  (15), title phase 0x90A96C (23), title lead 0x90AA1C (45). All `.data` addresses and the five
+  import slots are unchanged; each was confirmed through an instruction that uses it.
+- Signatures that carry a displacement were re-read from the new build: engine-label call,
+  warning transition, office label call, migration load call, task-fuel compare.
+- Method: `my_plugins\tests\portmap.pl` with the 1.1.1.9 bytes of every site (Ghidra project).
+  It finds each blob in the new build, compares instruction by instruction and accepts only
+  differences in rel32 / RIP-relative operands; result: 0 changed instructions.
 ## 0.3.3 (2026-09-08)
 
 - 2026-09-11, version unchanged: the detail log `tesmioloader.technical_service_storage.log` is written to `<loader>\logs\`

@@ -78,27 +78,21 @@ namespace TesmioAutoload
             try
             {
                 string root = System.IO.Path.GetFullPath(build);
-                // 0.5.11: a fork with a file of its own (resources_plus) is the source when it is
-                // installed; its INI is created from the player's list if it does not exist yet.
-                foreach (string fork in ContentTargets.PluginsFor(sourcePlugin))
-                {
-                    if (fork.Equals(sourcePlugin, StringComparison.OrdinalIgnoreCase)) break;
-                    if (!File.Exists(SafeFiles.Child(root, "plugins\\"+fork+".dll"))) continue;
-                    if (!File.Exists(SafeFiles.Child(root, "plugins\\"+fork+".ini"))) ForkSeed.Ensure(root, fork, fork+".ini");
-                    if (File.Exists(SafeFiles.Child(root, "plugins\\"+fork+".ini"))) { sourcePlugin = fork; break; }
-                }
-                string dll = SafeFiles.Child(root, "plugins\\"+sourcePlugin+".dll"), ini = SafeFiles.Child(root, "plugins\\"+sourcePlugin+".ini");
+                // The source is whoever publishes the list today: a fork with a file of its own
+                // (resources_plus) when the loader finds it and has it switched on, else the plugin
+                // itself - the same rule content packages follow. Its INI in plugins\ is created
+                // from the player's list or the shipped one if it does not exist yet.
+                string kind = ContentTargets.KeyForPlugin(sourcePlugin);
+                string today = kind.Length > 0 ? ContentTargets.Resolve(root, kind) : "";
+                if (today.Length > 0) sourcePlugin = today;
+                string ini = SafeFiles.Child(root, "plugins\\"+sourcePlugin+".ini");
                 result.Path = ini;
-                // 0.5.2: Soviet Mod Loader carries resources, deposits, needs and buildings inside
-                // itself. There is no DLL of their own then, and their own key in tesmioloader.ini
-                // is off on purpose - the generated INI in plugins\ is still the list that counts.
-                bool sml = Sml.Hosts(root, sourcePlugin);
-                if (!sml && !File.Exists(dll)) { result.Problem = "Benoetigte lokale Datei fehlt: plugins\\"+sourcePlugin+".dll"; return result; }
+                if (!LoaderFiles.Present(root, sourcePlugin)) { result.Problem = "Benoetigte Plugin-DLL fehlt: "+sourcePlugin+".dll"; return result; }
+                if (!File.Exists(ini)) ForkSeed.Ensure(root, sourcePlugin, sourcePlugin+".ini");
                 if (!File.Exists(ini)) { result.Problem = "Benoetigte lokale Datei fehlt: plugins\\"+sourcePlugin+".ini"; return result; }
                 byte[] bytes = SafeFiles.Read(ini, 4 * 1024 * 1024); string text = SafeFiles.Decode(bytes);
                 result = Parse(text, ini, sourceSection, readySection, readyKey, readyValue); result.Hash = SafeFiles.Hash(bytes);
-                string loader = SafeFiles.Child(root, "tesmioloader.ini");
-                if (result.Ready && !sml && File.Exists(loader) && new Ini(SafeFiles.Text(loader)).Get("plugins", sourcePlugin, "1") == "0")
+                if (result.Ready && !LoaderFiles.Enabled(root, sourcePlugin))
                     result.Problem = sourcePlugin+" ist im vorhandenen TesmioLauncher deaktiviert.";
             }
             catch (Exception e) { result.Problem = "Quellkatalog konnte nicht sicher gelesen werden: " + e.Message; }

@@ -20,11 +20,11 @@ A Localization text pack with the namespace `tesmio_lang` in which several plugi
 ## 🚀 Quick start
 
 ### Requirements
-- Localization plugin (included in the package or installed the classic way)
+- Localization plugin (subscribed in the Workshop or copied by hand into the loader folder)
 - A plugin that uses the namespace, currently Depletion 1.1.2
 
 ### In three steps
-1. The text pack ships in the Localization package under `hooks\localization\tesmio_lang` and is loaded from there; for a classic installation copy the folder to `plugins\localization\tesmio_lang`.
+1. The text pack ships in the Localization package under `plugins\localization\tesmio_lang` and is loaded from there. Your own or adapted text packs go to `<game>\tesmioloader\plugins\localization\<pack>`; if you installed Localization by hand, `tesmio_lang` lies there as well.
 2. Enable Localization.
 3. Restart the game completely. Depletion's log shows `localization key tesmio_lang.depletion.deposit_remaining resolved to …`.
 
@@ -79,7 +79,7 @@ Depletion 1.1.2 or newer uses the translation of the selected game language whil
 |---|---|---|
 | `localization key tesmio_lang.depletion.deposit_remaining missing/invalid` (Depletion) | pack not loaded or key missing | check the folder and `sovietEnglish.ini`; read the Localization log |
 | `Pack was rejected because its localization.ini is invalid` (Localization) | pack configuration faulty | exactly one section `[localization]` with `namespace` and `fallback` |
-| `namespace-collision` | a second pack with namespace `tesmio_lang` | remove one of them; equal folder names under `plugins\localization` and beside the DLL are merged, not loaded twice |
+| `namespace-collision` | a second pack with namespace `tesmio_lang` | remove one of them; equal folder names under `tesmioloader\plugins\localization` and beside the DLL are merged, not loaded twice |
 | caption stays English | game language without a language file | add `soviet<Language>.ini` |
 
 Changes to language files apply after a complete restart of the game.
@@ -99,5 +99,5 @@ tesmio_lang\
 
 ---
 
-**Last update:** tesmio_lang, Localization 1.2  
-**For:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Last update:** tesmio_lang, Localization 0.4.0  
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

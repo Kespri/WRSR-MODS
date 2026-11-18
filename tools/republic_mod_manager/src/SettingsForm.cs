@@ -66,7 +66,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.5.21  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.6.13  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -206,7 +206,12 @@ namespace TesmioAutoload
             if(refreshing) return; bool on=activation.Checked;
             // 0.4.88: switching something off that a saved game still needs is the one click that
             // can cost a world. The question names the saves; No puts the switch back.
-            if(!on&&!SaveGamesAllowOff()) { refreshing=true; try{activation.Checked=true;}finally{refreshing=false;} return; }
+            // 0.6.10: a content package that put resources into the game takes them out again, and
+            // every save made with them stops loading. That question is the stronger one, so it
+            // stands in for the one about saved games that name the package.
+            string contentOff=on?"":ContentOffWarning(false);
+            if(contentOff.Length>0) { if(!ContentOffAllowed(contentOff)) { refreshing=true; try{activation.Checked=true;}finally{refreshing=false;} return; } }
+            else if(!on&&!SaveGamesAllowOff()) { refreshing=true; try{activation.Checked=true;}finally{refreshing=false;} return; }
             if(contentSession!=null) { contentSession.PendingOn=on; lastAction="ready"; UpdateStatus(); return; }
             if(resourceSession!=null) { if(session!=null&&session.LoaderSwitchApplies) session.SetLoaderEnabled(on); resourceSession.SetLoaderEnabled(on); lastAction="ready"; if(on && localSpec.ActivityField!=null) BuildLocalResourceEditor(); else { SyncActivation(); UpdateStatus(); } return; }
             if(session==null || presentation==null) return;
@@ -230,16 +235,9 @@ namespace TesmioAutoload
         void ShowSwitch(bool visible,string note)
         // The switch explains itself; the note only survives as a tooltip on it.
         { switchLabel.Visible=visible; activation.Visible=visible; switchNote.Visible=false; switchNote.Text=""; tips.SetToolTip(activation,note); tips.SetToolTip(switchLabel,note); }
-        // 0.5.1: true when at least one part of this content package would land in a plugin that
-        // Soviet Mod Loader hosts - then SML merges the package itself and RMM keeps its hands off.
-        internal bool SmlOwnsContent(ContentSession c)
-        {
-            if(c==null) return false;
-            foreach(var pair in c.Targets) if(pair.Value.Length>0&&Sml.Hosts(state.Build,pair.Value)) return true;
-            return false;
-        }
         internal bool SwitchVisible { get { return activation.Visible; } }
-        // 0.5.16: the shown entry's dot - paused (amber) means blocked by SML and not counted as active.
+        // The shown entry's dot - amber means a replacement for this plugin is switched on as
+        // well, so this one is about to be switched off.
         internal bool ShownPaused { get { bool active; return current!=null&&mods.BlockedRoots.Contains(current.Root)&&!(mods.ActiveStates.TryGetValue(current.Root,out active)&&active); } }
         internal bool SwitchChecked { get { return activation.Checked; } }
         internal string SwitchNote { get { return tips.GetToolTip(activation) ?? ""; } }
@@ -266,7 +264,7 @@ namespace TesmioAutoload
         void Scan(bool ask)
         {
             if(ask && !ResolvePending()) return;
-            state.WorkshopRoot=Catalog.NormalizeRoot(state.WorkshopRoot); Catalog.SchemaRoot=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings_schemas"); var notes=new List<string>(); entries.Clear(); entries.AddRange(Catalog.Scan(state.WorkshopRoot,notes));entries.AddRange(Catalog.ScanLocalEditors(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings_schemas"),notes));entries.AddRange(Catalog.ScanInstalled(state.Build,entries,notes));Catalog.ResolveAll(entries);entries.Sort((a,b)=>String.Compare(a.Name,b.Name,StringComparison.CurrentCultureIgnoreCase));
+            state.WorkshopRoot=Catalog.NormalizeRoot(state.WorkshopRoot); Catalog.SchemaRoot=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings_schemas"); var notes=new List<string>(); entries.Clear(); entries.AddRange(Catalog.ScanAll(state.Build,state.WorkshopRoot,Catalog.SchemaRoot,notes));entries.Sort((a,b)=>String.Compare(a.Name,b.Name,StringComparison.CurrentCultureIgnoreCase));
             foreach(string note in notes) Report(note);
             RefreshActivity();
             var chosen=Catalog.RestoreSelection(entries,state.SelectedId,state.SelectedSource); FilterList(); ShowEntry(chosen); FilterList();InspectStartupConsistency();
@@ -274,7 +272,10 @@ namespace TesmioAutoload
         void RefreshActivity()
         {
             mods.ActiveStates.Clear(); mods.BlockedRoots.Clear();
-            foreach(var entry in entries){mods.ActiveStates[entry.Root]=RuntimeStatus.ConfiguredActive(entry,state.Build);if(RuntimeStatus.BlockedBySml(entry,state.Build))mods.BlockedRoots.Add(entry.Root);}
+            foreach(var entry in entries)mods.ActiveStates[entry.Root]=RuntimeStatus.ConfiguredActive(entry,state.Build);
+            // A plugin whose replacement is switched on as well is about to be switched off: amber,
+            // not green, although its own switch still says on.
+            try{foreach(var pair in Catalog.OpenReplacements(entries,state.Build)){mods.BlockedRoots.Add(pair.Value.Root);mods.ActiveStates[pair.Value.Root]=false;}}catch(Exception){}
             mods.UpdateBadge=language.T("update_badge"); pendingUpdates=Catalog.MarkUpdates(entries,state.Build); mods.Invalidate();
         }
         List<string> pendingUpdates=new List<string>();
@@ -374,17 +375,11 @@ namespace TesmioAutoload
             {
                 if(entry.LocalEditor)
                 {
-                    // 0.5.1: Soviet Mod Loader brings resources, deposits, needs and buildings
-                    // along. Then there is no DLL of their own and their INI is generated output,
-                    // so the page says who is in charge instead of failing on the missing files.
                     LocalEditorSpec hosted=LocalEditorSpec.Load(entry.Root);
-                    // 0.5.3: with SML the editor works on its baseline. Only when that baseline does
-                    // not exist yet - SML installed but never run - is there nothing to edit.
-                    if(Sml.Hosts(state.Build,hosted.Plugin)&&Sml.Baseline(state.Build,hosted.Plugin,hosted.ConfigName)==null){heading.Text=hosted.LocalizedName(language);description.Text=hosted.LocalizedDescription(language);ShowSmlHosted(hosted);SaveView();UpdateStatus();return;}
-                    localSpec=hosted;resourceSession=new LocalResourceSession(localSpec,state.Build);resourceSession.References=new ReferenceSets(state.Build,state.WorkshopRoot,language.Code);heading.Text=localSpec.LocalizedName(language);description.Text=localSpec.LocalizedDescription(language);BuildLocalResourceEditor();SetActions(true);UpdateLoadPath();foreach(string note in resourceSession.Notes)Report(note);if(resourceSession.DisappearedExternal.Count>0)ShowDisappeared(resourceSession.DisappearedExternal);SaveView();UpdateStatus();return;
+                    localSpec=hosted;resourceSession=new LocalResourceSession(localSpec,state.Build);Rivals(entry,resourceSession.Replaced,resourceSession.Replacing);resourceSession.References=new ReferenceSets(state.Build,state.WorkshopRoot,language.Code);heading.Text=localSpec.LocalizedName(language);description.Text=localSpec.LocalizedDescription(language);BuildLocalResourceEditor();SetActions(true);UpdateLoadPath();foreach(string note in resourceSession.Notes)Report(note);if(resourceSession.DisappearedExternal.Count>0)ShowDisappeared(resourceSession.DisappearedExternal);SaveView();UpdateStatus();return;
                 }
-                var package=entry.Installed?InstalledPlugins.Load(state.Build,entry.Target,Catalog.SchemaRoot):Package.Load(entry.Root);
-                Catalog.ResolveDependencies(package.Dependencies,entries);
+                var package=RuntimeStatus.Load(entry,state.Build);
+                Catalog.ResolveDependencies(package.Dependencies,entries,state.Build);
                 foreach(string hint in package.Hints) Report(entry.Name+": "+language.Localize(hint));
                 foreach(Dependency d in package.Dependencies) Report(entry.Name+": "+language.Localize(d.Note));
                 if(package.Kind=="content")
@@ -392,16 +387,16 @@ namespace TesmioAutoload
                     // 0.4.80: no DLL, no editor - one switch that provides or removes the package's
                     // fragments and assets, and a page that says what it carries and where it goes.
                     contentSession=new ContentSession(package,state.Build); description.Text=language.T("content_package_short");
-                    BuildContentPage(); ShowSwitch(!SmlOwnsContent(contentSession)||contentSession.Provided,language.T("content_switch_note")); switchLabel.Text=language.T("content_switch"); SyncActivation(); SetActions(true); UpdateLoadPath();
+                    BuildContentPage(); ShowSwitch(true,language.T("content_switch_note")); switchLabel.Text=language.T("content_switch"); SyncActivation(); SetActions(true); UpdateLoadPath();
                     foreach(string note in contentSession.Notes) Report(entry.Name+": "+language.Localize(note));
                     SaveView(); UpdateStatus(); return;
                 }
-                session=new Session(package,state.Build); LoadDraft();
+                session=new Session(package,state.Build); Rivals(entry,session.Replaced,session.Replacing); LoadDraft();
                 if(package.EditorManaged)
                 {
                     // The package ships a keyed editor schema: the master-detail editor owns
-                    // the INI (its baseline is the package INI), Session handles DLL, loader
-                    // entry, bridge list and local copy.
+                    // the INI (its baseline is the package INI), Session handles the loader
+                    // entry and the receipt.
                     localSpec=LocalEditorSpec.Load(package.EditorSchema);resourceSession=new LocalResourceSession(localSpec,state.Build,package);resourceSession.References=new ReferenceSets(state.Build,state.WorkshopRoot,language.Code);
                     heading.Text=localSpec.LocalizedName(language);description.Text=localSpec.LocalizedDescription(language);
                     BuildLocalResourceEditor();SetActions(true);UpdateLoadPath();foreach(string note in session.Notes.Concat(resourceSession.Notes))Report(note);SaveView();UpdateStatus();return;
@@ -411,33 +406,34 @@ namespace TesmioAutoload
             catch(Exception e) { work=new Workspace{Entry=entry}; string detail=ErrorText(e); ShowProblem(language.T("failed")+"\n\n"+detail); Report(detail); }
             SaveView(); UpdateStatus();
         }
-        // The status bar: which loader brings the DLL into the game (bridge, SML or the classic
-        // plugins folder), where the files live, and what the loader saw on its last run.
+        // The plugins that must not run beside an entry: the one it replaces, and the ones that
+        // replace it. Both sessions switch them off together with their own switch.
+        void Rivals(CatalogEntry entry,List<string> replaced,List<string> replacing)
+        {
+            replaced.Clear();replacing.Clear();if(entry==null||entry.Key.Length==0)return;
+            if(entry.Replaces.Length>0&&Catalog.ByKey(entries,entry.Replaces)!=null)replaced.Add(entry.Replaces);
+            foreach(CatalogEntry other in entries.Where(e=>e!=entry&&e.Supported&&e.Key.Length>0&&e.Replaces.Equals(entry.Key,StringComparison.OrdinalIgnoreCase)))replacing.Add(other.Key);
+        }
+        // The status bar: whether TesmioLoader will load the DLL, where the DLL lies, and what
+        // the loader saw on its last run.
         void UpdateLoadPath()
         {
             statusBar.SuspendLayout(); Theme.DisposeChildren(statusFlow); statusRight.Text="";
             if(current==null||contentSession!=null||(session==null&&resourceSession==null)){statusBar.Visible=false;statusBar.ResumeLayout();return;}
-            bool installed=session!=null?session.Package.Installed:current.Installed;
-            // 0.5.3: a keyed editor working on SML's baseline is loaded by SML, not by TesmioLoader.
-            bool smlBase=session==null&&resourceSession!=null&&resourceSession.SmlBaseline!=null;
-            bool bridge=session!=null&&session.BridgeActive, sml=smlBase||session!=null&&session.SmlActive&&!installed, loader=!bridge&&!sml, local=session!=null&&session.PreferLocal;
-            // 0.5.17: a plugin that SML pushes aside (Deposits Plus, Resources Plus, Needs Plus) is loaded
-            // by nobody in any useful sense - it steps aside at startup. No load-path dot is lit then;
-            // an amber "paused" dot says why, the same on a package and on a fork.
-            string pausedKind=session!=null?(RuntimeStatus.Blocked(session.Package,state.Build)?session.Package.ReplacedBySml:""):(resourceSession!=null&&localSpec!=null&&RuntimeStatus.Blocked(localSpec,state.Build)?localSpec.ReplacedBySml:"");
-            bool paused=pausedKind.Length>0, litBridge=bridge&&!paused, litSml=sml&&!paused, litLoader=loader&&!paused;
+            // A keyed editor has no Target of its own - the plugin name comes from its schema.
+            string target=session!=null?session.Package.Target:localSpec!=null?localSpec.Plugin:current.Target;
+            bool local=current.Installed||current.Origin=="loader";
+            bool on=!String.IsNullOrEmpty(target)&&LoaderFiles.PluginsAllowed(state.Build)&&LoaderFiles.Enabled(state.Build,target);
+            // A replacement for this plugin is switched on as well: amber, as in the list.
+            bool paused=mods.BlockedRoots.Contains(current.Root);
             LoadPathText(language.T("status_loadpath")+":",Theme.Muted,null);
-            LoadPathDot(litBridge,language.T("status_bridge"),language.T(litBridge?"status_bridge_tip":"status_inactive_tip"));
-            LoadPathDot(litSml,language.T("status_sml"),language.T(litSml?"status_sml_tip":"status_inactive_tip"));
-            LoadPathDot(litLoader,language.T("status_loader"),language.T(litLoader?(installed?"status_loader_installed_tip":"status_loader_tip"):"status_inactive_tip"));
-            if(paused)LoadPathDot(true,language.T("status_paused"),language.Format("status_paused_tip",language.T("content_kind_"+pausedKind)),Color.FromArgb(232,166,36),"paused");
-            string filesKey=smlBase?"status_files_sml_base":local?"status_files_local":(bridge||sml)?"status_files_package":"status_files_plugins";
-            string filesTip=smlBase?language.Format("status_files_sml_base_tip",Sml.Show(state.Build,resourceSession.SmlBaseline)):language.T(filesKey+"_tip");
+            LoadPathDot(on&&!paused,language.T("status_loader"),language.T(on&&!paused?"status_loader_tip":"status_inactive_tip"));
+            if(paused)LoadPathDot(true,language.T("status_paused"),language.T("status_paused_tip"),Color.FromArgb(232,166,36),"paused");
+            string filesKey=local?"status_files_plugins":"status_files_workshop";
+            string filesTip=language.Format(filesKey+"_tip",current.Dll);
             var gap=LoadPathText("",Theme.Muted,null); gap.Margin=new Padding(10,0,0,0);
             LoadPathText(language.T("status_files")+":",Theme.Muted,filesTip); var files=LoadPathText(language.T(filesKey),Theme.Blue,filesTip); files.Font=new Font("Segoe UI",9.5f,FontStyle.Bold);
-            // 0.5.17: a local editor entry has no Target of its own - the plugin name comes from its
-            // schema, otherwise "not loaded" stood there for every local editor whatever the log said.
-            string target=session!=null?session.Package.Target:localSpec!=null?localSpec.Plugin:current.Target; DateTime? when=InstalledPlugins.LogTime(state.Build); string seen;
+            DateTime? when=InstalledPlugins.LogTime(state.Build); string seen;
             if(when.HasValue&&!String.IsNullOrEmpty(target)&&InstalledPlugins.LoaderVersions(state.Build).TryGetValue(target,out seen)) statusRight.Text=language.Format("status_last_seen",when.Value.ToString("g"),seen);
             else if(when.HasValue&&!String.IsNullOrEmpty(target)&&InstalledPlugins.IdleAtLastStart(state.Build).Contains(target)) statusRight.Text=language.Format("status_last_seen_paused",when.Value.ToString("g"));
             else if(when.HasValue) statusRight.Text=language.Format("status_last_seen_not",when.Value.ToString("g"));
@@ -554,7 +550,7 @@ namespace TesmioAutoload
                 if(Theme.Modal(this,dialog)==DialogResult.OK && list.SelectedItem!=null) ChangeLanguage(((KeyValuePair<string,string>)list.SelectedItem).Key);
             }
         }
-        bool HasPending { get { return contentSession!=null?contentSession.NeedsWrite:resourceSession!=null?(resourceSession.Dirty||session!=null&&(session.LoaderChanged||session.LocalCopyChanged)):session!=null && (session.LoaderChanged || session.LocalCopyChanged || resets.Count>0 || draft.Count!=baseline.Count || draft.Any(p=>!baseline.ContainsKey(p.Key)||!SameDraftValue(p.Key,p.Value,baseline[p.Key]))); } }
+        bool HasPending { get { return contentSession!=null?contentSession.NeedsWrite:resourceSession!=null?(resourceSession.Dirty||session!=null&&session.LoaderChanged):session!=null && (session.LoaderChanged || resets.Count>0 || draft.Count!=baseline.Count || draft.Any(p=>!baseline.ContainsKey(p.Key)||!SameDraftValue(p.Key,p.Value,baseline[p.Key]))); } }
         DialogResult Question(string text,bool allowDiscard)
         {
             // The RMM message window (0.4.38); Yes/No keep their meaning "save" / "discard".
@@ -600,28 +596,12 @@ namespace TesmioAutoload
         }
         void Collect()
         { var values=Prospective(); session.Overrides.Clear(); foreach(var p in values) session.Overrides[p.Key]=p.Value; }
-        // Asked only when saving would actually write a DLL into plugins\: never
-        // for installed plugins, never under SML or the bridge (they load the
-        // package copy), and never when the copy in plugins\ is already this one.
-        bool NativeDllChanges()
-        { return session!=null && !session.Package.Installed && !session.SmlActive && !session.BridgeActive && SafeFiles.HashFile(session.LocalDll)!=SafeFiles.Hash(session.Package.Dll); }
-        bool ConfirmNativeTrust()
-        {
-            string text=language.T("trust")+"\n\n"+session.Package.Name+" "+session.Package.Version+"\n"+language.T("source")+": "+session.Package.Root+"\nSHA-256: "+SafeFiles.Hash(session.Package.Dll)+"\n\n"+language.T("target")+": "+session.Build+"\\plugins\n\n"+language.T("trust_question");
-            return MessageWindow.Show(this,language,language.T("confirm"),text,MessageWindow.Kind.Warning,new[]{new KeyValuePair<DialogResult,string>(DialogResult.OK,language.T("confirm")),new KeyValuePair<DialogResult,string>(DialogResult.Cancel,language.T("cancel"))})==DialogResult.OK;
-        }
-        bool SaveAndDeploy(Action guard,Func<bool> approveNative) { return SaveAndDeploy(true,guard,approveNative); }
-        bool SaveAndDeploy(bool rebuild,Action guard,Func<bool> approveNative)
+        // Saving never writes a DLL: the loader takes every plugin from where it lies. What is
+        // written are the personal values, the switch in tesmioloader.ini and the receipt.
+        bool SaveAndDeploy(Action guard) { return SaveAndDeploy(true,guard); }
+        bool SaveAndDeploy(bool rebuild,Action guard)
         {
             Collect(); guard(); session.AssertUnchanged();
-            bool approved=false;
-            if(session.LocalCopyChanged)
-            {
-                string text=LocalCopyText();
-                if((LocalCopyPrompt!=null?LocalCopyPrompt(text):Question(text,false))!=DialogResult.OK) return false;
-                approved=session.PreferLocal;    // the file list named the DLL and its hash
-            }
-            if(NativeDllChanges() && !approved && !approveNative()) return false;
             string result=session.Commit(true,guard); lastAction="saved"; Report(SavedNote(result));
             if(!rebuild) return true;
             LoadDraft(); BuildEditor(); SaveView(); RefreshActivity(); return true;
@@ -629,7 +609,7 @@ namespace TesmioAutoload
         string SavedNote(string backup) { return (work.Entry!=null?work.Entry.Name+": ":"")+language.T("saved")+" "+language.T("backup")+": "+backup; }
         // Writes the workspace behind `work`. guard = null takes the runtime checks (game closed,
         // files present); rebuild = refresh the page afterwards, only for the shown entry.
-        bool SaveWorkspace(bool rebuild,Action guard,Func<bool> approveNative)
+        bool SaveWorkspace(bool rebuild,Action guard)
         {
             if(contentSession!=null)
             {
@@ -647,32 +627,30 @@ namespace TesmioAutoload
                 resourceGuard();
                 if(session!=null)
                 {
-                    // Package-backed editor: DLL, loader entry, bridge list and local copy go
-                    // first (Session never touches this INI), the editor's INI afterwards.
+                    // Package-backed editor: the loader entry and the receipt go first
+                    // (Session never touches this INI), the editor's INI afterwards.
                     Action sessionGuard=guard??(()=>RuntimeGuard.Check(session));
-                    sessionGuard();session.AssertUnchanged();bool approved=false;
-                    if(session.LocalCopyChanged){string text=LocalCopyText();if((LocalCopyPrompt!=null?LocalCopyPrompt(text):Question(text,false))!=DialogResult.OK)return false;approved=session.PreferLocal;}
-                    if(NativeDllChanges()&&!approved&&!approveNative())return false;
+                    sessionGuard();session.AssertUnchanged();
                     session.Commit(true,sessionGuard);
                 }
                 string result=resourceSession.Commit(resourceGuard);
-                lastAction="saved";Report(SavedNote(result));
+                lastAction="saved";Report(SavedNote(result));ReportParking(resourceSession);
                 if(!rebuild) return true;
-                if(session!=null)session=new Session(session.Package,state.Build);
+                if(session!=null){session=new Session(session.Package,state.Build);Rivals(work.Entry,session.Replaced,session.Replacing);}
                 BuildLocalResourceEditor();SaveView();RefreshActivity();return true;
             }
-            return SaveAndDeploy(rebuild,guard??(()=>RuntimeGuard.Check(session)),approveNative);
+            return SaveAndDeploy(rebuild,guard??(()=>RuntimeGuard.Check(session)));
         }
-        bool SaveCurrent() { return SaveWorkspace(true,null,ConfirmNativeTrust); }
-        // Parked entries are written one after another, by name (0.4.71). After each one the remaining
-        // sessions take fresh hashes of the shared files (tesmioloader.ini, the bridge list), because RMM
-        // itself just wrote them. A failure or a declined prompt shows the entry it happened in.
-        bool SaveParked(Action guard,Func<bool> approveNative)
+        bool SaveCurrent() { return SaveWorkspace(true,null); }
+        // Parked entries are written one after another, by name. After each one the remaining
+        // sessions take a fresh hash of the shared file (tesmioloader.ini), because RMM itself
+        // just wrote it. A failure shows the entry it happened in.
+        bool SaveParked(Action guard)
         {
             foreach(Workspace entry in parked.Values.OrderBy(x=>x.Entry.Name,StringComparer.CurrentCultureIgnoreCase).ToList())
             {
                 Workspace keep=work; bool ok; work=entry;
-                try { ok=SaveWorkspace(false,guard,approveNative); }
+                try { ok=SaveWorkspace(false,guard); }
                 catch(Exception) { work=keep; Jump(entry); throw; }
                 work=keep;
                 if(!ok) { Jump(entry); return false; }
@@ -700,25 +678,65 @@ namespace TesmioAutoload
             }
             return null;
         }
-        bool SaveAll() { return SaveAll(null,ConfirmNativeTrust); }
-        bool SaveAll(Action guard,Func<bool> approveNative)
+        bool SaveAll() { return SaveAll(null); }
+        bool SaveAll(Action guard)
         {
-            if(!SaveParked(guard,approveNative)) return false;
+            if(!SaveParked(guard)) return false;
             bool updatePending=session!=null&&session.Update.Pending;
-            if((session!=null||resourceSession!=null||contentSession!=null)&&(HasPending||updatePending)) return SaveWorkspace(true,guard,approveNative);
+            if((session!=null||resourceSession!=null||contentSession!=null)&&(HasPending||updatePending)) return SaveWorkspace(true,guard);
             RefreshActivity(); SaveView(); UpdateStatus(); return true;
         }
         void SaveAction() { SaveAll(); }
+        // Asked before a start when a plugin lacks something it needs; a test answers here.
+        internal Func<string,DialogResult> UnmetPrompt=null;
+        void RehashShared()
+        { foreach(Workspace other in parked.Values.Concat(new[]{work})) { if(other==null)continue; if(other.Session!=null) other.Session.RehashShared(); if(other.ResourceSession!=null) other.ResourceSession.RehashShared(); } }
+        // What only a start has to settle, across all plugins and not just the shown one:
+        //   - a replacement and the plugin it replaces, both switched on: the replaced one is
+        //     switched off (left alone, the brake inside the replacement would idle it);
+        //   - a plugin that will load and lacks something it says it needs: the player may
+        //     switch it off for this start, start anyway, or stay.
+        // Returns false when the player stays.
+        internal bool SettleBeforeStart()
+        {
+            Action guard=()=>RuntimeGuard.NoGameRunning(state.Build); bool changed=false;
+            var settled=Catalog.SettleReplacements(entries,state.Build,guard);
+            foreach(var pair in settled) Report(language.Format("replacement_settled",pair.Key.Name,pair.Value.Name));
+            if(settled.Count>0) { changed=true; RehashShared(); Catalog.ResolveAll(entries,state.Build); }
+            // Switching one plugin off can leave another one without its provider: a few rounds.
+            for(int round=0;round<4;round++)
+            {
+                var unmet=Startup.Unmet(state.Build,entries);
+                if(unmet.Count==0) break;
+                var lines=unmet.Select(n=>language.Format(n.Reason=="off"?"startcheck_dependency_off":n.Reason=="version"?"startcheck_dependency_version":"startcheck_dependency",n.Entry.Name,n.Dependency.Name.Length>0?n.Dependency.Name:n.Dependency.Id)).Distinct().ToList();
+                var names=unmet.Select(n=>n.Entry.Name).Distinct().ToList();
+                string text=language.T("unmet_intro")+"\n\n"+String.Join("\n",lines)+"\n\n"+language.Format("unmet_question",String.Join(", ",names));
+                DialogResult answer=UnmetPrompt!=null?UnmetPrompt(text):MessageWindow.Show(this,language,language.T("startcheck"),text,MessageWindow.Kind.Warning,new[]{new KeyValuePair<DialogResult,string>(DialogResult.Yes,language.T("unmet_switch_off")),new KeyValuePair<DialogResult,string>(DialogResult.No,language.T("unmet_start_anyway")),new KeyValuePair<DialogResult,string>(DialogResult.Cancel,language.T("cancel"))});
+                if(answer==DialogResult.Cancel) { if(changed) Reopen(); return false; }
+                if(answer!=DialogResult.Yes) break;
+                Startup.SwitchOff(state.Build,unmet.Select(n=>n.Entry.Key).Distinct(StringComparer.OrdinalIgnoreCase),guard);
+                foreach(string name in names) Report(language.Format("unmet_switched_off",name));
+                changed=true; RehashShared(); Catalog.ResolveAll(entries,state.Build);
+            }
+            if(changed) Reopen();
+            return true;
+        }
+        // The shown page again, from the files: a switch this window flipped outside the page's
+        // own session must not be flipped back by the page's next save.
+        void Reopen()
+        { RefreshActivity(); if(current!=null&&!HasPending) { CatalogEntry entry=current; ShowEntry(entry); FilterList(); } }
         void Launch()
         {
-            // 0.4.71: every unsaved entry is written first; the launcher then starts from the loader folder.
+            // Every unsaved entry is written first; the launcher then starts from the loader folder.
             if(!SaveAll()) return;
             if(!ConfirmGameVersion()) return;
+            if(!SettleBeforeStart()) return;
             if(resourceSession!=null) LocalResourceGuard.Check(resourceSession); else if(session!=null) RuntimeGuard.Check(session);
             EnsureGlobalResourceConsistency();
             if(!ConfirmMissingResources()) return;
             if(!ConfirmSteamSession()) return;
             string build=Path.GetFullPath(state.Build);
+            if(!File.Exists(SafeFiles.Child(build,"tesmiolauncher.exe"))) throw new IOException(Msg.Key("err_benoetigte_lokale_datei_fehlt","tesmiolauncher.exe"));
             Process.Start(new ProcessStartInfo(SafeFiles.Child(build,"tesmiolauncher.exe")){Arguments=LauncherOptions.Arguments,WorkingDirectory=build,UseShellExecute=true});Report(language.T("launched"));
             WatchLaunch();
         }
@@ -767,7 +785,7 @@ namespace TesmioAutoload
             List<MissingResource> missing;
             try{missing=Startup.MissingResources(state.Build,Startup.Order(state.Build,entries));}catch(Exception){return true;}
             if(missing.Count==0)return true;
-            string rows=String.Join("\n",missing.Take(8).Select(m=>language.Format("startcheck_missing_resource",m.Plugin,m.Section,m.Resource)));
+            string rows=String.Join("\n",missing.Take(8).Select(m=>language.Format(m.Folder?"startcheck_missing_resource_folder":"startcheck_missing_resource",m.Plugin,m.Section,m.Resource)));
             Report(language.T("launch_missing_resources")+" "+rows.Replace("\n","; "));
             return MessageWindow.Show(this,language,Text,
                 language.T("launch_missing_resources")+"\n\n"+rows+"\n\n"+language.T("launch_missing_resources_hint"),
@@ -788,6 +806,10 @@ namespace TesmioAutoload
             try
             {
                 foreach(string duplicate in Catalog.DuplicateDlls(entries,state.Build)) startup.Add(language.Format("duplicate_dll",duplicate));
+                // A replacement and the plugin it replaces, both on: the next start settles it.
+                foreach(var pair in Catalog.OpenReplacements(entries,state.Build)) startup.Add(language.Format("replacement_open",pair.Key.Name,pair.Value.Name));
+                // Personal values of plugins that read through the host need the loader's overlay.
+                if(Discovery.HasLoader(state.Build)&&!LoaderFiles.LaysOverlay(state.Build)) startup.Add(language.T("loader_no_overlay"));
                 // Updates are news, not problems: reported in the log and the status line, never as a blocking dialog.
                 if(pendingUpdates.Count>0) Report(language.Format("updates_pending",String.Join(", ",pendingUpdates)));
                 string version; bool unsupported=GameVersion.Warn(state.Build,out version); version=language.Localize(version); Report(language.Format("game_version",version));
@@ -806,13 +828,17 @@ namespace TesmioAutoload
         {string text=language.Format("resource_external_disappeared",String.Join(", ",ids));Report(text);if(persistUi&&text!=lastConsistencyAlert){lastConsistencyAlert=text;MessageWindow.Show(this,language,Text,text,MessageWindow.Kind.Warning,DialogResult.OK);}}
         void EnsureGlobalResourceConsistency()
         {
-            ISet<string> ids=null;if(resourceSession!=null)ids=new HashSet<string>(new LooseIni(resourceSession.Effective()).Entries(localSpec.ListSection).Select(x=>x.Key),StringComparer.OrdinalIgnoreCase);
+            // 0.6.3: the open list editor only stands in for the resource list when it is the editor of
+            // the plugin that takes resources today. Every list editor has a session; the keys of
+            // a needs, deposits or buildings list are not resource names, and taking them for such
+            // blocked the start with "resource not found" for every resource a plugin names.
+            ISet<string> ids=null;if(resourceSession!=null&&localSpec!=null&&ResourceConsistency.SpeaksForResources(state.Build,localSpec.Plugin))ids=new HashSet<string>(new LooseIni(resourceSession.Effective()).Entries(localSpec.ListSection).Select(x=>x.Key),StringComparer.OrdinalIgnoreCase);
             var issues=ResourceConsistency.ValidateReferences(state.Build,entries,ids);if(issues.Count>0)throw new IOException(language.T("resource_start_blocked")+"\n"+String.Join("\n",issues.Select(language.Localize)));
         }
-        bool SaveAndLaunch(Action guard,Func<bool> approveNative,Action start)
+        bool SaveAndLaunch(Action guard,Action start)
         {
-            if(!SaveParked(guard,approveNative))return false;
-            if(!SaveAndDeploy(guard,approveNative))return false;
+            if(!SaveParked(guard))return false;
+            if(!SaveAndDeploy(guard))return false;
             if(!ConfirmGameVersion())return false;
             guard();start();Report(language.T("launched"));Done();return true;
         }
@@ -890,6 +916,42 @@ namespace TesmioAutoload
             if(target.Length==0)return found;
             return SaveGames.Using(Saves(),"plugins",new[]{target});
         }
+        // 0.6.13: what a save of the Buildings Plus page did with the generated folders of the
+        // sections that left it - said in the log line of the window, and a folder that could
+        // not be moved gets a warning of its own, because the game goes on loading it.
+        internal string LastParkingNote="";
+        void ReportParking(LocalResourceSession saved)
+        {
+            LastParkingNote="";
+            if(saved==null)return;
+            if(saved.Parked.Count>0){LastParkingNote=language.Format("res_note_buildings_parked",String.Join(", ",saved.Parked));Report(LastParkingNote);}
+            if(saved.ParkFailed.Count==0)return;
+            string failed=language.Format("content_building_left",String.Join(", ",saved.ParkFailed));
+            LastParkingNote=failed;Report(failed);
+            if(!cliMode&&persistUi)MessageWindow.Show(this,language,Text,failed,MessageWindow.Kind.Warning,DialogResult.OK);
+        }
+        // The question before a provided content package with resources is switched off; empty when
+        // there is nothing to ask. The resources are the ones the receipt recorded as added by this
+        // package. "planned" is for the snapshot: it takes the resources from the package itself.
+        internal Func<string,DialogResult> ContentOffPrompt=null;
+        string ContentOffWarning(bool planned)
+        {
+            if(contentSession==null) return "";
+            List<string> ids=null;
+            if(planned) { string fragment; if(contentSession.Package.ContentFragments.TryGetValue("resources",out fragment)) ids=ContentTargets.IdsOf("resources",fragment).ToList(); }
+            else if(contentSession.Provided) contentSession.Added.TryGetValue("resources",out ids);
+            if(ids==null||ids.Count==0) return "";
+            return language.Format("content_off_save_warning",contentSession.Package.Name,String.Join(", ",ids)).Replace("\\n","\n");
+        }
+        // Nobody answers on the command line: --activate off is the answer there.
+        bool ContentOffAllowed(string text)
+        {
+            if(cliMode) return true;
+            DialogResult answer=ContentOffPrompt!=null?ContentOffPrompt(text):Question(text,false);
+            return answer==DialogResult.OK;
+        }
+        // Snapshot hook (--window contentoff): the real question for the selected content package.
+        public void TestAskContentOff() { string text=ContentOffWarning(true); if(text.Length>0) Question(text,false); }
         // Answered with Yes = switch off anyway. The test hook replaces the dialog.
         internal Func<string,DialogResult> SaveOffPrompt=null;
         bool SaveGamesAllowOff()
@@ -1019,7 +1081,7 @@ namespace TesmioAutoload
         internal int DirtyCount {get{return Unsaved.Count;}}
         internal int DirtyMarks {get{return mods.DirtyRoots.Count;}}
         internal bool ShownListed {get{return mods.Items.Cast<CatalogEntry>().Any(x=>x==current);}}
-        internal bool TestSaveAll(Action guard) {return SaveAll(guard,()=>true);}
+        internal bool TestSaveAll(Action guard) {return SaveAll(guard);}
         // 0.4.81: --save. The Save button's own path with the real runtime checks; every question
         // the button would ask is declined, because nobody is there to answer it. Returns one line.
         // 0.4.82: --activate. Moves the header switch exactly like a click does, so that a
@@ -1049,24 +1111,21 @@ namespace TesmioAutoload
             bool updatePending=session!=null&&session.Update.Pending;
 
             if(!HasPending&&!updatePending) return "PASS "+current.Name+": nothing to save, already up to date";
-            if(NativeDllChanges()) return "FAIL "+current.Name+": this save would copy a DLL into plugins\\ - do that in the window";
 
-            LocalCopyPrompt=text=>DialogResult.Cancel;
             try
             {
-                if(!SaveAll(guard,()=>false)) return "FAIL "+current.Name+": save declined (a confirmation was needed)";
+                if(!SaveAll(guard)) return "FAIL "+current.Name+": save declined (a confirmation was needed)";
 
                 return "PASS "+current.Name+" saved.";
             }
             catch(Exception e) { return "FAIL "+current.Name+": "+Msg.Plain(ErrorText(e)); }
-            finally { LocalCopyPrompt=null; }
         }
         internal bool TestResolvePending() {return ResolvePending();}
         internal string HeadingText {get{return heading.Text;}}
         internal string StatusDetailText {get{return statusDetail.Text;}}
         internal void TestCommit(Action guard) {Collect();session.Commit(false,guard);LoadDraft();BuildEditor();}
-        internal bool TestApply(Action guard) {return SaveAndDeploy(guard,()=>true);}
-        internal bool TestSaveAndLaunch(Action guard,Action start) {return SaveAndLaunch(guard,()=>true,start);}
+        internal bool TestApply(Action guard) {return SaveAndDeploy(guard);}
+        internal bool TestSaveAndLaunch(Action guard,Action start) {return SaveAndLaunch(guard,start);}
         internal bool HasLocalResourceEditor {get{return resourceSession!=null;}}
         internal int LocalResourceCount {get{return resourceSession==null?0:resourceSession.Items().Count;}}
         internal void TestAddLocalResource(string id,string template,string display,string transport){resourceSession.Add(id,template,display,transport);selectedLocalResource=id;BuildLocalResourceEditor();}
@@ -1075,9 +1134,9 @@ namespace TesmioAutoload
         internal string LocalNextValue(string field){return resourceSession.NextValue(localSpec.Fields.First(x=>x.Id==field));}
         internal void TestSetLocalField(string id,string field,string value){resourceSession.SetField(id,localSpec.Fields.First(x=>x.Id==field),value);UpdateStatus();}
         internal bool TestLocalOwned(string id){return resourceSession.Items().First(x=>x.Id==id).Owned;}
-        internal bool TestSaveLocal(Action guard){string result=resourceSession.Commit(guard);BuildLocalResourceEditor();RefreshActivity();return result.Length>0;}
+        internal bool TestSaveLocal(Action guard){string result=resourceSession.Commit(guard);ReportParking(resourceSession);BuildLocalResourceEditor();RefreshActivity();return result.Length>0;}
         internal string LocalEffective(){return resourceSession.Effective();}
-        internal void TestRemoveLocalResource(string id){if(localSpec.HidesOriginals)RemoveLocalListItem(id,resourceSession.Items().First(x=>x.Id==id).Owned);else RemoveLocalResource(id);}
+        internal void TestRemoveLocalResource(string id){if(localSpec.HidesOriginals)RemoveLocalListItem(id,resourceSession.Items().First(x=>x.Id==id).Owned);else if(resourceSession.Items().First(x=>x.Id==id).Owned)RemoveLocalResource(id);else HideOriginalResource(id);}
         internal void TestSetGlobal(string field,string value){resourceSession.SetGlobal(localSpec.Fields.First(x=>x.Id==field),value);UpdateStatus();}
         internal void TestSetListColumn(string id,int column,string value){string[] parts=localSpec.TupleColumns(resourceSession.Items().First(x=>x.Id==id).ListValue);parts[column]=value;resourceSession.SetListRaw(id,ListTuple.Render(parts));BuildLocalResourceEditor();}
         internal List<string> LocalHidden(){return resourceSession.SuppressedIds();}

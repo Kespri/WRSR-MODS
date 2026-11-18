@@ -38,8 +38,14 @@ namespace TesmioAutoload
                 var icon = new NoticeIcon { Warning = kind == Kind.Warning || kind == Kind.Error, BackColor = Color.White, Margin = new Padding(0, 4, 0, 0) };
                 if (kind == Kind.Error) { icon.Tone = Theme.Danger; icon.Symbol = "!"; } else if (kind == Kind.Question) { icon.Tone = Theme.Blue; icon.Symbol = "?"; }
                 body.Controls.Add(icon, 0, 0);
-                var label = Theme.Label(text, 10.5f, false); label.AutoSize = true; label.MaximumSize = new Size(width - 44 - 36 - 12, 0); label.Margin = new Padding(0, 4, 0, 0); label.BackColor = Color.White;
-                body.Controls.Add(label, 1, 0);
+                int textWidth = width - 44 - 36 - 12, textHeight;
+                if (Marked(text)) body.Controls.Add(Paragraphs(text, textWidth, out textHeight), 1, 0);
+                else
+                {
+                    var label = Theme.Label(text, 10.5f, false); label.AutoSize = true; label.MaximumSize = new Size(textWidth, 0); label.Margin = new Padding(0, 4, 0, 0); label.BackColor = Color.White;
+                    body.Controls.Add(label, 1, 0);
+                    textHeight = TextRenderer.MeasureText(text, label.Font, new Size(textWidth, 0), TextFormatFlags.WordBreak).Height;
+                }
                 var row = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 64, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Padding = new Padding(12, 10, 12, 10), BackColor = Theme.Chrome };
                 bool primaryTaken = false;
                 foreach (var entry in buttons.Reverse())
@@ -53,10 +59,44 @@ namespace TesmioAutoload
                     if (primary) dialog.AcceptButton = button;
                 }
                 dialog.Controls.Add(body); dialog.Controls.Add(row); dialog.Controls.Add(header);
-                int textHeight = TextRenderer.MeasureText(text, label.Font, new Size(label.MaximumSize.Width, 0), TextFormatFlags.WordBreak).Height;
                 dialog.ClientSize = new Size(width, Math.Min(760, 46 + 64 + 30 + Math.Max(40, textHeight + 10)));
                 return ownerForm != null ? Theme.Modal(ownerForm, dialog) : dialog.ShowDialog();
             }
+        }
+
+        // Paragraph marks for messages that need more than one block of text: every line is a
+        // paragraph of its own, a line that starts with [b] is set bold, one that starts with [!]
+        // is set in the warning red, and an empty line leaves a gap. A text without a mark is
+        // shown as one label, as before.
+        public const string Bold = "[b]", Alert = "[!]";
+        public static bool Marked(string text)
+        {
+            if (String.IsNullOrEmpty(text)) return false;
+            return text.Replace("\r\n", "\n").Split('\n').Any(line => line.StartsWith(Bold, StringComparison.Ordinal) || line.StartsWith(Alert, StringComparison.Ordinal));
+        }
+        // The same text without the marks, for logs and tests.
+        public static string Plain(string text)
+        {
+            if (!Marked(text)) return text;
+            return String.Join("\n", text.Replace("\r\n", "\n").Split('\n').Select(line => line.StartsWith(Bold, StringComparison.Ordinal) || line.StartsWith(Alert, StringComparison.Ordinal) ? line.Substring(3) : line));
+        }
+        static Control Paragraphs(string text, int width, out int height)
+        {
+            var stack = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0, 4, 0, 0), Padding = Padding.Empty, BackColor = Color.White };
+            height = 0; int gap = 0; bool first = true;
+            foreach (string raw in text.Replace("\r\n", "\n").Split('\n'))
+            {
+                if (raw.Trim().Length == 0) { gap += 16; continue; }
+                bool bold = raw.StartsWith(Bold, StringComparison.Ordinal), alert = raw.StartsWith(Alert, StringComparison.Ordinal);
+                string line = bold || alert ? raw.Substring(3) : raw;
+                var part = Theme.Label(line, 10.5f, bold); part.AutoSize = true; part.MaximumSize = new Size(width, 0); part.BackColor = Color.White;
+                if (alert) part.ForeColor = Theme.Danger;
+                int top = first ? 0 : 8 + gap; part.Margin = new Padding(0, top, 0, 0);
+                stack.Controls.Add(part);
+                height += top + TextRenderer.MeasureText(line, part.Font, new Size(width, 0), TextFormatFlags.WordBreak).Height + 2;
+                first = false; gap = 0;
+            }
+            return stack;
         }
 
         public static string Caption(Language language, DialogResult result)

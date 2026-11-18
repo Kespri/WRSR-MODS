@@ -4,7 +4,7 @@
 static const char WR_SIDE_FILE[] = "tesmioloader.weather_roads.protection.bin";
 // Last successful native FILE close, after header/road writes, before optional
 // autosave ZIP packing. The earlier 42CDAE call is only a partial save stage.
-static const DWORD WR_SAVE_CLOSE_CALL = 0x42EE32;
+static const DWORD WR_SAVE_CLOSE_CALL = 0x42EDC2;
 static const char WR_TEXTURE_SYMBOL[] =
     "?CreateManagedTexture@C3D_MIDDLEPOINT@@QEAAPEAVC3DAPI_TEXTURE@@PEBD@Z";
 typedef int (*WrCloseFn)(void*);
@@ -148,9 +148,9 @@ static bool WrHashPosition(const BYTE* position, uint64_t* hash)
     return true;
 }
 
-// Verified against exe+0x56AE30: road+8/+10 is a 24-byte point vector,
+// Verified against exe+0x56ADC0: road+8/+10 is a 24-byte point vector,
 // its first 12 bytes are xyz, and endpoint nodes at +20/+28 store xyz at +4.
-// exe+0x42AF60 traverses weather+F7A0 -> manager+2B0/+2B8 and reads type+120.
+// exe+0x42AEF0 traverses weather+F7A0 -> manager+2B0/+2B8 and reads type+120.
 static bool WrRoadIdentity(void* road, WrLiveRoad* out)
 {
     if (!road || !out || !ReadablePtr(road, 0x124)) return false;
@@ -650,17 +650,17 @@ static bool WeatherPersistenceInstall()
     static const BYTE registry[] = {0x49,0x81,0xC0,0xB0,0x02,0,0};
     static const BYTE points[] = {0x49,0x8B,0x50,0x08,0x4B,0x8D,0x04,0x5B,0xF2,0x0F,0x10,0x04,0xC2};
     static const BYTE endpoint[] = {0x49,0x8B,0x40,0x20,0xF2,0x0F,0x11,0x45,0xF0,0xF2,0x0F,0x10,0x40,0x04};
-    if (memcmp(g_exeBase + 0x42AF6F, registry, sizeof(registry)) ||
-        memcmp(g_exeBase + 0x56AEAD, points, sizeof(points)) ||
-        memcmp(g_exeBase + 0x56AE64, endpoint, sizeof(endpoint)))
+    if (memcmp(g_exeBase + 0x42AEFF, registry, sizeof(registry)) ||
+        memcmp(g_exeBase + 0x56AE3D, points, sizeof(points)) ||
+        memcmp(g_exeBase + 0x56ADF4, endpoint, sizeof(endpoint)))
     { Warn("protection persistence unavailable: native road geometry signature mismatch"); return false; }
-    // r15 is the current save folder (reloaded at 42D92A and unchanged until
+    // r15 is the current save folder (reloaded at 42D8BA and unchanged until
     // 42EE55); r14 is the final FILE*. The ZIP branch is strictly after this.
     static const BYTE folder[] = {0x4C,0x8D,0xBF,0xF8,0x09,0,0};
-    static const BYTE close[] = {0x49,0x8B,0xCE,0xFF,0x15,0xE0,0xF1,0x43,0x00,
+    static const BYTE close[] = {0x49,0x8B,0xCE,0xFF,0x15,0x50,0xF2,0x43,0x00,
         0x80,0xBF,0x36,0x4D,0x01,0x00,0x00};
     BYTE* site = g_exeBase + WR_SAVE_CLOSE_CALL;
-    if (memcmp(g_exeBase + 0x42D92A, folder, sizeof(folder)) ||
+    if (memcmp(g_exeBase + 0x42D8BA, folder, sizeof(folder)) ||
         memcmp(site - 3, close, sizeof(close)))
     { Warn("protection persistence unavailable: final-save-close signature mismatch"); return false; }
     int relative = 0; memcpy(&relative, site + 2, 4);

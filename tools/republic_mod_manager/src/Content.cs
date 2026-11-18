@@ -34,17 +34,22 @@ namespace TesmioAutoload
         }
         public static string KeyForPlugin(string plugin)
         {foreach(string key in Keys)if(PluginsFor(key).Any(x=>x.Equals(plugin,StringComparison.OrdinalIgnoreCase)))return key;return "";}
-        // 0.5.12: the ONE rule for "who takes this fragment kind today": under SML its own
-        // embedded component, otherwise the first plugin of PluginsFor whose INI lies in
-        // plugins\. The receipt only records what it was last time; a fork that appeared since
-        // (resources_plus next to resources) takes the fragment over at the next save.
+        // The ONE rule for "who takes this fragment kind today": the first plugin of PluginsFor
+        // that the loader finds and has switched on, else the first one it finds at all. The
+        // receipt only records what it was last time; a fork that appeared since (resources_plus
+        // next to resources) takes the fragment over at the next save.
         public static string Resolve(string build,string key)
         {
             try
             {
-                string root=Path.GetFullPath(build);
-                if(Sml.Hosts(root,key))return key;
-                foreach(string plugin in PluginsFor(key))if(File.Exists(SafeFiles.Child(root,"plugins\\"+plugin+".ini")))return plugin;
+                string root=Path.GetFullPath(build),found="";
+                foreach(string plugin in PluginsFor(key))
+                {
+                    if(!LoaderFiles.Present(root,plugin))continue;
+                    if(LoaderFiles.Enabled(root,plugin))return plugin;
+                    if(found.Length==0)found=plugin;
+                }
+                return found;
             }
             catch(Exception){}
             return "";
@@ -84,31 +89,18 @@ namespace TesmioAutoload
         public static List<ContentFragment> Fragments(string build,string plugin)
         {
             var result=new List<ContentFragment>();string key=ContentTargets.KeyForPlugin(plugin);if(key.Length==0)return result;
-            // 0.5.14: while Soviet Mod Loader hosts the capability it merges the packages itself;
-            // RMM's fragments must not land in its baseline on top of that (they would stay there
-            // after the package is gone, and the baseline editor would show them as own entries).
-            // The fork's own file (resources_plus) still gets them - it is what the Bridge reads
-            // once SML is switched off again.
-            bool hosted=false;try{hosted=Sml.Hosts(build,key);}catch(Exception){}
-            if(hosted&&plugin.Equals(key,StringComparison.OrdinalIgnoreCase))return result;
             string root=ContentTargets.StateRoot(build);if(!Directory.Exists(root))return result;
-            // 0.5.12: the order of the resources is part of every save. Soviet Mod Loader records the
-            // order it merged in (catalog.ini [resource_order]); a player who moves from SML to the
-            // forks keeps that order when the packages are provided for the first time, so a save
-            // made under SML still finds every resource at its index. Packages the catalogue does
-            // not know come after, by name.
-            var order=Sml.CatalogOrder(build);
-            foreach(string dir in Directory.GetDirectories(root).OrderBy(x=>CatalogRank(order,x,key)).ThenBy(x=>x,StringComparer.OrdinalIgnoreCase))
+            // The order of the resources is part of every save: packages always come in the same
+            // order, by the name of their state folder.
+            foreach(string dir in Directory.GetDirectories(root).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase))
             {
                 string receipt=Path.Combine(dir,"receipt.ini"),fragment=Path.Combine(dir,key+".ini");
                 if(!File.Exists(receipt)||!File.Exists(fragment))continue;
                 LooseIni r;try{r=new LooseIni(SafeFiles.Text(receipt));}catch(Exception){continue;}
                 if((r.Get("content","provided")??"")!="1")continue;
-                // 0.5.12: the fragment belongs to whoever takes the kind TODAY, not to the plugin the
+                // The fragment belongs to whoever takes the kind TODAY, not to the plugin the
                 // receipt named last time - otherwise a fork that appeared since never sees it.
-                // Under SML today's target is SML itself, so the fork keeps the target the receipt
-                // recorded for it; otherwise whoever takes the kind today.
-                string target=hosted?(r.Get("content","target."+key)??""):ContentTargets.Resolve(build,key);
+                string target=ContentTargets.Resolve(build,key);
                 if(target.Length==0)target=r.Get("content","target."+key)??"";
                 if(target.Length>0&&!target.Equals(plugin,StringComparison.OrdinalIgnoreCase))continue;
                 var f=new ContentFragment{PackageId=r.Get("content","id")??Path.GetFileName(dir),PackageName=r.Get("content","name")??Path.GetFileName(dir),Key=key,Text=SafeFiles.Text(fragment)};
@@ -117,19 +109,27 @@ namespace TesmioAutoload
             }
             return result;
         }
-        // The smallest catalogue index of the ids a state folder's fragment carries; int.MaxValue
-        // when the catalogue knows none of them (or there is no catalogue).
-        static int CatalogRank(Dictionary<string,int> order,string dir,string key)
+        // The ids every receipt still names for one target plugin, whether the package is
+        // provided or not. Strip works with these: a package that is being switched off has
+        // lost its fragment already, but its receipt keeps the ids until the editors have
+        // written, and a hand-edited effective INI must not keep them as base entries.
+        public static List<ContentFragment> Recorded(string build,string plugin)
         {
-            if(order==null||order.Count==0)return int.MaxValue;
-            try
+            var result=new List<ContentFragment>();string key=ContentTargets.KeyForPlugin(plugin);if(key.Length==0)return result;
+            string root=ContentTargets.StateRoot(build);if(!Directory.Exists(root))return result;
+            foreach(string dir in Directory.GetDirectories(root).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase))
             {
-                string fragment=Path.Combine(dir,key+".ini");if(!File.Exists(fragment))return int.MaxValue;
-                int best=int.MaxValue;
-                foreach(string id in ContentTargets.IdsOf(key,SafeFiles.Text(fragment))){int at;if(order.TryGetValue(id,out at)&&at<best)best=at;}
-                return best;
+                string receipt=Path.Combine(dir,"receipt.ini");
+                if(!File.Exists(receipt))continue;
+                LooseIni r;try{r=new LooseIni(SafeFiles.Text(receipt));}catch(Exception){continue;}
+                string target=ContentTargets.Resolve(build,key);
+                if(target.Length==0)target=r.Get("content","target."+key)??"";
+                if(target.Length>0&&!target.Equals(plugin,StringComparison.OrdinalIgnoreCase))continue;
+                var f=new ContentFragment{PackageId=r.Get("content","id")??Path.GetFileName(dir),PackageName=r.Get("content","name")??Path.GetFileName(dir),Key=key,Text=""};
+                f.Added.AddRange((r.Get("added",key)??"").Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0));
+                if(f.Added.Count>0)result.Add(f);
             }
-            catch(Exception){return int.MaxValue;}
+            return result;
         }
         static void CopySection(LooseIni from,LooseIni to,string section)
         {
@@ -227,6 +227,10 @@ namespace TesmioAutoload
         public readonly List<string> CopiedAssets=new List<string>();
         public readonly Dictionary<string,List<string>> Skipped=new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase),Added=new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> Notes=new List<string>();
+        // 0.6.11: ids of the generated building folders the last Commit took out of workshop_wip,
+        // and of the ones it could not move.
+        public readonly List<string> Parked=new List<string>(),ParkFailed=new List<string>();
+        public string ParkDir{get{return Path.Combine(StateDir,"parked_buildings");}}
         readonly Dictionary<string,string> Before=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
         public ContentSession(Package package,string build)
         {
@@ -268,33 +272,6 @@ namespace TesmioAutoload
             foreach(var pair in r.Entries("assets"))CopiedAssets.Add(pair.Value);
             foreach(var pair in r.Entries("skipped"))Skipped[pair.Key]=pair.Value.Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0).ToList();
             foreach(var pair in r.Entries("added"))Added[pair.Key]=pair.Value.Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0).ToList();
-        }
-        // 0.5.3: Soviet Mod Loader merges a package with [content] itself and keeps no receipt of
-        // ours. The honest question is not who wrote the entries but whether they stand in the
-        // effective INIs of the target plugins - so that is what is asked, id by id. Under SML the
-        // target is its own embedded component (buildings, not buildings_plus), because that is
-        // the file it writes.
-        public static bool MergedByLoader(string build,Package package)
-        {
-            if(package==null||package.Kind!="content"||!Sml.Active(build))return false;
-            try
-            {
-                bool any=false;
-                foreach(var pair in package.ContentFragments)
-                {
-                    var wanted=ContentTargets.IdsOf(pair.Key,pair.Value);if(wanted.Count==0)continue;
-                    string plugin=Sml.Hosts(build,pair.Key)?pair.Key:"";
-                    if(plugin.Length==0)foreach(string candidate in ContentTargets.PluginsFor(pair.Key))if(File.Exists(SafeFiles.Child(build,"plugins\\"+candidate+".ini"))){plugin=candidate;break;}
-                    if(plugin.Length==0)return false;
-                    string target=SafeFiles.Child(build,"plugins\\"+plugin+".ini");
-                    if(!File.Exists(target))return false;
-                    var present=new HashSet<string>(ContentTargets.IdsOf(pair.Key,SafeFiles.Text(target)),StringComparer.OrdinalIgnoreCase);
-                    foreach(string id in wanted)if(!present.Contains(id))return false;
-                    any=true;
-                }
-                return any;
-            }
-            catch(Exception){return false;}
         }
         public static bool IsProvided(string build,string packageId)
         {
@@ -342,16 +319,12 @@ namespace TesmioAutoload
             var previous=new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
             string stored=Path.Combine(StateDir,"deposits.ini");
             if(File.Exists(stored))try{var p=new LooseIni(SafeFiles.Text(stored));foreach(string s in p.SectionNames()){int t;if(Int32.TryParse((p.Get(s,"type")??"").Trim(),out t))previous[s.Trim()]=t;}}catch(Exception){}
-            // 0.5.14: the number Soviet Mod Loader gave this package's deposit (catalog.ini
-            // [deposit_types] "<mod id>::<section>") comes first, so a player switching between SML
-            // and the forks keeps one type number per deposit; then what was provided last time.
-            var sml=Sml.CatalogDepositTypes(Build);
+            // The number provided last time comes first, then the one the fragment asks for.
             foreach(string section in doc.SectionNames())
             {
                 string name=section.Trim();if(name.Length==0||name.Equals("deposits",StringComparison.OrdinalIgnoreCase)||name.Equals("deposits_plus",StringComparison.OrdinalIgnoreCase))continue;
                 int want;
-                if(!(sml.TryGetValue(Package.Id+"::"+name,out want)&&want>=10&&want<=127&&!taken.Contains(want)))
-                    if(!previous.TryGetValue(name,out want)&&!Int32.TryParse((doc.Get(section,"type")??"").Trim(),out want))want=0;
+                if(!previous.TryGetValue(name,out want)&&!Int32.TryParse((doc.Get(section,"type")??"").Trim(),out want))want=0;
                 if(want<10||want>127||taken.Contains(want)){want=10;while(want<=127&&taken.Contains(want))want++;if(want>127)throw new FormatException(Msg.Key("err_keine_freie_vorkommensnummer",name));}
                 taken.Add(want);doc.Set(section,"type",want.ToString());
                 // The map channel is the plugin's business, never the package's.
@@ -403,6 +376,8 @@ namespace TesmioAutoload
                 }
             }
             bool on=PendingOn;var writes=new Dictionary<string,byte[]>(StringComparer.OrdinalIgnoreCase);
+            // 0.6.11: the building sections this package had provided, as the receipt recorded them.
+            var hadBuildings=new List<string>();{List<string> recorded;if(Provided&&Added.TryGetValue("buildings",out recorded))hadBuildings.AddRange(recorded);}
             string vfs=LocalEditorSpec.VfsRoot(Build);var assets=new List<string>();
             foreach(string old in CopiedAssets)writes[SafeFiles.Child(vfs,old)]=null;
             foreach(string key in ContentTargets.Keys)writes[Path.Combine(StateDir,key+".ini")]=null;
@@ -432,15 +407,41 @@ namespace TesmioAutoload
             string backup=Transaction.Apply(Build,"content_"+ContentTargets.FolderName(Package.Id),writes,Before,guard);
             // The editors read the fragments from disk, so they are opened only now.
             Dictionary<string,List<string>> added=new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase),skipped=new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase);
+            bool buildingsWritten=false;
             foreach(string key in ContentTargets.Keys)
             {
                 string plugin;if(!Targets.TryGetValue(key,out plugin)||plugin.Length==0)continue;
                 LocalResourceSession session=sessionFor(plugin);if(session==null)continue;
-                session.Commit(guard);
+                // The folders of this package's building sections are parked below, in its own state folder.
+                session.ParkRemoved=false;
+                try{session.Commit(guard);}finally{session.ParkRemoved=true;}
+                if(key=="buildings")buildingsWritten=true;
                 if(on)foreach(ContentContribution c in session.Content)if(c.PackageId.Equals(Package.Id,StringComparison.OrdinalIgnoreCase)){if(c.Added.Count>0)added[key]=c.Added;if(c.Skipped.Count>0)skipped[key]=c.Skipped;}
             }
             if(on&&skippedAssets.Count>0)skipped["assets"]=skippedAssets;
             Directory.CreateDirectory(StateDir);File.WriteAllText(ReceiptPath,RenderReceipt(on,assets,added,skipped),SafeFiles.Utf8);
+            // 0.6.11: the declarations are out of the buildings INI now, but the folders Buildings
+            // Plus generated from them would stay in workshop_wip (prune is off by default) and the
+            // game would go on loading them - with the package's resources gone it stops at start.
+            // They are parked in the state folder of the package; a folder that cannot be moved is
+            // named on the page.
+            // 0.6.13: the same for an update that stays switched on - a section the package had
+            // provided and no longer brings (dropped or renamed in its new version) has left the
+            // buildings INI with this save. Only when the buildings editor really wrote, and never
+            // a section that is now skipped because the player declares it himself.
+            Parked.Clear();ParkFailed.Clear();
+            var leaving=new List<string>();
+            if(!on)leaving.AddRange(hadBuildings);
+            else if(buildingsWritten)
+            {
+                List<string> now,own;added.TryGetValue("buildings",out now);skipped.TryGetValue("buildings",out own);
+                leaving.AddRange(hadBuildings.Where(x=>(now==null||!now.Contains(x,StringComparer.OrdinalIgnoreCase))&&(own==null||!own.Contains(x,StringComparer.OrdinalIgnoreCase))));
+            }
+            if(leaving.Count>0)
+            {
+                Parked.AddRange(WipBuildings.Park(Build,leaving,ParkDir,ParkFailed));
+                if(ParkFailed.Count>0)Notes.Add(Msg.Key("content_building_left",String.Join(", ",ParkFailed)));
+            }
             ReadReceipt();PendingOn=Provided;Watch();
             return backup;
         }
@@ -450,22 +451,26 @@ namespace TesmioAutoload
             text.Append("; Written by Republic Mod Manager: what this content package currently provides.\r\n[content]\r\nid = ").Append(Package.Id).Append("\r\nname = ").Append(Package.Name).Append("\r\nprovided = ").Append(on?"1":"0").Append("\r\nversion = ").Append(Package.Version).Append("\r\nhash = ").Append(CurrentHash).Append("\r\n");
             foreach(var pair in Targets)if(pair.Value.Length>0)text.Append("target.").Append(pair.Key).Append(" = ").Append(pair.Value).Append("\r\n");
             text.Append("\r\n[assets]\r\n");int n=0;if(on)foreach(string relative in assets)text.Append(n++).Append(" = ").Append(relative).Append("\r\n");
-            text.Append("\r\n[added]\r\n");if(on)foreach(var pair in added)if(pair.Value.Count>0)text.Append(pair.Key).Append(" = ").Append(String.Join(" | ",pair.Value)).Append("\r\n");
+            // The ids are written for a package that is being switched off as well: its receipt
+            // names them until the editors have written (see Commit and ContentLayer.Recorded).
+            text.Append("\r\n[added]\r\n");foreach(var pair in added)if(pair.Value.Count>0)text.Append(pair.Key).Append(" = ").Append(String.Join(" | ",pair.Value)).Append("\r\n");
             text.Append("\r\n[skipped]\r\n");if(on)foreach(var pair in skipped)if(pair.Value.Count>0)text.Append(pair.Key).Append(" = ").Append(String.Join(" | ",pair.Value)).Append("\r\n");
             return text.ToString();
         }
     }
 
-    // 0.5.11: a fork with a file of its own (Resources Plus, Needs Plus) takes the player's list
-    // over once. The plugin does that at its first game start; RMM does the same when the page is
-    // opened before that, BY THE SAME RULE, so the editor and the game agree on the file:
-    //   1. plugins\<original>.ini, the original plugin's file - unless Soviet Mod Loader generated it
-    //      (first line), because that one already carries every package and RMM provides the
-    //      packages again on its own;
-    //   2. then <sml state>\base\<original>.ini, the player's own list before the packages;
-    //   3. then plugins\<fork>.template.ini, the template the RMM package ships.
-    // The source is only read; the copy gets a header that names it. The order of [list] is kept,
-    // it is part of every save.
+    // A keyed editor works on plugins\<config>, the file its plugin reads. When that file is
+    // missing it is made once, from the first of:
+    //   1. for a fork (Resources Plus, Needs Plus), the list of the plugin it replaces:
+    //      plugins\<original>.ini, else the INI beside the original's DLL in the Workshop folder;
+    //   2. the INI beside the plugin's own DLL - where a Workshop plugin ships its settings.
+    //      MaxLegend's resources, deposits and needs look for their INI in plugins\ only, so for
+    //      them this copy is what makes the subscribed plugin work at all;
+    //   3. plugins\<plugin>.template.ini.
+    // A fork does the first step itself at its first game start, for the files it can see; this
+    // does the same when the page is opened before that, so the editor and the game agree on
+    // the file. The source is only read; the copy gets a header that names it. The order of
+    // [list] is kept, it is part of every save.
     public static class ForkSeed
     {
         public static string OriginalOf(string plugin)
@@ -477,29 +482,49 @@ namespace TesmioAutoload
             }
             return "";
         }
+        // 0.6.7: the plugin whose own entries a section editor takes over once. Deposits Plus keeps
+        // its shipped INI as the original (a Steam update is the new base at once), so nothing is
+        // copied; the deposits the player added to the original's deposits.ini become his entries.
+        public static string SectionOriginalOf(string plugin)
+        {
+            return (plugin??"").Equals("deposits_plus",StringComparison.OrdinalIgnoreCase)?"deposits":"";
+        }
+        // That plugin's INI: in plugins\, else beside the DLL the loader takes from the Workshop.
+        public static string OriginalIni(string build,string plugin)
+        {
+            string original=SectionOriginalOf(plugin);if(original.Length==0)return "";
+            string root=Path.GetFullPath(build),local=SafeFiles.Child(root,"plugins\\"+original+".ini");
+            return File.Exists(local)?local:BesideDll(root,original);
+        }
+        // The INI beside the DLL the loader takes for a key, "" when there is none or the DLL
+        // lies in plugins\ itself (then that INI is the target, not a source).
+        static string BesideDll(string root,string key)
+        {
+            FoundPlugin found=LoaderFiles.Find(root,key);
+            return found!=null&&!found.Local&&File.Exists(found.Ini)?found.Ini:"";
+        }
         // Creates plugins\<configName> when it is missing; returns the source it was made from,
         // "" when the file exists already or nothing could seed it.
         public static string Ensure(string build,string plugin,string configName)
         {
-            string original=OriginalOf(plugin);
-            if(original.Length==0||String.IsNullOrWhiteSpace(configName))return "";
+            if(String.IsNullOrWhiteSpace(plugin)||String.IsNullOrWhiteSpace(configName))return "";
             string root=Path.GetFullPath(build),target=SafeFiles.Child(root,"plugins\\"+configName);
             if(File.Exists(target))return "";
-            string source="";
-            string orig=SafeFiles.Child(root,"plugins\\"+original+".ini"),baseline=Path.Combine(Sml.StateDir(root),"base",original+".ini"),template=SafeFiles.Child(root,"plugins\\"+plugin+".template.ini");
-            if(File.Exists(orig))
+            string original=OriginalOf(plugin),source="";
+            if(original.Length>0)
             {
-                int at=SafeFiles.Text(orig).IndexOf("generated by Soviet Mod Loader",StringComparison.Ordinal);
-                bool generated=at>=0&&at<200;
-                if(!generated)source=orig;else if(File.Exists(baseline))source=baseline;
+                string local=SafeFiles.Child(root,"plugins\\"+original+".ini");
+                source=File.Exists(local)?local:BesideDll(root,original);
             }
-            if(source.Length==0&&File.Exists(baseline))source=baseline;
+            if(source.Length==0)source=BesideDll(root,plugin);
+            string template=SafeFiles.Child(root,"plugins\\"+plugin+".template.ini");
             if(source.Length==0&&File.Exists(template))source=template;
             if(source.Length==0)return "";
             byte[] body=SafeFiles.Read(source,4*1024*1024);
             string header="; "+configName+" - created by Republic Mod Manager on "+DateTime.Now.ToString("yyyy-MM-dd HH:mm")+"\r\n; from "+source+". The source was not changed. From now on this file is the one\r\n; that counts; the plugin reads it and Republic Mod Manager edits it.\r\n\r\n";
             byte[] head=SafeFiles.Utf8.GetBytes(header);
             var all=new byte[head.Length+body.Length];Buffer.BlockCopy(head,0,all,0,head.Length);Buffer.BlockCopy(body,0,all,head.Length,body.Length);
+            Directory.CreateDirectory(Path.GetDirectoryName(target));
             string tmp=target+".tmp";File.WriteAllBytes(tmp,all);
             if(File.Exists(target))File.Delete(target);
             File.Move(tmp,target);

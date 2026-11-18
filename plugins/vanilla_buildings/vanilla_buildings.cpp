@@ -44,7 +44,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "0.4.4"
+#define PLUGIN_VERSION "0.4.5"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
@@ -1929,7 +1929,10 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         // install, or the effective INI Republic Mod Manager writes), otherwise
         // the INI beside the DLL - the Workshop package under Soviet Mod Loader
         // or the Workshop Bridge.
-        std::string ini = std::string(host->pluginDir) + "\\vanilla_buildings.ini";
+        // 0.4.5: the loader folder is named through baseDir. pluginDir is the folder of
+        // this DLL, which for a DLL loaded from a Workshop item is the package itself -
+        // the finished INI in <loader>\plugins would never have been looked at.
+        std::string ini = std::string(host->baseDir) + "\\plugins\\vanilla_buildings.ini";
         if (GetFileAttributesA(ini.c_str()) == INVALID_FILE_ATTRIBUTES)
         {
             static const char anchor = 0;

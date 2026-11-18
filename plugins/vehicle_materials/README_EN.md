@@ -1,8 +1,8 @@
-# 🚚 Vehicle Materials 0.4.0
+# 🚚 Vehicle Materials 0.4.1
 
 **TesmioLoader plugin for additional vehicle materials**
 
-Freely configurable extra materials for vehicle production in *Workers & Resources: Soviet Republic* 1.1.1.9: glass, cables, copper or any other resource the Resources plugin registers, set separately for road, rail, ship and aircraft.
+Freely configurable extra materials for vehicle production in *Workers & Resources: Soviet Republic* 1.1.1.13: glass, cables, copper or any other resource that Resources Plus or Resources registers, set separately for road, rail, ship and aircraft.
 
 ---
 
@@ -27,13 +27,13 @@ Freely configurable extra materials for vehicle production in *Workers & Resourc
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
-- Mandatory: the Resources plugin (resources.dll/resources.ini) with every resource you want to use as a vehicle material. Without Resources, Vehicle Materials does not start; the reason is in the log.
+- WRSR 1.1.1.13
+- TesmioLoader b0.3.7 or newer (API 4)
+- Mandatory: Resources Plus or Resources (Resources Plus replaces Resources) with every resource you want to use as a vehicle material. Without one of the two, Vehicle Materials does not start; the reason is in the log. Where this guide says `resources.ini`, with Resources Plus it means `resources_plus.ini`.
 
 ### In three steps
-1. **Register the resources:** every material must exist in `plugins\resources.ini`, for example `glass` or `cable`. In Republic Mod Manager use the Resources entry.
-2. **Choose one installation method** (see below), enable the plugin and enter the materials with their coefficients, most comfortably through Republic Mod Manager.
+1. **Register the resources:** every material must exist in `resources.ini`, for example `glass` or `cable`. In Republic Mod Manager use the Resources Plus or Resources entry.
+2. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start. Then enter the materials with their coefficients and switch the plugin on (`enabled = 1`), most comfortably through Republic Mod Manager.
 3. **Adjust the production buildings:** every vehicle factory needs a storage for the new material (see [Preparing production buildings](#-preparing-production-buildings)). Then start the game.
 
 ---
@@ -43,18 +43,18 @@ Freely configurable extra materials for vehicle production in *Workers & Resourc
 ### 🎯 Core function
 - ✅ Additional materials for building vehicles, without changing any game file
 - ✅ The game's original material requirements stay in place
-- ✅ Up to 32 materials, each one registered by Resources
+- ✅ Up to 32 materials, each one registered by Resources Plus or Resources
 - ✅ The configuration is checked completely at start-up; on any error the plugin stays off and the game runs as usual
 
 ### 🆕 Settings
 
 #### 1️⃣ **Separate coefficients per vehicle class** (`[road]`, `[rail]`, `[ship]`, `[airplane]`)
 - One value per material and class; `0` or a missing entry disables the material for that class
-- The game multiplies the coefficient with the vehicle's internal production value: bigger vehicles need more
+- The coefficient is multiplied with the vehicle's internal production value: bigger vehicles need more
 
-#### 2️⃣ **Personal overlay** (`user_overlay = 1`)
-- The DLL reads its normal INI first, then `build\user_config\vehicle_materials.ini` key by key on top
-- Republic Mod Manager writes only the overlay; the original INI stays untouched whether the DLL is loaded from `plugins`, from SML or through the Workshop Bridge
+#### 2️⃣ **Personal overlay** (`user_config\vehicle_materials.ini`)
+- The DLL reads its normal INI first, then `tesmioloader\user_config\vehicle_materials.ini` key by key on top
+- Republic Mod Manager writes only the overlay; the INI in the Workshop package stays untouched, so your values survive every Steam update
 
 #### 3️⃣ **Vehicle type mapping** (`[mapping]`)
 - Automatic: type 1 road, type 6 ship, type 7 aircraft, everything else rail
@@ -64,71 +64,49 @@ Freely configurable extra materials for vehicle production in *Workers & Resourc
 
 ## 💾 Installation
 
-Choose **one** of the four methods. The same DLL must never be loaded twice. Resources has to be installed and enabled in every case.
+Choose **one** of the two methods. The same DLL must never be loaded twice. Resources Plus or Resources has to be present and switched on in every case.
 
 ---
 
-### Method 1️⃣: classic TesmioLoader
+### Method 1️⃣: Steam Workshop (recommended)
 
 ```
-1. Copy vehicle_materials.dll and vehicle_materials.ini from hooks\
-   → tesmioloader\build\plugins\
-
-2. Enable vehicle_materials in TesmioLauncher
-3. Make sure resources is enabled and the materials exist in resources.ini
+1. Subscribe to the Workshop item
+2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+   by itself on the next game start – nothing is copied
+3. Make sure Resources Plus or Resources is switched on
+   and the materials exist in resources.ini
+4. Steam updates apply from the next game start
 ```
+
+A newly found plugin is switched on in the loader. You switch it off and on in TesmioLauncher or with "Plugin active" in Republic Mod Manager. Vehicle Materials itself ships switched off and without materials (`enabled = 0`, `count = 0`): it only does something once you have entered materials and set `enabled = 1`.
 
 ---
 
-### Method 2️⃣: Soviet Mod Loader (SML)
+### Method 2️⃣: By hand into the loader folder
 
 ```
-1. Subscribe to the Workshop item – SML reads subscribed packages by itself
-2. SML loads the DLL from the package through soviet.mod.ini, the INI lies beside it
-3. The configured resources must exist in SML's resource catalogue as well
-4. Remove or disable any local vehicle_materials.dll in plugins\ first
+1. Copy vehicle_materials.dll and vehicle_materials.ini from plugins\
+   → <game>\tesmioloader\plugins\
+
+2. Make sure Resources Plus or Resources is switched on
+   and the materials exist in resources.ini
 ```
 
----
-
-### Method 3️⃣: Workshop Bridge (without SML)
-
-```
-1. Select the package in Republic Mod Manager
-2. Switch "Plugin active" on
-3. workshop_bridge loads the DLL straight from the package
-4. Steam updates apply immediately
-```
-
----
-
-### Method 4️⃣: Republic Mod Manager with "Files local only"
-
-```
-1. Select the package in Republic Mod Manager, add materials with +, save
-2. Tab "General", card "Notices": switch "Files local only" on
-3. Confirmation with file list → DLL and INI are copied into
-   tesmioloader\build\plugins\ when saving
-4. The Workshop Bridge then skips the package automatically
-```
-
-**"Files local only" in detail**
-- For everyone who wants to keep using the plugin without the Steam subscription
-- With local files, Steam updates apply only after saving again (yellow "Update" badge)
-- Switching it off removes only the files Republic Mod Manager copied
+For everyone who wants to use the plugin without the Steam subscription. A DLL in `tesmioloader\plugins` takes priority over the one of the same name from the Workshop; you then copy updates yourself.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-The package ships a launcher schema in the `config` folder. Republic Mod Manager shows Vehicle Materials with four tabs, in German and English:
+The package ships a launcher schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Vehicle Materials with four tabs, in German and English:
 
-- **General:** notices, "Files local only" and the diagnostics settings
-- **Resources:** the material list; the plus button offers only resources Resources has registered and creates the coefficient for every vehicle class; the trash button removes material and coefficients again
+- **General:** notices, the button for this guide and Troubleshooting (detailed log)
+- **Resources:** the material list; the plus button offers only resources that Resources Plus or Resources has registered and creates the coefficient for every vehicle class; the trash button removes material and coefficients again
 - **Vehicle classes:** the coefficients as a table of material by class
 - **Advanced mapping:** vehicle types 0 to 15
 
-The "Plugin active" switch in the header also sets `enabled = 1` when switched on. Personal values live in `user_config\vehicle_materials.ini`; the shipped INI stays unchanged. If you prefer editing the INI by hand, everything you need is below.
+The "Plugin active" switch in the header also sets `enabled = 1` when switched on. Personal values live in `tesmioloader\user_config\vehicle_materials.ini`; the shipped INI stays unchanged. Before a start RMM checks that Resources Plus or Resources is switched on; if neither is, RMM offers to switch Vehicle Materials off for this start. If you prefer editing the INI by hand, everything you need is below.
 
 ---
 
@@ -164,8 +142,8 @@ This applies to the factories for road vehicles, rail vehicles, ships and aircra
 ### Main file: `vehicle_materials.ini`
 
 The DLL reads in this order:
-- **Base:** `tesmioloader\build\plugins\vehicle_materials.ini` if present, otherwise the INI beside the DLL (in the package `hooks\vehicle_materials.ini`)
-- **Overlay:** `tesmioloader\build\user_config\vehicle_materials.ini`, key by key on top; this is where Republic Mod Manager writes
+- **Base:** `tesmioloader\plugins\vehicle_materials.ini` if present, otherwise the INI beside the DLL (in the Workshop package `plugins\vehicle_materials.ini`)
+- **Overlay:** `tesmioloader\user_config\vehicle_materials.ini`, key by key on top; this is where Republic Mod Manager writes
 
 ⚠️ **Comments only on their own lines, starting with `;`.** A comment behind a value is read as part of the value and rejects the whole configuration. The file must be UTF-8 without BOM; all seven sections must exist, even empty ones; unknown or duplicate sections and keys, empty values and invalid numbers reject the whole configuration. No hot reload: edit the INI, restart the game.
 
@@ -284,13 +262,13 @@ Normally the section stays unchanged. With `debug = 1` the detail log states whi
 
 ## 🔗 Relation to Resources
 
-Vehicle Materials creates no resource. At startup it asks the registry service of the Resources plugin and uses only names published there:
+Vehicle Materials creates no resource. At startup it asks the registry service of Resources Plus or Resources and uses only names published there:
 
-- if Resources is missing or disabled, Vehicle Materials does not start; the reason is in the log
+- if both are missing or switched off, Vehicle Materials does not start; the reason is in the log
 - a material missing from resources.ini rejects the configuration
 - the name must be spelled exactly the same in both INIs
 
-When a material is removed from resources.ini, Republic Mod Manager also cleans up the Vehicle Materials entries after asking.
+When you remove a material from the resource list in Republic Mod Manager, it also cleans up the Vehicle Materials entries on saving, after asking.
 
 ---
 
@@ -302,6 +280,7 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 ### Version compatibility
 
+- **0.4.1:** for WRSR 1.1.1.13; another game version is refused. The plugin checks two more places in the game before it starts; if one does not match, it stays off and the game runs as usual
 - **0.4.0:** first published version; the configuration is read as base plus personal overlay
 
 ---
@@ -312,7 +291,7 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 | Problem | Cause | Solution |
 |---|---|---|
-| Plugin does not start | Resources missing or disabled | install resources.dll and enable it in the launcher |
+| Plugin does not start | Resources Plus and Resources missing or switched off | subscribe to one of the two and switch it on in TesmioLauncher or Republic Mod Manager |
 | Configuration rejected | material not in resources.ini, comment behind a value, value out of range | read the log, correct names and values |
 | Vehicle does not demand the material | `enabled = 0` or coefficient 0 in this class | switch "Plugin active" on, set the coefficient |
 | Factory does not accept the material | no `$STORAGE_IMPORT_SPECIAL` in the building | adjust the building (see above) |
@@ -320,14 +299,14 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 ### Logging
 
-Every message is in `tesmioloader.log`, with `debug = 1` additionally in `logs\tesmioloader.vehicle_materials.log`.
-- In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
+Every message is in `tesmioloader.log` and in the detail log `logs\tesmioloader.vehicle_materials.log`; with `debug = 1` both also list the materials and vehicle builds.
+- In **Republic Mod Manager** the log icon in the sidebar opens the log view with filter and sender.
 
 Expected on a successful start:
 ```
-vehicle_materials  Hook active at SOVIET64.exe+0x...
-vehicle_materials  Automatic mapping: type1=road, type6=ship, type7=airplane, other=rail
-vehicle_materials  v0.4.0 ready
+vehicle_materials  INFO: - [status] Hook active at SOVIET64.exe+0x3F8C50
+vehicle_materials  INFO: - [status] Automatic mapping: type1=road, type6=ship, type7=airplane, other=rail
+vehicle_materials  INFO: - [status] v0.4.1 ready
 ```
 
 Search for:
@@ -339,10 +318,10 @@ Search for:
 
 ## 📦 File structure
 
-**Workshop package** (Steam subscription, SML, Workshop Bridge)
+**Workshop package** (Steam subscription)
 ```
-vehicle_materials\
-├── hooks\
+<Workshop item>\
+├── plugins\
 │   ├── vehicle_materials.dll       (plugin)
 │   └── vehicle_materials.ini       (original INI, no materials, enabled = 0)
 ├── config\                         (launcher schema for Republic Mod Manager)
@@ -350,26 +329,25 @@ vehicle_materials\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (manifest for SML, Bridge and Republic Mod Manager)
+├── rmm.mod.ini                     (manifest for Republic Mod Manager)
 ├── workshopconfig.ini              (Steam Workshop entry)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader folder** (method 1 by hand or "Files local only")
+**Loader folder** (only with method 2 or with Republic Mod Manager)
 ```
-tesmioloader\build\
+<game>\tesmioloader\
 ├── plugins\
-│   ├── resources.dll               (mandatory, separate plugin)
-│   ├── resources.ini
-│   ├── vehicle_materials.dll
-│   └── vehicle_materials.ini       (original INI)
+│   ├── vehicle_materials.dll       (method 2 only)
+│   └── vehicle_materials.ini       (method 2 only, original INI)
 └── user_config\
     └── vehicle_materials.ini       (personal values from Republic Mod Manager)
 ```
 
-Through the Bridge or SML only the original INI lies in `plugins`; the DLL stays in the package. The personal values live in `user_config` in every case.
+Loaded from the Workshop, DLL and original INI stay in the package. The personal values live in `user_config` in every case.
 
 ---
 
@@ -384,7 +362,7 @@ Through the Bridge or SML only the original INI lies in `plugins`; the DLL stays
 ## ❓ FAQ
 
 **Q: Can I use materials that are not in resources.ini?**
-A: No. Vehicle Materials uses only resources the Resources plugin has registered.
+A: No. Vehicle Materials uses only resources that Resources Plus or Resources has registered.
 
 **Q: Why does nobody deliver the material to the factory?**
 A: The factory needs its own storage for it, a `$STORAGE_IMPORT_SPECIAL` line in its building.ini. The plugin does not create that storage.
@@ -400,5 +378,5 @@ A: No. Republic Mod Manager offers the materials from resources.ini with +, crea
 
 ---
 
-**Last update:** Vehicle Materials 0.4.0  
-**For:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Last update:** Vehicle Materials 0.4.1  
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

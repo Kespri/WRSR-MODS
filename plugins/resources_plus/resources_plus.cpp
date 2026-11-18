@@ -17,16 +17,16 @@
 // and resolves every name in every .ini through a single function. That makes
 // the whole subsystem reachable from two places:
 //
-//   rva 0x2AA7C0  ResourceGet(self, name, ...)  the choke point. Hooked inline;
+//   rva 0x2AA7B0  ResourceGet(self, name, ...)  the choke point. Hooked inline;
 //                 a name resources_plus.ini claims is answered with a record of our
 //                 own, everything else falls through to the real lookup.
 //   rva 0x9E11C0  the vector object - begin, end, capacity. Publishing a record
 //                 is writing `end`; the engine allocates 63 and fills 57, so
 //                 six mod resources fit without moving anything.
-//   rva 0x2A92D0  the price pass. Walks the vector and writes every record's
+//   rva 0x2A92C0  the price pass. Walks the vector and writes every record's
 //                 price from the production chains. Bracketed, so [base_price]
 //                 lands before it and [price] after it.
-//   rva 0x185470  the customhouse's own tick, building type 20. Post-hooked so
+//   rva 0x185500  the customhouse's own tick, building type 20. Post-hooked so
 //                 an already-standing customhouse picks up a resource this
 //                 plugin declared after it was built - see CUSTOMS below.
 //
@@ -45,13 +45,16 @@
 // slot to be sold from. See the ExtendCustomsStorage block below, which reruns
 // that same walk against the live vector once per customhouse.
 //
-// Everything here is addresses for SOVIET64.exe v1.1.1.9. See
-// docs/04-adding-resources.md.
+// The four code addresses the plugin uses (ResourceGet, the price pass, the
+// customhouse tick and the slot push_back) are those of SOVIET64.exe v1.1.1.13,
+// each checked against its bytes before use. Every other address named in a
+// comment further down is a note taken on v1.1.1.9 and has not been looked up
+// again. See docs/04-adding-resources.md.
 
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "resources_plus"
-#define PLUGIN_VERSION "0.1.2"
+#define PLUGIN_VERSION "0.1.5"
 
 // The DLL's own folder (Workshop package or a local copy), resolved in
 // DllMain, and the INI actually read: plugins\resources_plus.ini.
@@ -116,6 +119,79 @@ static void SmlStateDir(char* out, size_t size)
     else _snprintf_s(out, size, _TRUNCATE, "%s\\%s", g_baseDir, dir);
 }
 
+// The INI of the original plugin when the loader takes its DLL from a Workshop
+// item. The loader finds plugin DLLs in <loader>\plugins and, in any depth,
+// below the Workshop folder; a DLL in plugins\ wins, and of several in the
+// Workshop the one with the smallest path. The Workshop folder is
+// tesmioloader.ini [tesmioloader] workshop_path when that is set, otherwise
+// <...>\steamapps\workshop\content\784150, found by walking up from the loader
+// folder. Republic Mod Manager seeds the list file by the same rule (ForkSeed).
+// `out` stays empty when the original is not there, lies in plugins\ (then its
+// INI is plugins\<ini>, which the caller has looked at already), or has no INI
+// beside it.
+static void SmallestDllBelow(const char* dir, int depth, const char* dllName, char* best, size_t bestSize)
+{
+    char pattern[MAX_PATH];
+    if (_snprintf_s(pattern, sizeof(pattern), _TRUNCATE, "%s\\*", dir) < 0) return;
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do
+    {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) continue;
+        char path[MAX_PATH];
+        if (_snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", dir, fd.cFileName) < 0) continue;
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            if (depth < 8 && strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0)
+                SmallestDllBelow(path, depth + 1, dllName, best, bestSize);
+            continue;
+        }
+        if (_stricmp(fd.cFileName, dllName) != 0) continue;
+        if (!best[0] || strcmp(path, best) < 0) strncpy_s(best, bestSize, path, _TRUNCATE);
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+}
+
+static void FindOriginalIniInWorkshop(const char* key, char* out, size_t outSize)
+{
+    out[0] = 0;
+    char dllName[64], local[MAX_PATH];
+    _snprintf_s(dllName, sizeof(dllName), _TRUNCATE, "%s.dll", key);
+    _snprintf_s(local, sizeof(local), _TRUNCATE, "%s\\plugins\\%s", g_baseDir, dllName);
+    if (FileExists(local)) return;                       // the loader takes that one
+
+    char root[MAX_PATH] = "", loaderIni[MAX_PATH];
+    _snprintf_s(loaderIni, sizeof(loaderIni), _TRUNCATE, "%s\\tesmioloader.ini", g_baseDir);
+    GetPrivateProfileStringA("tesmioloader", "workshop_path", "", root, sizeof(root), loaderIni);
+    if (!root[0])
+    {
+        char dir[MAX_PATH];
+        strncpy_s(dir, sizeof(dir), g_baseDir, _TRUNCATE);
+        for (;;)
+        {
+            char* slash = strrchr(dir, '\\');
+            if (_stricmp(slash ? slash + 1 : dir, "steamapps") == 0)
+            {
+                _snprintf_s(root, sizeof(root), _TRUNCATE, "%s\\workshop\\content\\784150", dir);
+                break;
+            }
+            if (!slash) break;
+            *slash = 0;
+        }
+    }
+    if (!root[0]) return;
+
+    char dll[MAX_PATH] = "";
+    SmallestDllBelow(root, 0, dllName, dll, sizeof(dll));
+    size_t len = strlen(dll);
+    if (len < 5) return;
+    char ini[MAX_PATH];
+    strncpy_s(ini, sizeof(ini), dll, _TRUNCATE);
+    memcpy(ini + len - 3, "ini", 3);
+    if (FileExists(ini)) strncpy_s(out, outSize, ini, _TRUNCATE);
+}
+
 // Finds plugins\resources_plus.ini, and creates it once when it is missing:
 //
 //   1. from plugins\resources.ini, the original plugin's file, unless its
@@ -124,7 +200,9 @@ static void SmlStateDir(char* out, size_t size)
 //      the packages again on its own, so they would appear twice;
 //   2. in that case from <sml state>\base\resources.ini, the player's own
 //      list before the packages;
-//   3. otherwise from resources_plus.template.ini (or resources_plus.ini in a
+//   3. from resources.ini beside the original's DLL in the Workshop folder,
+//      when the loader takes the original from there;
+//   4. otherwise from resources_plus.template.ini (or resources_plus.ini in a
 //      Workshop package folder) beside the DLL, the shipped template.
 //
 // The source is only read, never changed or deleted; the copy gets a header
@@ -164,6 +242,12 @@ static void ResolveIniPath()
         else if (FileExists(base)) { strncpy_s(source, base, _TRUNCATE); why = "Soviet Mod Loader's baseline (plugins\\resources.ini is generated output with the packages merged in)"; }
     }
     if (!source[0] && FileExists(base)) { strncpy_s(source, base, _TRUNCATE); why = "Soviet Mod Loader's baseline"; }
+    if (!source[0])
+    {
+        char workshop[MAX_PATH];
+        FindOriginalIniInWorkshop("resources", workshop, sizeof(workshop));
+        if (workshop[0]) { strncpy_s(source, workshop, _TRUNCATE); why = "the original plugin's file in the Workshop folder"; }
+    }
     if (!source[0] && beside[0] && FileExists(beside))   { strncpy_s(source, beside, _TRUNCATE);  why = "the template beside the DLL"; }
     if (!source[0] && beside2[0] && FileExists(beside2)) { strncpy_s(source, beside2, _TRUNCATE); why = "the template beside the DLL"; }
     if (!source[0])
@@ -216,6 +300,7 @@ static bool IniStr(const char* section, const char* key, char* out, DWORD size)
 #define SYM_MESH_LOAD   "?LoadFromFile@C3D_MESH@@QEAAHPEBDPEAVC3D_MIDDLEPOINT@@_N@Z"
 #define SYM_MESH_MTL    "?LoadMaterial@C3D_MESH@@QEAAHPEBDH@Z"
 #define SYM_GET_STRING  "?GetString@C3D_LANGUAGE@@QEAAPEA_WH@Z"
+#define SYM_LANG_INIT   "?Initialize@C3D_LANGUAGE@@QEAAXPEAD0@Z"
 
 // Asked before any of the three above is called with a path. The import slot
 // already carries the loader's own VFS-aware hook, so a file that exists only
@@ -226,10 +311,11 @@ static bool IniStr(const char* section, const char* key, char* out, DWORD size)
 // C3D_MIDDLEPOINT, the object every managed asset is created through.
 #define P_MIDDLEPOINT   0x9EACD0
 
-// SOVIET64.exe v1.1.1.9. Verified against the prologue below before hooking, so
+// SOVIET64.exe v1.1.1.13. Verified against the prologue below before hooking, so
 // a game update makes the hook refuse to install rather than corrupt the process.
-// Was 0x2AA7C0 in v1.1.1.7; the prologue found it again 0x70 further on.
-#define DEFAULT_RESOURCEGET_RVA 0x2AA830
+// Was 0x2AA830 in v1.1.1.9 and 0x2AA7C0 in v1.1.1.7; the first 400 bytes of the
+// function are the same in 1.1.1.9 and 1.1.1.13 apart from seven call targets.
+#define DEFAULT_RESOURCEGET_RVA 0x2AA7B0
 
 static const BYTE kResourceGetPrologue[] = {
     0x40, 0x55,                                     // push rbp
@@ -504,9 +590,11 @@ static bool g_warnedCapacity;
 // writes +0x58 and +0x5C for every record, skipping kind -1 and pinning kind
 // -5 to 1.0. Called from world init at 0x28ED78 and from the economy module at
 // 0x2FBB95, each time followed by 0x2A9F40.
-// v1.1.1.9; was 0x2A92D0. Confirmed by what it reads rather than by the shift:
-// the function still walks the resource vector through self+0xC2B0/+0xC2B8.
-#define DEFAULT_PRICEPASS_RVA 0x2A9340
+// v1.1.1.13; was 0x2A9340 in v1.1.1.9 and 0x2A92D0 before. Confirmed by what it
+// reads rather than by the shift: the first 400 bytes are identical in 1.1.1.9
+// and 1.1.1.13, and the function still walks the resource vector through
+// self+0xC2B0/+0xC2B8.
+#define DEFAULT_PRICEPASS_RVA 0x2A92C0
 
 static const BYTE kPricePassPrologue[] = {
     0x48, 0x89, 0x6C, 0x24, 0x18,   // mov  [rsp+18h], rbp
@@ -567,6 +655,10 @@ struct ResEntry
     int     textId;
     bool    armed;
     bool    custom;      // built from a zeroed record rather than cloned
+    // Translated names, see "translated names" below.
+    const wchar_t* shown;   // the name for the game's language, NULL = none
+    bool    inherit;        // text id minted for a translation only: without one the template's caption stands
+    int     tmplTextId;     // the caption id the cloned record carried, 0 until the record is built
 };
 
 // How many names [list] may declare. Nothing in the engine chooses this number
@@ -1066,6 +1158,194 @@ static void ReportRecord(BYTE* rec, const char* name)
              "[custom:%s]", name, name);
 }
 
+// ---------------------------------------------------------------- translated names
+//
+// [list] gives a resource one caption. A section [names:<Language>] gives it
+// another one for a single game language:
+//
+//     [names:German]
+//     cable = Kabel
+//
+// <Language> is the middle of the game's language file name - German for
+// sovietGerman.btf, PortugueseBrazil for sovietPortugueseBrazil.btf. Which file
+// the game loads is not in its config ("auto" there means the Steam language);
+// the game hands the name to C3D_LANGUAGE::Initialize(file, fallback file) once
+// at start, and that import is where this plugin reads it.
+//
+// What is shown for a mod resource: the name for the game's language if a
+// section has one, otherwise the [list] caption, otherwise what was shown before
+// there were sections (the template's own caption for a clone, the resource's
+// name for a record built from scratch). A resource that has only translations
+// gets a private text id like any captioned one; in a language without a
+// translation that id is answered with the template's caption.
+//
+// The list file in the loader folder is the player's own and is never updated by
+// a new version of the plugin. So the [names:] sections of the INI that ships
+// beside the DLL are read as well, after the player's: a name the player's file
+// has for a resource and a language wins, and the shipped one fills the gaps.
+struct NameText
+{
+    char    lang[32];
+    char    res[64];
+    int     entry;       // index into g_reg, -1 = no such name in [list]
+    bool    shipped;     // from the INI beside the DLL, not from the list file
+    wchar_t text[64];
+};
+
+static NameText* g_names;
+static int       g_nameCount, g_nameCap;
+static char      g_language[32];      // "German"; empty until the game has said
+static void*     g_languageObject;    // the C3D_LANGUAGE the name came from
+
+static void AddNameText(const char* lang, const char* res, const char* text, bool shipped = false)
+{
+    if (g_nameCount == g_nameCap)
+    {
+        int cap = g_nameCap ? g_nameCap * 2 : 64;
+        NameText* grown = (NameText*)realloc(g_names, (size_t)cap * sizeof(NameText));
+        if (!grown) return;
+        g_names = grown; g_nameCap = cap;
+    }
+    NameText& n = g_names[g_nameCount];
+    memset(&n, 0, sizeof(n));
+    strncpy_s(n.lang, sizeof(n.lang), lang, _TRUNCATE);
+    strncpy_s(n.res,  sizeof(n.res),  res,  _TRUNCATE);
+    n.entry   = -1;
+    n.shipped = shipped;
+    if (!MultiByteToWideChar(CP_UTF8, 0, text, -1, n.text, sizeof(n.text) / sizeof(n.text[0])))
+        n.text[sizeof(n.text) / sizeof(n.text[0]) - 1] = 0;   // too long: cut, still terminated
+    if (!n.text[0]) return;
+    g_nameCount++;
+}
+
+// Points every entry at the name of the current language. The table itself never
+// moves after the registry is read, so a caption lookup on another thread sees
+// either the old pointer or the new one, both valid.
+static void ApplyLanguage()
+{
+    int named = 0;
+    for (int i = 0; i < g_regCount; i++)
+    {
+        const wchar_t* found = NULL;
+        if (g_language[0])
+            for (int k = 0; k < g_nameCount && !found; k++)
+                if (g_names[k].entry == i && _stricmp(g_names[k].lang, g_language) == 0)
+                    found = g_names[k].text;
+        g_reg[i].shown = found;
+        if (found) named++;
+    }
+    if (g_language[0] && g_nameCount > 0)
+        Logf("names     game language \"%s\": %d of %d mod resource(s) have a name of their own for it",
+             g_language, named, g_regCount);
+}
+
+// After [list] is complete: tie every name line to its resource, and give a
+// resource that has translations but no caption of its own a text id.
+static void ResolveNameTexts()
+{
+    for (int k = 0; k < g_nameCount; k++)
+    {
+        NameText& n = g_names[k];
+        for (int i = 0; i < g_regCount && n.entry < 0; i++)
+            if (_stricmp(g_reg[i].name, n.res) == 0) n.entry = i;
+        if (n.entry < 0)
+        {
+            // A shipped name for a resource the player's list does not have is normal.
+            if (!n.shipped) Logf("names     [names:%s] \"%s\" is not in [list] - ignored", n.lang, n.res);
+            continue;
+        }
+        ResEntry& e = g_reg[n.entry];
+        if (!e.textId)
+        {
+            e.textId  = TML_TEXT_ID_BASE + n.entry;
+            e.inherit = true;
+            MultiByteToWideChar(CP_UTF8, 0, e.name, -1, e.display,
+                                sizeof(e.display) / sizeof(e.display[0]));
+        }
+    }
+    int own = 0;
+    for (int k = 0; k < g_nameCount; k++) if (!g_names[k].shipped) own++;
+    if (g_nameCount > 0)
+        Logf("names     %d translated name(s) read: %d from the list file, %d from the INI beside the DLL",
+             g_nameCount, own, g_nameCount - own);
+    ApplyLanguage();
+}
+
+// The [names:<Language>] sections of the INI that ships beside the DLL, and
+// nothing else of that file. Called after the list file is read, so its names
+// come later in the table and only fill what the player's file leaves open.
+static void LoadShippedNames()
+{
+    if (!g_selfDir[0]) return;
+    static const char* kFile[2] = { "resources_plus.template.ini", "resources_plus.ini" };
+    for (int f = 0; f < 2; f++)
+    {
+        char path[MAX_PATH];
+        if (_snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", g_selfDir, kFile[f]) < 0) continue;
+        if (_stricmp(path, g_iniPath) == 0) continue;      // the list file itself, already read
+        char* buf = ReadWholeFile(path, NULL);
+        if (!buf) continue;
+
+        char* text = buf;
+        if ((BYTE)text[0] == 0xEF && (BYTE)text[1] == 0xBB && (BYTE)text[2] == 0xBF) text += 3;
+        char  lang[32] = "";
+        char* ctx = NULL;
+        for (char* line = strtok_s(text, "\n", &ctx); line; line = strtok_s(NULL, "\n", &ctx))
+        {
+            Trim(line);
+            if (!line[0] || line[0] == ';' || line[0] == '#') continue;
+            if (line[0] == '[')
+            {
+                lang[0] = 0;
+                if (_strnicmp(line, "[names:", 7) == 0)
+                {
+                    strncpy_s(lang, sizeof(lang), line + 7, _TRUNCATE);
+                    if (char* end = strchr(lang, ']')) *end = 0;
+                    Trim(lang);
+                }
+                continue;
+            }
+            if (!lang[0]) continue;
+            char* eq = strchr(line, '=');
+            if (!eq) continue;
+            *eq = 0;
+            char* caption = eq + 1;
+            Trim(line);
+            Trim(caption);
+            if (line[0] && caption[0]) AddNameText(lang, line, caption, true);
+        }
+        free(buf);
+        return;                                            // one shipped file is enough
+    }
+}
+
+// "media_soviet/sovietGerman.btf" -> "German". The comments file is a table of
+// its own and never the game's language.
+static void NoteLanguageFile(void* self, const char* file)
+{
+    if (!file || !file[0]) return;
+    const char* base = file;
+    for (const char* p = file; *p; p++) if (*p == '/' || *p == '\\') base = p + 1;
+
+    size_t len = strlen(base);
+    if (len <= 10 || _strnicmp(base, "soviet", 6) != 0 || _stricmp(base + len - 4, ".btf") != 0) return;
+
+    char lang[32];
+    size_t mid = len - 10;
+    if (mid >= sizeof(lang)) return;
+    memcpy(lang, base + 6, mid);
+    lang[mid] = 0;
+    if (_stricmp(lang, "Comments") == 0) return;
+
+    // One language object carries the game's texts; another table initialised
+    // later must not change what we take the language to be.
+    if (g_languageObject && g_languageObject != self) return;
+    g_languageObject = self;
+    if (_stricmp(g_language, lang) == 0) return;
+    strncpy_s(g_language, sizeof(g_language), lang, _TRUNCATE);
+    ApplyLanguage();
+}
+
 // Parsed by hand rather than through the profile API: display names are UTF-8
 // and GetPrivateProfileString would mangle anything outside the ANSI codepage.
 static void LoadResourceRegistry()
@@ -1108,10 +1388,11 @@ static void LoadResourceRegistry()
     char* text = buf;
     if (got >= 3 && (BYTE)buf[0] == 0xEF && (BYTE)buf[1] == 0xBB && (BYTE)buf[2] == 0xBF) text += 3;
 
-    enum { SECT_NONE, SECT_LIST, SECT_BASE, SECT_PRICE, SECT_CUSTOM };
+    enum { SECT_NONE, SECT_LIST, SECT_BASE, SECT_PRICE, SECT_CUSTOM, SECT_NAMES };
 
     int          inSection = SECT_NONE;
     CustomEntry* custom    = NULL;
+    char         nameLang[32] = "";
     char*        ctx = NULL;
     for (char* line = strtok_s(text, "\n", &ctx); line; line = strtok_s(NULL, "\n", &ctx))
     {
@@ -1141,9 +1422,29 @@ static void LoadResourceRegistry()
                 if (custom) inSection = SECT_CUSTOM;
                 else Logf("registry  \"%s\" - no room for another [custom:] section", who);
             }
+            // [names:<Language>] - captions for one game language.
+            if (inSection == SECT_NONE && _strnicmp(line, "[names:", 7) == 0)
+            {
+                strncpy_s(nameLang, sizeof(nameLang), line + 7, _TRUNCATE);
+                if (char* end = strchr(nameLang, ']')) *end = 0;
+                Trim(nameLang);
+                if (nameLang[0]) inSection = SECT_NAMES;
+            }
             continue;
         }
         if (inSection == SECT_NONE) continue;
+
+        if (inSection == SECT_NAMES)
+        {
+            char* eq = strchr(line, '=');
+            if (!eq) continue;
+            *eq = 0;
+            char* text = eq + 1;
+            Trim(line);
+            Trim(text);
+            if (line[0] && text[0]) AddNameText(nameLang, line, text);
+            continue;
+        }
 
         if (inSection == SECT_CUSTOM)
         {
@@ -1323,6 +1624,8 @@ static void LoadResourceRegistry()
         g_regCount++;
     }
     free(buf);
+    LoadShippedNames();
+    ResolveNameTexts();
 }
 
 // ---------------------------------------------------------------- seen-name table
@@ -1952,7 +2255,13 @@ static void EnsureArmed()
         // Identity last, so no `field =` line can reach the name or the caption.
         memset(rec + g_nameOff, 0, 32);
         strncpy_s((char*)(rec + g_nameOff), 32, e.name, _TRUNCATE);
-        if (e.textId) *(int*)(rec + RES_TEXTID_OFF) = e.textId;
+        if (e.textId)
+        {
+            // The caption the template brought, kept for a resource whose own text id
+            // exists for translations only.
+            if (e.inherit && !e.custom) e.tmplTextId = *(int*)(rec + RES_TEXTID_OFF);
+            *(int*)(rec + RES_TEXTID_OFF) = e.textId;
+        }
 
         int shape = cfg ? cfg->cargo : CARGO_AUTO;
         if (shape == CARGO_AUTO)
@@ -2281,9 +2590,29 @@ static wchar_t* h_GetString(void* self, int id)
 {
     if (id >= TML_TEXT_ID_BASE)
         for (int i = 0; i < g_regCount; i++)
-            if (g_reg[i].textId == id) return g_reg[i].display;
+            if (g_reg[i].textId == id)
+            {
+                ResEntry& e = g_reg[i];
+                // The name for the game's language, then the [list] caption; an entry that
+                // has a text id for translations only falls back to its template's caption.
+                if (const wchar_t* shown = e.shown) return (wchar_t*)shown;
+                if (e.inherit && e.tmplTextId > 0 && e.tmplTextId < TML_TEXT_ID_BASE)
+                    return o_GetString(self, e.tmplTextId);
+                return e.display;
+            }
 
     return o_GetString(self, id);
+}
+
+// The game tells the engine which language file to load; that is where the
+// language for [names:<Language>] comes from. See "translated names".
+typedef void (*t_LanguageInit)(void*, char*, char*);
+static t_LanguageInit o_LanguageInit;
+
+static void h_LanguageInit(void* self, char* file, char* fallback)
+{
+    o_LanguageInit(self, file, fallback);
+    NoteLanguageFile(self, file);
 }
 
 // ---------------------------------------------------------------- customs
@@ -2324,7 +2653,7 @@ static wchar_t* h_GetString(void* self, int id)
 //                 second, shared function afterwards; neither matters here -
 //                 a post-hook only needs it called once per customhouse per
 //                 tick, which the dispatcher already guarantees.
-#define P_CUSTOMHOUSE_TICK_RVA 0x1854E0   // v1.1.1.9; was 0x185470
+#define P_CUSTOMHOUSE_TICK_RVA 0x185500   // v1.1.1.13; was 0x1854E0 in v1.1.1.9, 0x185470 before
 
 static const BYTE kCustomsTickPrologue[] = {
     0x48, 0x8B, 0xC4,                            // mov  rax,rsp
@@ -2538,6 +2867,28 @@ static int         svc_IndexOf(const char* n)
 }
 static const TsmResourceApi kResourceApi = { svc_Count, svc_Name, svc_Index, svc_IndexOf };
 
+// An address key in the INI is an override for a game build this DLL does not
+// know. plugins\resources_plus.ini is created once and then kept, so after a
+// game update it still carries the previous build's addresses - which would
+// make every hook refuse although the DLL knows the right ones. A value from
+// the INI whose bytes do not match is therefore dropped in favour of the
+// built-in address when that one does match; when neither matches, the INI
+// value stays and the hook refuses with its own message.
+static bool PrologueAt(DWORD rva, const BYTE* prologue, size_t n)
+{
+    if (rva == 0 || (SIZE_T)rva + n > g_exeSize) return false;
+    const BYTE* p = g_exeBase + rva;
+    return ReadablePtr(p, n) && memcmp(p, prologue, n) == 0;
+}
+static DWORD PickRva(const char* key, DWORD fromIni, DWORD builtIn, const BYTE* prologue, size_t n)
+{
+    if (fromIni == builtIn || PrologueAt(fromIni, prologue, n)) return fromIni;
+    if (!PrologueAt(builtIn, prologue, n)) return fromIni;
+    Logf("resource  %s = 0x%lX in resources_plus.ini is for another game build - using the built-in 0x%lX",
+         key, (unsigned long)fromIni, (unsigned long)builtIn);
+    return builtIn;
+}
+
 extern "C" __declspec(dllexport) unsigned TsmPluginApiVersion(void)
 {
     return TSM_API_VERSION;
@@ -2551,17 +2902,28 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 
     // resources_plus is a fork of the upstream resources plugin: same hook
     // sites, same service name, same caption ids. Both loaded at once would
-    // register every resource twice, so when plugins\resources.dll exists and
-    // the launcher has it switched on, this plugin steps aside before it
-    // touches anything - nothing is hooked yet, so unloading is legal.
+    // register every resource twice, so when the original is active this
+    // plugin steps aside before it touches anything - nothing is hooked yet,
+    // so unloading is legal.
+    //
+    // The loader finds plugins in its own plugins\ folder and anywhere below
+    // the Steam Workshop folder and inits them in name order, so an original
+    // that is switched on is already in the process when "resources_plus" is
+    // asked, wherever its DLL lies: the module handle is the answer for both
+    // places. The export test keeps a stranger that merely shares the file
+    // name out of it. The file test covers a loader that orders differently.
     {
         char upstream[MAX_PATH];
         _snprintf_s(upstream, sizeof(upstream), _TRUNCATE, "%s\\plugins\\resources.dll", g_baseDir);
-        if (GetFileAttributesA(upstream) != INVALID_FILE_ATTRIBUTES &&
-            H->configInt("tesmioloader.ini", "plugins", "resources", 1) != 0)
+        HMODULE original = GetModuleHandleA("resources.dll");
+        bool loaded  = original && GetProcAddress(original, "TsmPluginInit") != NULL;
+        bool present = GetFileAttributesA(upstream) != INVALID_FILE_ATTRIBUTES &&
+                       H->configInt("tesmioloader.ini", "plugins", "resources", 1) != 0;
+        if (loaded || present)
         {
-            Logf("resources_plus  idle - plugins\\resources.dll is present and enabled in tesmioloader.ini; "
-                 "switch resources off (Republic Mod Manager: \"Plugin aktiv\") to use resources_plus");
+            Logf("resources_plus  idle - the original resources.dll is %s; switch resources off "
+                 "(Republic Mod Manager or the launcher) to use resources_plus",
+                 loaded ? "loaded" : "present in plugins\\ and enabled in tesmioloader.ini");
             return 1;
         }
     }
@@ -2643,6 +3005,11 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
     if (IniStr("customs", "customhouse_tick_rva", v, sizeof(v)))
         g_customsTickRva = (DWORD)strtoul(v, NULL, 0);
 
+    g_resRva   = PickRva("resource_rva", g_resRva, DEFAULT_RESOURCEGET_RVA, kResourceGetPrologue, sizeof(kResourceGetPrologue));
+    g_priceRva = PickRva("price_pass_rva", g_priceRva, DEFAULT_PRICEPASS_RVA, kPricePassPrologue, sizeof(kPricePassPrologue));
+    g_customsTickRva = PickRva("customhouse_tick_rva", g_customsTickRva, P_CUSTOMHOUSE_TICK_RVA,
+                               kCustomsTickPrologue, sizeof(kCustomsTickPrologue));
+
     g_hRes = TsmOpenLog("tesmioloader.resources_plus.log");
     const char* hdr = "; name                     which-arg  return value   discovering call site\r\n";
     WriteTo(g_hRes, hdr, (int)strlen(hdr));
@@ -2679,6 +3046,14 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
                   (void**)&o_GetString, "C3D_LANGUAGE::GetString"))
         Logf("resource  WARN  no import slot for C3D_LANGUAGE::GetString - mod resources "
              "will show their caption id instead of a name");
+
+    // The game's language, for [names:<Language>]. Hooked only when the file has
+    // such a section; without the slot the [list] captions are shown as before.
+    if (g_nameCount > 0 && o_GetString &&
+        !PatchIat(g_exe, DLL_ENGINE, SYM_LANG_INIT, (void*)h_LanguageInit,
+                  (void**)&o_LanguageInit, "C3D_LANGUAGE::Initialize"))
+        Logf("names     WARN  no import slot for C3D_LANGUAGE::Initialize - the game's language "
+             "stays unknown and every mod resource keeps its [list] caption");
 
     // The price bracket. Installed whenever there is something to say - an
     // override to apply or a table to print - and skipped entirely otherwise,
@@ -2721,7 +3096,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         if (!ReadablePtr(pushSite, sizeof(kSlotPushPrologue)) ||
             memcmp(pushSite, kSlotPushPrologue, sizeof(kSlotPushPrologue)) != 0)
         {
-            Logf("customs   push_back at rva 0x%X does not look like v1.1.1.9 - customhouse "
+            Logf("customs   push_back at rva 0x%X does not look like v1.1.1.13 - customhouse "
                  "sync disabled; standing customhouses keep their old trade list",
                  (unsigned)P_CUSTOMS_SLOT_PUSH_RVA);
             g_customsHook = 0;

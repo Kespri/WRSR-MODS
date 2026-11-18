@@ -14,27 +14,27 @@
 //   - At runtime the parser token itself is no longer present in Storage, so the
 //     policy is enforced structurally: one resource slot and transport class
 //     COVERED, OPEN, GRAVEL or OIL. General multi-resource storages are ignored.
-//   - Existing live storage order is preserved. At savegame load, v0.1.75
+//   - Existing live storage order is preserved. At savegame load, the plugin
 //     appends missing configured grit storages in current definition order.
 //   - The same live layout Y value is advanced, so the vanilla scrollable panel
 //     grows naturally when more resource rows are appended.
 //   - UI enumeration is read-only. On a confirmed snowplow refill, the grit
 //     spreader atomically debits the actually loaded amount from the selected
-//     single-resource material slot in the vehicle's home depot. The old
-//     per-road direct-depot consumption was removed in v0.1.76.
+//     single-resource material slot in the vehicle's home depot. There is
+//     no per-road direct-depot consumption.
 //
 // Verified game build:
-//   WRSR       1.1.1.9
-//   SHA256     296644a9f207d609031fc2ae73fed2dcb34619a1d55a35d1c7b51965ce6841b8
-//   timestamp  0x6A3EB6AD
+//   WRSR       1.1.1.13
+//   SHA256     4df5fbecc75300e3b843ae4e6426761c84ae2e989321c011c6f560be79122125
+//   timestamp  0x6A8D4087
 //   image size 0xA9D000
 //
 // Verified UI path:
-//   Technical Services panel        RVA 0x74C500
-//   native storage renderer         RVA 0x706C00
-//   post-storage section helper     RVA 0x6F4B40
-//   native Technical Services call  RVA 0x74F880 -> 0x706C00
-//   post-storage insertion call     RVA 0x74F899 -> 0x6F4B40
+//   Technical Services panel        RVA 0x74C6A0
+//   native storage renderer         RVA 0x706DA0
+//   post-storage section helper     RVA 0x6F4CE0
+//   native Technical Services call  RVA 0x74FA20 -> 0x706DA0
+//   post-storage insertion call     RVA 0x74FA39 -> 0x6F4CE0
 //
 // Confirmed runtime layout:
 //   building + 0x970/+0x978 = std::vector<Storage>, stride 0xE0
@@ -67,48 +67,48 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION  "0.3.3"
+#define PLUGIN_VERSION  "0.3.5"
 #define SPREADER_DIAGNOSTIC_VERSION PLUGIN_VERSION
 #define PLUGIN_LOG_NAME "tesmioloader.technical_service_storage.log"
 
 #pragma comment(lib, "user32.lib")
 
 // -----------------------------------------------------------------------------
-// Verified WRSR v1.1.1.9 addresses and signatures
+// Verified WRSR v1.1.1.13 addresses and signatures
 
-static const DWORD RVA_TECHNICAL_SERVICES_PANEL = 0x0074C500;
-static const DWORD RVA_NATIVE_STORAGE_PANEL      = 0x00706C00;
-static const DWORD RVA_POST_STORAGE_SECTION      = 0x006F4B40;
-static const DWORD RVA_TECH_NATIVE_STORAGE_CALL  = 0x0074F880;
-static const DWORD RVA_TECH_POST_STORAGE_CALL    = 0x0074F899;
+static const DWORD RVA_TECHNICAL_SERVICES_PANEL = 0x0074C6A0;
+static const DWORD RVA_NATIVE_STORAGE_PANEL      = 0x00706DA0;
+static const DWORD RVA_POST_STORAGE_SECTION      = 0x006F4CE0;
+static const DWORD RVA_TECH_NATIVE_STORAGE_CALL  = 0x0074FA20;
+static const DWORD RVA_TECH_POST_STORAGE_CALL    = 0x0074FA39;
 // The native warning builder has completed at this instruction sequence, but
-// its UTF-16 text at rbp+0x250 has not yet been measured or drawn.  v0.1.47
+// its UTF-16 text at rbp+0x250 has not yet been measured or drawn.  The plugin
 // appends the material warnings here so the game itself applies its warning
 // font, wrapping, line spacing and dynamic panel-height calculation.
-static const DWORD RVA_TECH_WARNING_APPEND_TRANSITION = 0x0074DAFD;
+static const DWORD RVA_TECH_WARNING_APPEND_TRANSITION = 0x0074DC9D;
 static const size_t TECH_WARNING_APPEND_OVERWRITE_LENGTH = 22;
 static const size_t TECH_WARNING_BUFFER_CAPACITY = 1024;
 // The stock full-row storage renderer uses one shared flag at rbp-0x40 to
 // decide whether every per-resource discard button is visible. Technical
 // Services model fuel and every configured material as separate one-slot
 // Storage objects, so one empty object incorrectly hides the buttons belonging
-// to all still-stocked objects. v0.1.47 preserves the stock decision in every
+// to all still-stocked objects. The plugin preserves the stock decision in every
 // other panel and bypasses only this gate while the Technical Services panel is
 // being rendered. The original renderer still owns the per-row amount check,
 // icon, localized tooltip, dynamic discard step and click operation.
-static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_GATE = 0x0070F826;
-static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_FALLTHROUGH = 0x0070F830;
-static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_SKIP = 0x0070FB96;
+static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_GATE = 0x0070F9C6;
+static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_FALLTHROUGH = 0x0070F9D0;
+static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_SKIP = 0x0070FD36;
 static const size_t STORAGE_DISCARD_VISIBILITY_OVERWRITE_LENGTH = 10;
 // The executable contains three copies of the Empty weight / Engine power UI.
-// v0.1.20 and v0.1.21 hooked the first two inactive copies. The visible vehicle
+// The first two copies are inactive and are not hooked. The visible vehicle
 // window uses the third copy: r15 is the selected vehicle throughout this block
-// and the engine-label call at 0x7DBF07 uses the shared formatted-text renderer.
-static const DWORD RVA_VEHICLE_UI_EMPTY_WEIGHT_READ = 0x007C0AF9;
-static const DWORD RVA_VEHICLE_UI_ENGINE_POWER_READ = 0x007C0B02;
-static const DWORD RVA_ACTIVE_VEHICLE_ENGINE_LABEL_DRAW_CALL = 0x007DBF07;
-static const DWORD RVA_OFFICE_PRIORITY_LABEL_DRAW_CALL = 0x002735EB;
-static const DWORD RVA_OFFICE_PRIORITY_ROW = 0x002734F0;
+// and the engine-label call at 0x7DC0A7 uses the shared formatted-text renderer.
+static const DWORD RVA_VEHICLE_UI_EMPTY_WEIGHT_READ = 0x007C0C99;
+static const DWORD RVA_VEHICLE_UI_ENGINE_POWER_READ = 0x007C0CA2;
+static const DWORD RVA_ACTIVE_VEHICLE_ENGINE_LABEL_DRAW_CALL = 0x007DC0A7;
+static const DWORD RVA_OFFICE_PRIORITY_LABEL_DRAW_CALL = 0x0027356B;
+static const DWORD RVA_OFFICE_PRIORITY_ROW = 0x00273470;
 static const DWORD RVA_OFFICE_PRIORITY_DRAW_TEXT_IAT = 0x0086C878;
 static const DWORD RVA_OFFICE_PRIORITY_DRAW_FORMATTED_TEXT_IAT = 0x0086C880;
 static const DWORD RVA_LOCALIZATION_GET_TEXT_IAT = 0x0086C890;
@@ -127,35 +127,35 @@ static const DWORD RVA_CURRENT_UI_FONT_POINTER = 0x00995220;
 static const int NATIVE_TEXT_ID_PRIORITY = 20139;
 
 static const DWORD RVA_OFFICE_PRIORITY_ROW_CALLS[9] = {
-    0x0074EF42, 0x0074F02F, 0x0074F10B,
-    0x0074F1E7, 0x0074F2C3, 0x0074F39F,
-    0x0074F47B, 0x0074F557, 0x0074F633
+    0x0074F0E2, 0x0074F1CF, 0x0074F2AB,
+    0x0074F387, 0x0074F463, 0x0074F53F,
+    0x0074F61B, 0x0074F6F7, 0x0074F7D3
 };
 static const DWORD RVA_OFFICE_PRIORITY_PERCENT_CALLS[9] = {
-    0x0074EFA4, 0x0074F089, 0x0074F165,
-    0x0074F241, 0x0074F31D, 0x0074F3F9,
-    0x0074F4D5, 0x0074F5B1, 0x0074F68D
+    0x0074F144, 0x0074F229, 0x0074F305,
+    0x0074F3E1, 0x0074F4BD, 0x0074F599,
+    0x0074F675, 0x0074F751, 0x0074F82D
 };
 static const DWORD RVA_OFFICE_PRIORITY_CURSOR_STORES[9] = {
-    0x0074EFDF, 0x0074F0BB, 0x0074F197,
-    0x0074F273, 0x0074F34F, 0x0074F42B,
-    0x0074F507, 0x0074F5E3, 0x0074F73A
+    0x0074F17F, 0x0074F25B, 0x0074F337,
+    0x0074F413, 0x0074F4EF, 0x0074F5CB,
+    0x0074F6A7, 0x0074F783, 0x0074F8DA
 };
 
 // Values used by the verified native Technical Services storage call.
 static const DWORD RVA_DPI           = 0x00992088;
-static const DWORD RVA_STORAGE_ARG13 = 0x0090A960;
-static const DWORD RVA_STORAGE_ARG14 = 0x0090A928;
-static const DWORD RVA_TECH_WARNING_MEASURE_PADDING = 0x0090A8CC;
+static const DWORD RVA_STORAGE_ARG13 = 0x0090A970;
+static const DWORD RVA_STORAGE_ARG14 = 0x0090A938;
+static const DWORD RVA_TECH_WARNING_MEASURE_PADDING = 0x0090A8DC;
 // The single-resource branch in the native renderer first advances its local
-// row phase by 23 logical pixels (exe+0x707F7F), then draws the title 45
-// logical pixels above that phase (exe+0x7084C6). Reading both verified game
+// row phase by 23 logical pixels (exe+0x70811F), then draws the title 45
+// logical pixels above that phase (exe+0x708666). Reading both verified game
 // constants keeps the plugin title control coupled to the same layout math as
 // the native title instead of guessing from the renderer's final cursor.
-static const DWORD RVA_STORAGE_TITLE_PHASE_ADVANCE = 0x0090A95C;
-static const DWORD RVA_STORAGE_TITLE_LEAD          = 0x0090AA0C;
+static const DWORD RVA_STORAGE_TITLE_PHASE_ADVANCE = 0x0090A96C;
+static const DWORD RVA_STORAGE_TITLE_LEAD          = 0x0090AA1C;
 
-static const DWORD EXPECTED_TIMESTAMP = 0x6A3EB6AD;
+static const DWORD EXPECTED_TIMESTAMP = 0x6A8D4087;
 static const size_t EXPECTED_IMAGE_SIZE = 0xA9D000;
 
 static const BYTE EXPECT_TECH_PANEL[] = {
@@ -198,13 +198,13 @@ static const BYTE EXPECT_VEHICLE_UI_ENGINE_POWER_READ[] = {
 };
 
 static const BYTE EXPECT_ACTIVE_VEHICLE_ENGINE_LABEL_DRAW_CALL[] = {
-    0xFF,0x15,0x73,0x09,0x09,0x00
+    0xFF,0x15,0xD3,0x07,0x09,0x00
 };
 
 static const BYTE EXPECT_TECH_WARNING_APPEND_TRANSITION[] = {
     0x41,0x0F,0x28,0xF0,
-    0xF3,0x44,0x0F,0x10,0x0D,0xC2,0xCD,0x1B,0x00,
-    0xF3,0x44,0x0F,0x10,0x15,0x15,0xCE,0x1B,0x00
+    0xF3,0x44,0x0F,0x10,0x0D,0x32,0xCC,0x1B,0x00,
+    0xF3,0x44,0x0F,0x10,0x15,0x85,0xCC,0x1B,0x00
 };
 static_assert(
     sizeof(EXPECT_TECH_WARNING_APPEND_TRANSITION) ==
@@ -236,7 +236,7 @@ static const BYTE EXPECT_C3D_CALC_RECT_LEFT_UNICODE_NO_ARG[] = {
 };
 
 static const BYTE EXPECT_OFFICE_PRIORITY_LABEL_DRAW_CALL[] = {
-    0xFF,0x15,0x87,0x92,0x5F,0x00
+    0xFF,0x15,0x07,0x93,0x5F,0x00
 };
 
 static const BYTE EXPECT_OFFICE_PRIORITY_CURSOR_STORE[] = {
@@ -714,13 +714,13 @@ static const int g_officePriorityTextIds[9] = {
     1133  // One-way roads
 };
 
-// Grit spreader v0.1.74 retains the material, UI and tank behaviour while
-// loading the bounded material catalogue from [grit_materials]. Each depot
-// receives unique priorities 1..N or OFF; catalogue order supplies the initial
-// values before the native resource-row controls are used. v0.1.72 persists
-// them in a save-folder sidecar and gives every rebuilt lifetime fresh defaults.
-// v0.1.74 stores each assigned snowplow's exact plugin-owned grit amount and
-// loaded material in a separate sidecar belonging to the current savegame.
+// The grit spreader loads the bounded material catalogue from
+// [grit_materials]. Each depot receives unique priorities 1..N or OFF;
+// catalogue order supplies the initial values before the native resource-row
+// controls are used. The plugin persists them in a save-folder sidecar and
+// gives every rebuilt lifetime fresh defaults. It stores each assigned
+// snowplow's exact plugin-owned grit amount and loaded material in a separate
+// sidecar belonging to the current savegame.
 // The return threshold is a one-shot request only: the visible tank continues
 // smoothly to zero while every confirmed native clear is forwarded. At zero,
 // later confirmed clears publish dry treatment until the depot refill occurs.
@@ -1189,7 +1189,7 @@ static float OfficePriorityWrappedRowExtra(int lineCount, float dpi)
 {
     if (lineCount <= 1) return 0.0f;
     // The verified native priority-row step is 35 logical pixels
-    // (exe+0x90A9CC). Two wrapped baselines use the configured distance and
+    // (exe+0x90A9DC). Two wrapped baselines use the configured distance and
     // two logical pixels of padding above and below.
     float nativeRowHeight = 35.0f * dpi;
     float wrappedRowHeight =
@@ -1920,7 +1920,7 @@ static bool BuildMatches()
     {
         Report("FATAL", "SOVIET64.exe", "unsupported-build",
             "Image size 0x%llX does not match expected 0x%llX. "
-            "Action: use the supported WRSR 1.1.1.9 build",
+            "Action: use the supported WRSR 1.1.1.13 build",
             (unsigned long long)g_exeSize,
             (unsigned long long)EXPECTED_IMAGE_SIZE);
         return false;
@@ -1931,7 +1931,7 @@ static bool BuildMatches()
     {
         Report("FATAL", "SOVIET64.exe", "unsupported-build",
             "Timestamp 0x%08X does not match expected 0x%08X. "
-            "Action: use the supported WRSR 1.1.1.9 build",
+            "Action: use the supported WRSR 1.1.1.13 build",
             timestamp, EXPECTED_TIMESTAMP);
         return false;
     }
@@ -3619,7 +3619,7 @@ static NativeTemplate BuildFallbackTemplate(BYTE* building)
 {
     // This fallback starts from the verified Technical Services call in
     // WRSR 1.1.1.9.  The stock call uses the compact arg11=9 path, which exits
-    // before the native per-resource controls are constructed.  v0.1.47 uses
+    // before the native per-resource controls are constructed.  The plugin uses
     // the normal arg11=-1 resource-row path, but keeps arg15 disabled: arg15
     // adds the separate storage-wide clear control, which is wrong for the
     // individually appended Technical Services rows. It is used only when the
@@ -4144,7 +4144,7 @@ int TsmPluginInit(const TsmHost* host, TsmPluginInfo* info)
          g_sandAutomaticReturnEnabled, g_sandReturnThresholdBasisPoints,
          g_sandReturnLockEnabled);
     Info("Beta diagnostics: detailed_runtime=%d discovery_scans=removed manual_route_hotkeys=removed lifecycle_snapshot=debug-only-CTRL_F8", g_debug);
-    Info("Grit spreader policy: [grit_materials] provides the bounded material catalogue (entries=%llu first=%s runtime_validation=per-world-live-resource-vector reserved_vehicle_fuel_excluded=1); each depot receives unique priorities 1..N or OFF, initialized from catalogue order and used by refilling; priorities and v0.1.74 vehicle grit tanks use separate versioned sidecars inside the resolved current save folder; tank restore matches home position, depot vehicle slot and verified power/weight signature, restores exact remaining kg/material without depot debit and safely reconstructs unmatched vehicles; exact building position and configured resource names restore an unchanged depot priority set; the first native going-away event deletes the old depot priority record for both demolition and collapse; a reused pointer or the post-rubble construction site starts a new lifetime from [grit_materials] defaults; world unload resets the bound UI thread so dynamically appended grit storages remain visible after loading another world in the same process; normal world unload/load is not a deletion event; the instant-storage routine is never used",
+    Info("Grit spreader policy: [grit_materials] provides the bounded material catalogue (entries=%llu first=%s runtime_validation=per-world-live-resource-vector reserved_vehicle_fuel_excluded=1); each depot receives unique priorities 1..N or OFF, initialized from catalogue order and used by refilling; priorities and vehicle grit tanks use separate versioned sidecars inside the resolved current save folder; tank restore matches home position, depot vehicle slot and verified power/weight signature, restores exact remaining kg/material without depot debit and safely reconstructs unmatched vehicles; exact building position and configured resource names restore an unchanged depot priority set; the first native going-away event deletes the old depot priority record for both demolition and collapse; a reused pointer or the post-rubble construction site starts a new lifetime from [grit_materials] defaults; world unload resets the bound UI thread so dynamically appended grit storages remain visible after loading another world in the same process; normal world unload/load is not a deletion event; the instant-storage routine is never used",
          (unsigned long long)g_spreaderMaterialCount,
          g_spreaderMaterialCount ?
              g_spreaderMaterials[0].resourceName : "none");

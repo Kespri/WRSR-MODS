@@ -1,6 +1,7 @@
 # Research Expansion – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.9, GPL v3. Build: the standard line of the root
+TesmioLoader plugin (API 4) for WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address),
+GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `research_expansion.cpp`;
 it includes `src/tesmio_plugin.h` and consumes the `localization` service of the Localization
 plugin. Output: a generated `research.ini` plus one `<id>.png` per new research in the loader's VFS

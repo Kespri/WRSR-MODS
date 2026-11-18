@@ -1,8 +1,8 @@
-# 🏭 Deposits Plus 0.4.10
+# 🏭 Deposits Plus 0.4.17
 
 **Erweiterung des TesmioLoader-Plugins deposits**
 
-Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet Republic* 1.1.1.9 mit natürlicher Verteilung, visueller Bodentextur und Fahrzeugintegration.
+Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet Republic* 1.1.1.13 mit natürlicher Verteilung, visueller Bodentextur und Fahrzeugintegration.
 
 ---
 
@@ -29,13 +29,13 @@ Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.9
-- TesmioLoader API 4
-- Empfohlen: Resources-Plugin (resources.dll/resources.ini) – nur nötig, damit der Minimap-Knopf eines Vorkommens das Symbol einer dort registrierten Ressource zeigen kann (`icon`). Die Vorkommen selbst brauchen es nicht.
+- WRSR 1.1.1.13
+- TesmioLoader ab b0.3.7 (API 4)
+- Empfohlen: Resources Plus oder Resources – nur nötig, damit der Minimap-Knopf eines Vorkommens das Symbol einer dort registrierten Ressource zeigen kann (`icon`). Die Vorkommen selbst brauchen es nicht.
 
 ### In drei Schritten
-1. **Original deaktivieren:** Falls `plugins\deposits.dll` vorhanden ist, in Republic Mod Manager „Plugin aktiv“ bei deposits ausschalten oder im TesmioLauncher das Häkchen entfernen. Löschen ist nicht nötig.
-2. **Eine Installationsmethode wählen** (siehe unten) und das Plugin aktivieren.
+1. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
+2. **Original ausschalten:** Hast du auch das Plugin deposits von MaxLegend, schalte es aus. Republic Mod Manager macht das beim Speichern von selbst; im TesmioLauncher entfernst du das Häkchen bei deposits. Abbestellen ist nicht nötig.
 3. **Spiel starten** und einen Spielstand laden. Die Einstellungen stehen in `deposits_plus.ini`, am bequemsten über Republic Mod Manager.
 
 ---
@@ -72,84 +72,55 @@ Vollständig konfigurierbare Rohstoffvorkommen für *Workers & Resources: Soviet
 
 ## 💾 Installation
 
-Wähle **eine** der vier Methoden. Dieselbe DLL darf nie zweimal geladen werden, und Deposits Plus und das Original-Plugin deposits laufen nie gleichzeitig.
+Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden, und Deposits Plus und das Original-Plugin deposits laufen nie gleichzeitig.
 
-### ⚠️ Wichtig: Originales Plugin deaktivieren
+### ⚠️ Wichtig: Originales Plugin ausschalten
 
-Falls `plugins\deposits.dll` existiert:
-- **Republic Mod Manager:** „Plugin aktiv“ bei deposits ausschalten
-- **TesmioLauncher:** das Häkchen entfernen
-- **Löschen ist nicht nötig** – solange das Original eingeschaltet ist, bleibt Deposits Plus von selbst untätig (Logzeile `deposits_plus  idle`)
-
----
-
-### Methode 1️⃣: Klassischer TesmioLoader
-
-```
-1. Kopiere deposits_plus.dll und deposits_plus.ini aus hooks\
-   → tesmioloader\build\plugins\
-
-2. Kopiere den Ordner hooks\deposits_plus (die Texturen)
-   → tesmioloader\build\plugins\deposits_plus\
-
-3. Aktiviere deposits_plus im TesmioLauncher
-4. Deaktiviere das Original-Plugin deposits
-```
+Hast du auch das Plugin deposits von MaxLegend (abonniert oder in `tesmioloader\plugins`):
+- **Republic Mod Manager:** schaltet deposits beim Speichern von selbst aus, sobald Deposits Plus eingeschaltet ist
+- **TesmioLauncher:** das Häkchen bei deposits entfernen
+- **Abbestellen oder Löschen ist nicht nötig** – solange das Original geladen ist, bleibt Deposits Plus von selbst untätig (Logzeile `deposits_plus  idle`)
 
 ---
 
-### Methode 2️⃣: Soviet Mod Loader (SML)
-
-⚠️ **Solange SML läuft, bleibt Deposits Plus untätig.** SML bringt seine eigenen Vorkommen mit; das Plugin lädt, tritt zur Seite und schreibt eine Zeile ins Protokoll. Willst du Deposits Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv") und nimm Methode 1 oder 3. Der Weg unten lohnt nur, wenn du das Paket für später bereithalten willst.
+### Methode 1️⃣: Steam Workshop (empfohlen)
 
 ```
-1. Workshop-Objekt abonnieren – SML liest abonnierte Pakete von selbst
-2. SML lädt die DLL über soviet.mod.ini aus dem Paket
+1. Workshop-Objekt abonnieren
+2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+   von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die Texturen findet die DLL neben sich im Paket
-4. Eine lokale deposits_plus.dll in plugins\ vorher entfernen oder abschalten
+4. Steam-Updates gelten ab dem nächsten Spielstart
 ```
+
+Ein neu gefundenes Plugin ist eingeschaltet. Aus- und einschalten kannst du es im TesmioLauncher oder mit „Plugin aktiv“ im Republic Mod Manager.
 
 ---
 
-### Methode 3️⃣: Workshop Bridge (ohne SML)
+### Methode 2️⃣: Von Hand in den Loader-Ordner
 
 ```
-1. Paket in Republic Mod Manager auswählen
-2. „Plugin aktiv“ einschalten
-3. workshop_bridge lädt die DLL direkt aus dem Paket
-4. Die Texturen findet die DLL neben sich im Paket
-5. Steam-Updates gelten sofort
+1. Kopiere deposits_plus.dll und deposits_plus.ini aus plugins\
+   → <Spiel>\tesmioloader\plugins\
+
+2. Kopiere den Ordner plugins\deposits_plus (Texturen und Pinsel-Bilder)
+   → <Spiel>\tesmioloader\plugins\deposits_plus\
 ```
 
----
-
-### Methode 4️⃣: Republic Mod Manager mit „Dateien nur lokal“
-
-```
-1. Paket in Republic Mod Manager auswählen, Einstellungen anpassen, Speichern
-2. Reiter „Allgemein“, Karte „Hinweise“: „Dateien nur lokal“ einschalten
-3. Bestätigung mit Dateiliste → DLL, INI und Texturordner werden beim
-   Speichern nach tesmioloader\build\plugins\ kopiert
-4. Die Workshop Bridge überspringt das Paket danach automatisch
-```
-
-**„Dateien nur lokal“ im Detail**
-- Für alle, die das Plugin ohne Steam-Abo weiterbenutzen wollen
-- Steam-Updates gelten bei lokalen Dateien erst nach erneutem Speichern (gelbe Marke „Update“)
-- Ausschalten entfernt nur die von Republic Mod Manager kopierten Dateien wieder
+Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloader\plugins` hat Vorrang vor der gleichnamigen aus dem Workshop; Updates kopierst du dann selbst nach.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.4.0) zeigt Deposits Plus damit in drei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Deposits Plus damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, „Dateien nur lokal“, Knöpfe für diese Anleitung und die Plugin-Schalter Code-Patch, Minimap-Ebenen, Editor-Pinsel
-- **Sand-Struktur:** Sandige Wiese und Natürliche Verteilung
+- **Allgemein:** Hinweise, Knöpfe für diese Anleitung, die Plugin-Schalter „Anpassung der Spieldatei“ (der Code-Patch), „Minimap-Ebenen“ und „Pinsel im Terrain-Editor“ und die Karte „Natürliche Verteilung“
+- **Sand-Struktur:** die Sandige Wiese
 - **Sand-Texturen:** die Kacheltabelle, je Bodentextur ein Eintrag mit Farb- und Normalmap-Datei
-- **Vorkommen:** Liste links, alle Einstellungen des gewählten Vorkommens rechts, Plus-Knopf für neue Vorkommen mit Ressourcen aus resources.ini und automatisch vorgeschlagener Typnummer
+- **Vorkommen:** Liste links, alle Einstellungen des gewählten Vorkommens rechts, Plus-Knopf für neue Vorkommen mit Ressourcen aus Resources Plus oder Resources und automatisch vorgeschlagener Typnummer
 
-Persönliche Änderungen liegen in `user_config\deposits_plus.editor.ini`, die wirksame Datei ist `plugins\deposits_plus.ini`. Die INI im Paket bleibt unverändert; ein Steam-Update ist sofort die neue Originalbasis. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
+Persönliche Änderungen liegen in `user_config\deposits_plus.editor.ini`, die wirksame Datei ist `tesmioloader\plugins\deposits_plus.ini`. Die INI im Paket bleibt unverändert; ein Steam-Update ist sofort die neue Originalbasis. Deposits Plus und deposits sind im RMM ein Ersatz-Paar: Schaltest du eines ein, schaltet RMM das andere aus. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
 
 ---
 
@@ -158,8 +129,10 @@ Persönliche Änderungen liegen in `user_config\deposits_plus.editor.ini`, die w
 ### Hauptdatei: `deposits_plus.ini`
 
 Die Original-INI liegt:
-- **Klassischer Loader:** `tesmioloader\build\plugins\deposits_plus.ini`
-- **Workshop/SML/Bridge:** im Paketordner unter `hooks\deposits_plus.ini`; Republic Mod Manager schreibt die wirksame Fassung nach `plugins\deposits_plus.ini`
+- **Workshop:** im Paketordner unter `plugins\deposits_plus.ini`, neben der DLL
+- **Von Hand installiert:** `tesmioloader\plugins\deposits_plus.ini`
+
+Liegt eine `tesmioloader\plugins\deposits_plus.ini`, liest das Plugin diese Datei, sonst die INI neben seiner DLL. Republic Mod Manager schreibt die wirksame Fassung immer nach `tesmioloader\plugins\deposits_plus.ini`.
 
 ⚠️ **Kommentare nur in eigenen Zeilen mit `;`.** Der Parser nimmt alles hinter `=` als Wert. Ein Kommentar hinter dem Wert macht Token unbrauchbar und schaltet die Verteilung ab („generation disabled for safety“ im Log). Kein Neuladen zur Laufzeit: INI ändern, Spiel neu starten, Spielstand laden.
 
@@ -180,6 +153,10 @@ editor = 1
 generation = 1
 ; 1 füllt auch Kanäle, die früher als leer erfasst wurden; 0 schützt alte leere Kanäle
 generate_existing_empty = 1
+; Erstes Laden eines Spielstands aus dem Original-Plugin deposits: Sand wird aus dem alten
+; Geländekanal übernommen. Liegen dort weniger Zellen als hier angegeben, gilt der Kanal
+; als leer und Sand wird wie auf einer neuen Karte verteilt. 0 übernimmt jede Menge
+legacy_adopt_min_cells = 500
 ; 0 = zufälliger Seed je neuer Welt; jede andere Zahl = immer dieselbe Verteilung
 generation_seed = 0
 
@@ -253,17 +230,18 @@ generation_size = 3
 working_vehicle_skill = gravelmining
 ```
 
-Weitere Vorkommen aus der ausgelieferten INI: copper (Typ 10), clay (Typ 12) und gas (Typ 13). Ein Vorkommen wird abgewiesen und im Log gemeldet bei fehlendem Token, Typnummer außerhalb 10 bis 127, unbekannter Karte, doppelter Typnummer, doppeltem Token, doppeltem Kanal oder unbrauchbarem Radius.
+Weitere Vorkommen aus der ausgelieferten INI: copper (Typ 10), clay (Typ 12) und gas (Typ 13). Ein Vorkommen wird abgewiesen und im Log gemeldet bei fehlendem Token, Typnummer außerhalb 10 bis 127, einer Karte jenseits von resourcemap10, `component` außerhalb 0 bis 3, einem `building_type` außer 7 und 92, doppelter Typnummer, doppeltem Token, doppeltem Kanal oder unbrauchbarem Radius. Ein unbekanntes Wort bei `map` wird nur im Log gemeldet; dann gilt resourcemap2.
 
 ---
 
 ## 📏 Wertebereiche
 
-Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für das Vorkommen (Abschnitt) oder für alle (Abschnitt `[deposits_plus]`) ab und schreibt „generation WARN … generation disabled for safety“ ins Log.
+Die DLL prüft diese Grenzen. Ein Wert außerhalb schaltet die Verteilung für das Vorkommen (Abschnitt) oder für alle (Abschnitt `[deposits_plus]`) ab und schreibt „generation WARN … generation disabled for safety“ ins Log. Ausnahmen: Bei `type` und `component` wird das Vorkommen abgewiesen, und ein zu langer Pinselname wird nach 31 Zeichen abgeschnitten.
 
 | Schlüssel | Bereich | Standard |
 |---|---|---|
 | `generation`, `generate_existing_empty`, `independent_map` | 0 oder 1 | 1 / 1 / 0 |
+| `legacy_adopt_min_cells` | 0 bis 1048576, ganzzahlig | 500 |
 | `generation_seed` | 0 bis 4294967295, ganzzahlig | 0 |
 | `generation_gap_m`, `generation_shore_m` | 0 bis 500 m | 40 / 40 |
 | `generation_water_clearance_m` | 0 bis 50 m | 2 |
@@ -352,6 +330,8 @@ Ein Feld zählt nur, wenn nach dem Beschneiden mindestens 60 % seiner Fläche ü
 5. Speichern
 ```
 
+**Pinsel-Bilder:** Ein Pinsel im Geländeeditor braucht zwei Bilder, `tool_paint_<name>.png` und `tool_erase_<name>.png` (96 x 96 Pixel); `<name>` ist der Wert von `editor`. Das Spiel lädt sie aus `tesmioloader\vfs\media_soviet\editor`. Für die mitgelieferten Vorkommen liegen die Bilder im Paket unter `plugins\deposits_plus\editor`: Das Plugin kopiert sie beim Spielstart in den vfs-Ordner, wenn dort noch keines mit diesem Namen liegt. Für ein eigenes Vorkommen legst du deine zwei Bilder selbst in den vfs-Ordner. Fehlt ein Bild, zeigt der Knopf ein Bild aus dem Grundspiel; der Pinsel funktioniert trotzdem. Den Namen am Pinsel liefert die Ressource, die bei `icon` steht; steht dort keine, heißt der Pinsel wie das Vorkommen.
+
 ---
 
 ## 🏞️ Sandige Wiese (Visuelle Textur)
@@ -379,9 +359,9 @@ sand_surface_strength = 1.0
 sand_surface_token = $TYPE_MINE_SAND
 ```
 
-### Kacheltabelle (seit 0.4.1)
+### Kacheltabelle
 
-Je Bodentextur des Geländes ein Abschnitt `[sand_tile:<name>]`: `base` ist die Textur, die die material.mtl der Karte auf Platz 5 nennt, mit Ordner; `color` und `normal` sind deine DDS-Dateien unter `deposits_plus\assets`, den die DLL zuerst neben sich (Paket: `hooks\deposits_plus\assets`) und dann unter `plugins\deposits_plus\assets` sucht. Seit 0.4.2 dürfen die Dateien in Set-Ordnern liegen (`Siberia/sand_meadow_siberia_color.dds`); `..` und absolute Pfade sind tabu. Im Republic Mod Manager pflegst du die Tabelle auf dem Reiter Sand-Texturen: Die Dateifelder zeigen alle DDS-Dateien nach Set-Ordner gruppiert, und vor dem Speichern prüft der RMM, ob die Datei existiert und das richtige Format hat.
+Je Bodentextur des Geländes ein Abschnitt `[sand_tile:<name>]`: `base` ist die Textur, die die material.mtl der Karte auf Platz 5 nennt, mit Ordner; `color` und `normal` sind deine DDS-Dateien unter `deposits_plus\assets`, den die DLL zuerst neben sich (Paket: `plugins\deposits_plus\assets`) und dann unter `tesmioloader\plugins\deposits_plus\assets` sucht. Die Dateien dürfen in Set-Ordnern liegen (`Siberia/sand_meadow_siberia_color.dds`); `..` und absolute Pfade sind tabu. Im Republic Mod Manager pflegst du die Tabelle auf dem Reiter Sand-Texturen: Die Dateifelder zeigen alle DDS-Dateien nach Set-Ordner gruppiert, und vor dem Speichern prüft der RMM, ob die Datei existiert und das richtige Format hat.
 
 ```ini
 [sand_tile:meadow]
@@ -495,12 +475,22 @@ Deposits Plus und das Original-Plugin `deposits` nutzen:
 
 **Deposits Plus lädt nur, wenn das Original ausgeschaltet ist.**
 
-Ist `plugins\deposits.dll` vorhanden und in tesmioloader.ini eingeschaltet:
+Ist das Original geladen (aus `plugins` oder aus dem Workshop-Ordner) oder liegt `plugins\deposits.dll` vor und ist in tesmioloader.ini eingeschaltet:
 - Deposits Plus bleibt untätig, bevor es irgendetwas patcht
-- Im Log: `deposits_plus  idle - plugins\deposits.dll is present and enabled`
+- Im Log: `deposits_plus  idle - the original deposits.dll is loaded` (oder `… is present in plugins\ and enabled in tesmioloader.ini`)
 - Das Original lädt normal
 
 **Lösung:** Original im TesmioLauncher oder in Republic Mod Manager ausschalten. Löschen ist nicht notwendig.
+
+### Eigene Vorkommen aus dem Original
+
+Hast du der `deposits.ini` des Originals eigene Vorkommen hinzugefügt, übernimmt Deposits Plus sie einmalig: mit derselben Typnummer und demselben Token, damit deine Spielstände weiter passen. Die vier Standard-Vorkommen (copper, sand, clay, gas) bringt Deposits Plus selbst mit.
+
+- **Mit Republic Mod Manager** (ab Version 0.6.7): Auf der Seite Deposits Plus stehen sie als deine eigenen Vorkommen, ein Hinweis nennt sie. Mit dem nächsten Speichern sind sie übernommen.
+- **Ohne Republic Mod Manager:** Beim ersten Spielstart legt das Plugin `tesmioloader\plugins\deposits_plus.ini` an: die mitgelieferte Liste plus deine Vorkommen. Ab dann zählt diese Datei. Neue Standardwerte aus einem Steam-Update kommen erst wieder an, wenn du einmal im Republic Mod Manager speicherst; deine Vorkommen bleiben dabei erhalten.
+- Gesucht wird die `deposits.ini` in `tesmioloader\plugins`, sonst neben der DLL des Originals im Workshop-Ordner: im Paketordner selbst, in dessen Ordner `plugins` oder in einem Unterordner davon.
+- Ist die Typnummer oder das Token eines Vorkommens schon vergeben, wird es nicht übernommen; das Protokoll und die Seite im Republic Mod Manager nennen es.
+- Löschst du ein übernommenes Vorkommen später, kommt es nicht wieder.
 
 ---
 
@@ -520,7 +510,7 @@ Ist `plugins\deposits.dll` vorhanden und in tesmioloader.ini eingeschaltet:
 Beim Kopieren oder Sichern **immer den kompletten Spielstandordner nehmen**:
 ```
 MeinSpiel\
-├── dds\                    (Terrain und Karten)
+├── resourcemap*.dds        (Karten der Vorkommen)
 ├── buildings.bin
 ├── ...
 └── tesmio_deposits.bin     (← nicht vergessen)
@@ -530,8 +520,15 @@ MeinSpiel\
 
 - **Innerhalb der 0.4-Reihe:** Updates übernehmen Spielstände und `tesmio_deposits.bin` automatisch; Typnummern, Kartenplätze und Token laufender Spielstände bleiben tabu (siehe oben)
 - **Mit Deposit Depletion:** funktioniert weiter wie immer, der Schlüssel `deplete` wird an das Plugin depletion durchgereicht
-- **Mit Soviet Mod Loader:** SML bringt Vorkommen selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Deposits Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv")
-- **0.4.10:** Sicherheitsrunde ohne neue Funktion: die Zusatzkarten werden erst eingehängt, wenn der Typ-Patch steht; der Geländeeditor-Overlay und der Pinsel stellen ihren Zustand auch nach einem Fehler wieder her und schalten sich ab; die Zusatzkarten-Tabelle wird unter dem Lock gelesen; eine leere DDS-Datei, die nicht vollständig geschrieben werden konnte, wird mit Fehlercode gemeldet und entfernt; `building_type` muss 7 oder 92 sein und `minimap` 0 oder 1, sonst WARN und Standardwert; die Kopfzeilen der Spiel-EXE werden vor dem Lesen geprüft. Im RMM: höchstens 32 Vorkommen und 16 Sand-Kacheln (die Grenzen des Plugins), die Karte „Natürliche Verteilung“ liegt jetzt auf dem Reiter Allgemein
+- **Mit Soviet Mod Loader:** SML bringt Vorkommen selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Deposits Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- **0.4.17:** Der Spielstart ist schneller, wenn du viele Workshop-Objekte abonniert hast: Die `deposits.ini` des Originals wird nur noch dort gesucht, wo ein Paket seine Plugins ablegt, nicht mehr im ganzen Workshop-Ordner
+- **0.4.16:** Ein Pinsel ohne eigene Bilder zeigt jetzt wirklich ein Bild aus dem Grundspiel; vorher erschien das Bild des Pinsels davor. Ein Pinsel, dessen Vorkommen keine Ressource nennt, heißt jetzt wie das Vorkommen statt „Bauxit“
+- **0.4.15:** Eigene Vorkommen aus der `deposits.ini` des Originals werden einmalig übernommen, mit derselben Typnummer und demselben Token (siehe „Eigene Vorkommen aus dem Original“)
+- **0.4.14:** Die Pinsel-Bilder für sand, clay, gas und copper liegen jetzt im Paket. Fehlt eines im Loader-Ordner unter `vfs\media_soviet\editor`, kopiert das Plugin es beim Spielstart dorthin; ein Bild, das dort schon liegt, bleibt unangetastet. Dazu aufgeräumte Protokolltexte
+- **0.4.13:** Aus dem Workshop geladen, findet das Plugin seine Vorkommen jetzt auch ohne Republic Mod Manager: Liegt keine `tesmioloader\plugins\deposits_plus.ini`, liest es die INI neben seiner DLL
+- **0.4.12:** Neuer Schlüssel `legacy_adopt_min_cells` (Standard 500): Beim ersten Laden eines Spielstands aus dem Original-Plugin deposits zählt ein alter Sandkanal mit nur wenigen verstreuten Zellen als leer, und Sand wird wie auf einer neuen Karte verteilt. Vorher blieb so ein Spielstand ohne Sand
+- **0.4.11:** Für WRSR 1.1.1.13. Das Plugin erkennt das Original deposits jetzt auch, wenn es aus dem Workshop-Ordner geladen wird, und bleibt dann untätig
+- **0.4.10:** Sicherheitsrunde ohne neue Funktion: die Zusatzkarten werden erst eingehängt, wenn der Typ-Patch steht; der Geländeeditor-Overlay und der Pinsel stellen ihren Zustand auch nach einem Fehler wieder her und schalten sich ab; die Zusatzkarten-Tabelle wird unter dem Lock gelesen; eine leere DDS-Datei, die nicht vollständig geschrieben werden konnte, wird mit Fehlercode gemeldet und entfernt; `building_type` muss 7 oder 92 sein, sonst wird das Vorkommen abgewiesen; `minimap` muss 0 oder 1 sein, sonst WARN und Standardwert; die Kopfdaten der Engine-DLL des Spiels werden vor dem Lesen geprüft. Im RMM: höchstens 32 Vorkommen und 16 Sand-Kacheln (die Grenzen des Plugins), die Karte „Natürliche Verteilung“ liegt jetzt auf dem Reiter Allgemein
 - **0.4.9:** Die Bremse gegenüber Soviet Mod Loader greift auch dann, wenn Deposits Plus vor SML geladen wird (lokale Kopie in `plugins`, alphabetische Reihenfolge): es reicht, dass `plugins\soviet_mod_loader.dll` liegt und in der `tesmioloader.ini` eingeschaltet ist.
 - **0.4.8:** Das Plugin tritt unter Soviet Mod Loader von selbst zur Seite
 - **0.4.7:** Der Pinselname darf jetzt bis zu 31 Zeichen lang sein. Bestehende Namen und die zwei PNG-Dateien bleiben, wie sie sind
@@ -553,7 +550,7 @@ MeinSpiel\
 ### Logging
 
 Alle Meldungen stehen in `tesmioloader.log`.
-- In **Republic Mod Manager** öffnet das Symbol mit dem Dokument unten in der Plugin-Leiste die Protokollansicht mit Filter und Absender.
+- In **Republic Mod Manager** öffnet das Protokoll-Symbol in der Seitenleiste die Protokollansicht mit Filter und Absender.
 
 Suche nach:
 - `generation` → Verteilung
@@ -565,46 +562,45 @@ Suche nach:
 
 ## 📦 Dateistruktur
 
-**Workshop-Paket** (Steam-Abo, SML, Workshop Bridge)
+**Workshop-Paket** (Steam-Abo)
 ```
-deposits_plus\
-├── hooks\
+<Workshop-Objekt>\
+├── plugins\
 │   ├── deposits_plus.dll           (Plugin)
 │   ├── deposits_plus.ini           (Original-INI)
-│   └── deposits_plus\assets\       (Texturen der sandigen Wiese)
-│       ├── Vanilla\                (sand_meadow_*.dds)
-│       ├── Siberia\                (sand_meadow_siberia_*.dds, sand_meadow_autumn_siberia_*.dds)
-│       ├── Asia - Jungle\          (sand_meadow_jungle_*.dds)
-│       └── Ultimate Vanilla +\     (sand_meadow_*_ultimatevanilla.dds)
+│   ├── deposits_plus\assets\       (Texturen der sandigen Wiese)
+│   │   ├── Vanilla\                (sand_meadow_*.dds)
+│   │   ├── Siberia\                (sand_meadow_siberia_*.dds, sand_meadow_autumn_siberia_*.dds)
+│   │   ├── Asia - Jungle\          (sand_meadow_jungle_*.dds)
+│   │   └── Ultimate Vanilla +\     (sand_meadow_*_ultimatevanilla.dds)
+│   └── deposits_plus\editor\       (Pinsel-Bilder: tool_paint_<name>.png, tool_erase_<name>.png)
 ├── config\                         (Editor-Schema für Republic Mod Manager)
 │   ├── deposits_plus.launcher.ini
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (Manifest für SML, Bridge und Republic Mod Manager)
+├── rmm.mod.ini                     (Manifest für Republic Mod Manager)
 ├── workshopconfig.ini              (Steam-Workshop-Eintrag)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 ├── README_EN.md
 └── THIRD-PARTY-LICENSE.txt         (Lizenz des enthaltenen Shader-Compiler-Codes)
 ```
 
-**Loader-Ordner** (Methode 1 von Hand oder „Dateien nur lokal“)
+**Loader-Ordner** (nur bei Methode 2 oder mit Republic Mod Manager)
 ```
-tesmioloader\build\
+<Spiel>\tesmioloader\
 ├── plugins\
-│   ├── deposits_plus.dll
+│   ├── deposits_plus.dll           (nur bei Methode 2)
 │   ├── deposits_plus.ini           (wirksame INI)
-│   └── deposits_plus\assets\
-│       ├── Vanilla\
-│       ├── Siberia\
-│       ├── Asia - Jungle\
-│       └── Ultimate Vanilla +\
+│   └── deposits_plus\              (assets und editor, nur bei Methode 2)
+├── vfs\media_soviet\editor\        (Pinsel-Bilder; das Plugin kopiert fehlende beim Spielstart)
 └── user_config\
     └── deposits_plus.editor.ini    (persönliche Werte aus Republic Mod Manager)
 ```
 
-Über die Bridge oder SML liegt in `plugins` nur die wirksame INI, DLL und Texturen bleiben im Paket.
+Aus dem Workshop geladen, bleiben DLL und Texturen im Paket; in `tesmioloader\plugins` liegt dann nur die wirksame INI, sobald du im Republic Mod Manager gespeichert hast.
 
 ---
 
@@ -622,7 +618,7 @@ tesmioloader\build\
 A: Nein. Nur das Original ODER Deposits Plus. Ist das Original eingeschaltet, bleibt Deposits Plus untätig.
 
 **F: Verliere ich meine Spielstände?**
-A: Nein. Alte Spielstände funktionieren weiter. Beim ersten Laden wird `tesmio_deposits.bin` angelegt.
+A: Nein. Alte Spielstände funktionieren weiter. Beim ersten Speichern danach wird `tesmio_deposits.bin` angelegt.
 
 **F: Kann ich die Verteilung später noch ändern?**
 A: Ja, aber nur noch nicht verteilte Vorkommen werden verteilt. Vorhandene Felder bleiben bestehen.
@@ -638,5 +634,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung, prüft 
 
 ---
 
-**Letzte Aktualisierung:** Deposits Plus 0.4.10  
-**Für:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Letzte Aktualisierung:** Deposits Plus 0.4.17  
+**Für:** WRSR 1.1.1.13 | TesmioLoader API 4

@@ -66,13 +66,15 @@ namespace TesmioAutoload
     // A button that opens a file of the package (its README) with the file's own
     // application; Language limits it to one UI language.
     public sealed class LinkSpec { public string Id, File, Label, Language = ""; public int Order; }
-    // 0.4.53: a labelled row with one button that runs a command of the manager (bridge_prune).
+    // A labelled row with one button that runs a command of the manager. No command exists at
+    // the moment (Presentation.KnownCommands), so a schema that names one is refused.
     public sealed class ActionSpec { public string Id, Group, Label, Description, Button, Command; public int Order; }
     // 0.4.56: the subfolders of one or more paths as rows - name, a short text from the language file
     // (<DescriptionPrefix>.<folder>), and where the folder lives (package / local / both).
     public sealed class FolderListSpec { public string Id, Group, DescriptionPrefix, Note; public string[] Paths; public int Order; }
     public sealed class Presentation
     {
+        public static readonly string[] KnownCommands = new string[0];
         public string Description, Icon, EnabledField, DefaultTab;
         public readonly List<LinkSpec> Links = new List<LinkSpec>();
         public string LinksTab = "", LinksLabel = "", LinksRoot = "."; string schemaDirectory = "";
@@ -143,7 +145,9 @@ namespace TesmioAutoload
             meta = package.Schema;
             if (meta.Get("launcher", "layout_version", "1") != "1") throw new FormatException(Msg.Key("err_unsupported_presentation_layout_version"));
             string directory = meta.Get("launcher", "language_directory", "");
-            english = Translation(package.Root, directory, "en"); selected = Translation(package.Root, directory, language.Code);
+            // A schema from settings_schemas keeps its language files beside itself, not in the package.
+            string home = package.LocalSchemaPath.Length > 0 ? Path.GetDirectoryName(package.LocalSchemaPath) : package.Root;
+            english = Translation(home, directory, "en"); selected = Translation(home, directory, language.Code);
             Description = Lines(Text("launcher", "description", "")); Icon = meta.Get("launcher", "icon", "builtin:gear");
             Notice = Lines(Text("launcher", "notice", "")); NoticeStyle = meta.Get("launcher", "notice_style", "info");
             Info = Lines(Text("launcher", "info", ""));
@@ -164,7 +168,7 @@ namespace TesmioAutoload
             foreach (string s in meta.Sections.Where(s => s.StartsWith("action:", StringComparison.OrdinalIgnoreCase)))
             {
                 var action = new ActionSpec { Id = s.Substring(7), Group = meta.Get(s, "group", "settings"), Label = Text(s, "label", s.Substring(7)), Description = Lines(Text(s, "description", "")), Button = Text(s, "button", s.Substring(7)), Command = meta.Get(s, "command", "").Trim().ToLowerInvariant(), Order = Order(s) };
-                if (action.Command != "bridge_prune") throw new FormatException(Msg.Key("err_unbekannte_aktion", s));
+                if (!KnownCommands.Contains(action.Command)) throw new FormatException(Msg.Key("err_unbekannte_aktion", s));
                 Actions.Add(action);
             }
             foreach (string s in meta.Sections.Where(s => s.StartsWith("group:", StringComparison.OrdinalIgnoreCase)))

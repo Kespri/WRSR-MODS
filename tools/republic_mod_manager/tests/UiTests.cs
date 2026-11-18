@@ -34,7 +34,7 @@ static class UiTests
             if(args.Length!=2)return 2;string source=Path.GetFullPath(args[0]),root=Path.GetFullPath(args[1]);if(Directory.Exists(root))throw new IOException("Use a fresh UI test directory.");
             string collection=Path.Combine(root,"workshop"),package=Path.Combine(collection,"fixture_vehicle_materials"),loader=Path.Combine(root,"build");CopyTree(source,package);
             string simple=MakeSimplePackage(collection,Path.Combine(package,"hooks","vehicle_materials.dll"));string unsupported=Path.Combine(collection,"9876543210");Write(Path.Combine(unsupported,"soviet.mod.ini"),"[mod]\nid=example.other\nname=ZZ Other Mod\nversion=1.0\n[hooks]\ndll=one.dll\ndll=two.dll\n");
-            string plugins=Path.Combine(loader,"plugins"),resourceIni=Path.Combine(plugins,"resources.ini"),resourceDll=Path.Combine(plugins,"resources.dll");Directory.CreateDirectory(plugins);File.WriteAllBytes(resourceDll,new byte[]{1,2,3});string needsDll=Path.Combine(plugins,"needs.dll");File.WriteAllBytes(needsDll,new byte[]{9,8,7});Write(Path.Combine(plugins,"needs.ini"),"[list]\nfurniture = eletronics, 1.0, advanced, 0.35, 0.010\nmedicine = eletronics, 0.5, none, 0.30, 0.008\n[needs]\nenabled = 1\ndemand = 1\nstorage = 1\nmax_demands = 7\nwhen_full = skip\nprobe = 1\nlog_seconds = 60\n");string needsDllHash=SafeFiles.HashFile(needsDll);string depositsDll=Path.Combine(plugins,"deposits.dll");File.WriteAllBytes(depositsDll,new byte[]{5,5,5});Write(Path.Combine(plugins,"deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n[copper]\ntoken = $TYPE_MINE_COPPER\ntype = 10\nmap = resourcemap2\ncomponent = 3\nradius = ore\nicon = copper_ore\nminimap = 1\neditor = copper\n[sand]\ntoken = $TYPE_MINE_SAND\ntype = 11\nmap = terrain\ncomponent = 1\nradius = gravel\nicon = sand\nminimap = 1\neditor = sand\n");string depositsDllHash=SafeFiles.HashFile(depositsDll);File.WriteAllBytes(Path.Combine(plugins,"buildings_plus.dll"),new byte[]{4,4,4});Write(Path.Combine(plugins,"buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n\n[example]\ndonor = shop_clothes\nobject = Pharmacy\nname = Pharmacy\n");
+            string plugins=Path.Combine(loader,"plugins"),resourceIni=Path.Combine(plugins,"resources.ini"),resourceDll=Path.Combine(plugins,"resources.dll");Directory.CreateDirectory(plugins);File.WriteAllBytes(resourceDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));string needsDll=Path.Combine(plugins,"needs.dll");File.WriteAllBytes(needsDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"needs.ini"),"[list]\nfurniture = eletronics, 1.0, advanced, 0.35, 0.010\nmedicine = eletronics, 0.5, none, 0.30, 0.008\n[needs]\nenabled = 1\ndemand = 1\nstorage = 1\nmax_demands = 7\nwhen_full = skip\nprobe = 1\nlog_seconds = 60\n");string needsDllHash=SafeFiles.HashFile(needsDll);string depositsDll=Path.Combine(plugins,"deposits.dll");File.WriteAllBytes(depositsDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n[copper]\ntoken = $TYPE_MINE_COPPER\ntype = 10\nmap = resourcemap2\ncomponent = 3\nradius = ore\nicon = copper_ore\nminimap = 1\neditor = copper\n[sand]\ntoken = $TYPE_MINE_SAND\ntype = 11\nmap = terrain\ncomponent = 1\nradius = gravel\nicon = sand\nminimap = 1\neditor = sand\n");string depositsDllHash=SafeFiles.HashFile(depositsDll);File.WriteAllBytes(Path.Combine(plugins,"buildings_plus.dll"),File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n\n[example]\ndonor = shop_clothes\nobject = Pharmacy\nname = Pharmacy\n");
             Write(resourceIni,"[list]\nglass=aluminium, Glass\ncable=steel, Cable\nsand=bauxite, Sand\n[resources]\nhook=2\n");Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nresources=1\nneeds=1\ndeposits=1\nvehicle_materials=1\nsample_plugin=1\n");
             string resourcesHash=SafeFiles.HashFile(resourceIni),resourceDllHash=SafeFiles.HashFile(resourceDll),profile=Path.Combine(root,"ui-state.ini");var defaults=new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=package,Language="de"};var notes=new List<string>();var store=new UiStateStore(profile);
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
@@ -42,9 +42,9 @@ static class UiTests
             using(var form=new MainForm(store.Load(defaults,notes),store,true))
             {
                 HiddenShow(form);
-                // Three Workshop packages from the fixture plus every keyed editor schema that ships next to rmm.exe; the local count follows settings_schemas, so adding or leaving out a schema (the public repo has fewer) does not break the test.
-                int localEditors=Catalog.ScanLocalEditors(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings_schemas"),new List<string>()).Count;
-                Check(localEditors>=6&&form.ModCount==3+localEditors,"startup lists the three Workshop packages and every schema-driven local editor ("+localEditors+" found next to rmm.exe, at least Resources, Resources Plus, Needs, Needs Plus, Deposits and Buildings Plus)");
+                // Three Workshop packages from the fixture plus the keyed editors whose plugin the loader finds: a schema next to rmm.exe without its DLL is not listed, so the count follows the fixture's plugins folder.
+                int localEditors=Catalog.ScanLocalEditors(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings_schemas"),new List<string>()).Count(e=>File.Exists(Path.Combine(plugins,e.Key+".dll")));
+                Check(localEditors==4&&form.ModCount==3+localEditors,"startup lists the three Workshop packages and the keyed editors of the plugins that are there ("+localEditors+": Resources, Needs, Deposits and Buildings Plus; "+form.ModCount+" entries)");
                 Check(form.SelectedSource==package&&form.HasEditor,"remembered package opens directly without package-specific code");
                 Check(form.TabCount==4&&form.ActionCount==3,"tabs come from schema and footer keeps exactly three actions");
                 Check(form.DisplayedValue("resources/count")=="0"&&form.DisplayedValue("general/enabled")=="0","Vehicle Materials starts disabled with an empty user-owned collection");Check(form.SwitchVisible&&!form.SwitchChecked&&form.SwitchNote.Contains("tesmioloader.ini"),"single plugin switch shows off while the INI switch is 0");
@@ -78,8 +78,9 @@ static class UiTests
                 Check(form.IsDirty&&form.StatusText=="Ungespeicherte Änderungen"&&form.SaveEnabled&&form.HeadingText.EndsWith(" *"),"unsaved state shows the amber heading, the primary save button and the heading mark (0.4.51)");Check(form.SwitchChecked,"single plugin switch follows the INI switch");
                 form.TestCommit(()=>{});string user=Path.Combine(loader,"user_config","vehicle_materials.ini");Ini saved=new Ini(SafeFiles.Text(user));Check(saved.Get("resources","count")=="1"&&saved.Get("resources","resource0")=="sand"&&saved.Get("airplane","sand")=="0.003","save persists empty-package collection entirely as personal data");
                 form.TestEdit("road/sand","0.0200");Check(!form.IsDirty,"numeric formatting-only edit is not reported as a change");
-                form.TestEdit("road/sand","0.021");Check(form.TestApply(()=>{}),"generic Save deploys DLL and effective INI");
-                Check(new Ini(SafeFiles.Text(Path.Combine(plugins,"vehicle_materials.ini"))).Get("road","sand")=="0.021"&&form.Activity(package),"activity light follows manifest target and enabled field");
+                form.TestEdit("road/sand","0.021");Check(form.TestApply(()=>{}),"generic Save writes the personal values");
+                Check(new Ini(SafeFiles.Text(user)).Get("road","sand")=="0.021"&&!File.Exists(Path.Combine(plugins,"vehicle_materials.ini"))&&!File.Exists(Path.Combine(plugins,"vehicle_materials.dll")),"nothing of a Workshop plugin is copied into plugins");
+                Check(form.Activity(package),"activity light follows the loader entry and the personal value of the enabled field");
                 form.SelectTab("resources");Check(Children(form).OfType<VectorButton>().Count(x=>x.Symbol=="trash")==1,"user-owned item receives a delete button");
                 string question="";form.ResourceRemovePrompt=text=>{question=text;return DialogResult.Cancel;};Check(!form.TestRemoveResource("sand")&&question.Contains("sand"),"delete confirmation names item and honours Cancel");
                 form.ResourceRemovePrompt=text=>DialogResult.OK;Check(form.TestRemoveResource("sand")&&form.DisplayedValue("resources/count")=="0"&&form.DisplayedValue("road/sand")==null,"confirmed delete removes list item and every target value");
@@ -88,20 +89,32 @@ static class UiTests
                 Check(!form.IsDirty&&!form.SaveEnabled&&form.StatusText=="Konfiguration gültig"&&!form.HeadingText.EndsWith(" *"),"after the commit the heading mark and the save emphasis are gone (0.4.51)");
 
                 form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();Check(form.SelectedSource==simple&&form.HasEditor&&form.TabCount==1&&form.DisplayedValue("general/limit")=="5","unrelated second plugin renders from its own schema");
-                form.TestEdit("general/limit","7");Check(form.TestApply(()=>{})&&new Ini(SafeFiles.Text(Path.Combine(plugins,"sample_plugin.ini"))).Get("general","limit")=="7","unrelated plugin saves to its manifest-derived filename");
+                form.TestEdit("general/limit","7");Check(form.TestApply(()=>{})&&new Ini(SafeFiles.Text(Path.Combine(loader,"user_config","sample_plugin.ini"))).Get("general","limit")=="7"&&!File.Exists(Path.Combine(plugins,"sample_plugin.ini")),"unrelated plugin saves its values under the name of its DLL in user_config");
                 Check(form.SwitchVisible&&form.SwitchChecked&&form.SwitchNote.Contains("tesmioloader.ini"),"installed plugin shows the single plugin switch on");
                 form.TestSwitch(false);Check(!form.SwitchChecked&&form.DisplayedValue("general/enabled")=="1"&&form.TestApply(()=>{})&&new Ini(SafeFiles.Text(Path.Combine(loader,"tesmioloader.ini"))).Get("plugins","sample_plugin")=="0","switching off writes only the loader entry and leaves the INI switch alone");
                 form.TestSwitch(true);Check(form.SwitchChecked&&form.TestApply(()=>{})&&new Ini(SafeFiles.Text(Path.Combine(loader,"tesmioloader.ini"))).Get("plugins","sample_plugin")=="1","switching on restores the loader entry");
                 form.TestEdit("general/enabled","0");Check(!form.SwitchChecked,"an INI switch set to 0 shows the header switch off although the loader entry is on");form.TestSwitch(true);Check(form.SwitchChecked&&form.DisplayedValue("general/enabled")=="1","switching on sets the INI switch back to 1");form.TestApply(()=>{});
                 Check(SafeFiles.HashFile(resourceIni)==resourcesHash,"ordinary plugin operations leave the Resources provider INI byte-for-byte unchanged");
                 form.TestSearch("Resources");form.SelectIndex(0);Application.DoEvents();Check(form.HasLocalResourceEditor&&form.LocalResourceCount==3&&form.Activity(form.SelectedSource),"local Resources editor is discovered from its launcher schema and shows the provider list");
-                Check(Children(form).OfType<Card>().Single().HeaderText=="Ressourcendefinitionen"&&!Children(form).OfType<VectorButton>().Any(x=>x.Symbol=="trash")&&Children(form).OfType<ResourceDefinitionList>().Count()==1,"selected original resource has a lock-aware master list and no delete action");
+                Check(Children(form).OfType<Card>().Single().HeaderText=="Ressourcendefinitionen"&&Children(form).OfType<VectorButton>().Count(x=>x.Symbol=="trash")==1&&Children(form).OfType<VectorButton>().Single(x=>x.Symbol=="trash").AccessibleName=="Original-Ressource ausblenden"&&Children(form).OfType<ResourceDefinitionList>().Count()==1,"selected original resource has a lock-aware master list and a bin that hides it, not deletes (0.6.8)");
                 // 0.5.19: the record's fields are grouped under five headings (transport, record prices, market, cargo, fixed prices).
                 {var heads=Children(form).OfType<Label>().Where(x=>(x.AccessibleName??"").StartsWith("heading:")).Select(x=>x.AccessibleName.Substring(8)).ToList();Check(heads.Count==5&&heads[0]=="Transport und Preisart"&&heads[4]=="Feste Preise","the resource detail area shows the five schema headings in order: "+String.Join(" | ",heads));}
                 {int[] before=form.TestCardWidths();int wide=form.TestContentWidth;form.TestDeferredRebuild();Application.DoEvents();Application.DoEvents();int[] after=form.TestCardWidths();Check(after.Length==before.Length&&after.All(w=>w>=wide-28)&&before.All(w=>w>=wide-28),"a deferred rebuild (dropdown path) keeps every card at full width: "+String.Join(",",after)+" of "+wide+" (before "+String.Join(",",before)+"; content "+form.TestContentSize+")");}
                 form.TestAddLocalResource("hydrogen","custom","Hydrogen","oil");form.TestSetLocalField("hydrogen","kind","1");form.TestSetLocalField("hydrogen","pinned_base_price","180, 150");form.TestSetLocalField("hydrogen","forced_price","200, 175");var localEffective=new LooseIni(form.LocalEffective());Check(form.LocalResourceCount==4&&form.TestLocalOwned("hydrogen")&&localEffective.Get("custom:hydrogen","transport")=="oil"&&localEffective.Get("base_price","hydrogen")=="180, 150"&&localEffective.Get("price","hydrogen")=="200, 175","master-detail editor generates custom and keyed price entries for a personal resource");
                 Check(Children(form).OfType<VectorButton>().Any(x=>x.Symbol=="trash"&&x.Danger),"personal resource receives the red delete action");Check(form.TestSaveLocal(()=>{})&&SafeFiles.HashFile(resourceDll)==resourceDllHash,"Resources settings save without replacing the provider DLL");
                 string warning="";form.ResourceRemovePrompt=text=>{warning=text;return DialogResult.Cancel;};form.TestRemoveLocalResource("hydrogen");Check(form.LocalResourceCount==4&&warning.Contains("Spielstand"),"resource deletion warns about saved-game compatibility and honours Cancel");form.ResourceRemovePrompt=text=>DialogResult.OK;form.TestRemoveLocalResource("hydrogen");Check(form.LocalResourceCount==3&&form.TestSaveLocal(()=>{}),"confirmed deletion removes only the personal resource and saves the clean overlay");
+                // 0.6.8: an original resource can be hidden; a button below the list brings it back.
+                {string hideWarning="";form.ResourceRemovePrompt=text=>{hideWarning=text;return DialogResult.Cancel;};form.TestRemoveLocalResource("cable");Check(form.LocalResourceCount==3&&hideWarning.Contains("nicht mehr laden")&&hideWarning.Contains("cable"),"hiding an original resource warns that saves no longer load and honours Cancel");
+                string[] hideLines=hideWarning.Split('\n');int alertAt=Array.FindIndex(hideLines,x=>x.StartsWith(MessageWindow.Alert));Check(hideLines.Length>=5&&hideLines[0].StartsWith(MessageWindow.Bold)&&hideLines[0].Contains("cable")&&alertAt>=4&&hideLines[alertAt-1].Length==0&&hideLines[alertAt].Contains("cable"),"the question is the bold first paragraph, the save warning a red one after an empty line, both name the resource");
+                Check(MessageWindow.Marked(hideWarning)&&!MessageWindow.Marked("plain text\nsecond line")&&!MessageWindow.Plain(hideWarning).Contains("[b]")&&!MessageWindow.Plain(hideWarning).Contains("[!]")&&MessageWindow.Plain("a [b] inside")=="a [b] inside","paragraph marks are recognised only at the start of a line and can be stripped");
+                form.ResourceRemovePrompt=text=>DialogResult.OK;form.TestRemoveLocalResource("cable");var hiddenDoc=new LooseIni(form.LocalEffective());Check(form.LocalResourceCount==2&&form.LocalHidden().Contains("cable")&&hiddenDoc.Get("list","cable")==null&&hiddenDoc.Get("list","sand")!=null,"the hidden original leaves the effective list, the others stay");
+                Check(Children(form).OfType<Button>().Any(x=>x.AccessibleName=="unhide:cable"),"and is offered below the list");
+                Children(form).OfType<Button>().Single(x=>x.AccessibleName=="unhide:cable").PerformClick();Application.DoEvents();Check(form.LocalResourceCount==3&&form.LocalHidden().Count==0&&new LooseIni(form.LocalEffective()).Get("list","cable")!=null,"the button shows it again");}
+                // 0.6.12: a resource that a building still names is neither hidden nor removed; the note lists the building.
+                {string shedRoot=Path.Combine(root,"media_soviet"),shed=Path.Combine(shedRoot,"workshop_wip","3790000077","Shed");Directory.CreateDirectory(shed);File.WriteAllText(Path.Combine(shed,"building.ini"),"$NAME_STR \"Sand Shed\"\r\n$CONSUMPTION sand 1.0\r\n");
+                string blocked="";bool asked=false;form.ResourceBlockedNote=text=>blocked=text;form.ResourceRemovePrompt=text=>{asked=true;return DialogResult.Cancel;};form.TestRemoveLocalResource("sand");
+                Check(!asked&&form.LocalResourceCount==3&&form.LocalHidden().Count==0&&blocked.StartsWith(MessageWindow.Bold)&&blocked.Contains("sand")&&blocked.Contains("3790000077")&&blocked.Split('\n').Any(x=>x.StartsWith(MessageWindow.Alert)),"a resource that a building folder still names is not hidden, and the note names the folder ["+blocked.Replace("\n"," / ")+"]");
+                Directory.Delete(shedRoot,true);form.TestRemoveLocalResource("sand");Check(asked&&form.LocalResourceCount==3,"with the folder gone the usual question comes again");form.ResourceBlockedNote=null;form.ResourceRemovePrompt=null;}
                 using(var image=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(image,new Rectangle(0,0,form.Width,form.Height));image.Save(Path.Combine(root,"ui-resource-master-detail.png"));}
                 // 0.4.36: below 600 px of detail width the captions move above the inputs; wide again afterwards.
                 form.TestSearch("Deposits");form.SelectIndex(0);Application.DoEvents();form.SelectTab("deposits");Application.DoEvents();
@@ -139,9 +152,17 @@ static class UiTests
                 string wipFolder=Path.Combine(root,"media_soviet","workshop_wip","9188000001"),wipConfig=Path.Combine(wipFolder,"workshopconfig.ini");
                 Write(Path.Combine(wipFolder,"tesmioloader.stamp"),"tesmioloader plugins\\buildings.dll generated this folder.\r\nsection=salt_mine donor=bauxite_mine\r\nhash=1\r\n");
                 Write(wipConfig,"$ITEM_ID 9188000001\r\n\r\n$OWNER_ID 0\r\n\r\n$OBJECT_BUILDING SaltMine\r\n\r\n$ITEM_NAME \"Salt Mine\"\r\n\r\n$END\r\n");
-                WipBuildings.TestOwner="76561198017498697";
+                WipBuildings.TestOwner="76561198000012345";
                 form.TestSearch("Buildings Plus");form.SelectIndex(0);Application.DoEvents();
-                Check(form.HasLocalResourceEditor&&form.TabCount==3,"Buildings Plus opens with General, Buildings and the SML buildings tab");
+                Check(form.HasLocalResourceEditor&&form.TabCount==3,"Buildings Plus opens with General, Buildings and the generated-buildings tab");
+                // 0.6.13: a building hidden on this page takes its generated folder out of workshop_wip with the save, and the window says so.
+                {string made=Path.Combine(root,"media_soviet","workshop_wip","9300000007");Write(Path.Combine(made,"tesmioloader.stamp"),"buildings_plus generated this folder.\r\nsection=example donor=shop_clothes object=Pharmacy\r\nhash=7\r\n");Write(Path.Combine(made,"Pharmacy","building.ini"),"$NAME_STR \"Pharmacy\"\r\n");
+                form.ResourceRemovePrompt=text=>DialogResult.OK;form.TestRemoveLocalResource("example");bool savedHidden=form.TestSaveLocal(()=>{});
+                Check(savedHidden&&!Directory.Exists(made)&&File.Exists(Path.Combine(WipBuildings.ParkRoot(loader),"9300000007","Pharmacy","building.ini"))&&form.LastParkingNote.Contains("9300000007"),"hiding a building parks its generated folder and reports it ["+form.LastParkingNote+"]");
+                form.SelectTab("buildings");Application.DoEvents();
+                {var again=Children(form).OfType<Button>().FirstOrDefault(x=>x.AccessibleName=="unhide:example");Check(again!=null,"the hidden building is offered again on the card list [hidden: "+String.Join(",",form.LocalHidden())+"; buttons: "+String.Join(",",Children(form).OfType<Button>().Select(x=>x.AccessibleName??"").Where(x=>x.StartsWith("unhide")))+"]");if(again!=null)again.PerformClick();Application.DoEvents();}
+                Check(form.TestSaveLocal(()=>{})&&form.LastParkingNote.Length==0&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"buildings_plus.ini"))).HasSection("example"),"shown again and saved, the section is back and nothing is parked");form.ResourceRemovePrompt=null;
+                form.TestSearch("Buildings Plus");form.SelectIndex(0);Application.DoEvents();}
 
                 // 0.5.8: the Buildings tab is a card list - one row per building with its own
                 // switch, a state line and the buttons; the fields moved into the dialog.
@@ -258,13 +279,13 @@ static class UiTests
                 form.CardDialogPrompt=dialog=>DialogResult.Cancel;
                 addButton.PerformTestClick();Application.DoEvents();form.CardDialogPrompt=null;
                 Check(!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="card:edit:new_entry"),"Cancel leaves no half-made entry behind");
-                form.SelectTab("sml");Application.DoEvents();
-                Check(Children(form).OfType<Card>().Single().HeaderText.StartsWith("Von Soviet Mod Loader")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("9188000001")&&x.Text.Contains("SaltMine")),"the SML tab lists the generated folder with id, object and origin");
-                Check(Children(form).OfType<Label>().Any(x=>x.Text=="Salt Mine")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("kein Paket mehr")),"the name comes from the folder, and a folder no package declares is reported as stale");
+                form.SelectTab("generated");Application.DoEvents();
+                Check(Children(form).OfType<Card>().Single().HeaderText.StartsWith("Erzeugte Gebäude")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("9188000001")&&x.Text.Contains("SaltMine")),"the generated-buildings tab lists the generated folder with id, object and origin");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text=="Salt Mine"),"the name comes from the folder");
                 var fixOwner=Children(form).OfType<Button>().FirstOrDefault(x=>(x.AccessibleName??"")=="wip:fix-owner");
                 Check(fixOwner!=null,"a missing owner id offers the fill-in button");
                 fixOwner.PerformClick();Application.DoEvents();
-                Check(SafeFiles.Text(wipConfig).Contains("$OWNER_ID 76561198017498697")&&SafeFiles.Text(wipConfig).Contains("$ITEM_NAME \"Salt Mine\"")&&!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="wip:fix-owner"),"the button writes the owner, leaves the rest of the file alone and then has nothing left to do");
+                Check(SafeFiles.Text(wipConfig).Contains("$OWNER_ID 76561198000012345")&&SafeFiles.Text(wipConfig).Contains("$ITEM_NAME \"Salt Mine\"")&&!Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="wip:fix-owner"),"the button writes the owner, leaves the rest of the file alone and then has nothing left to do");
                 Check(File.Exists(Path.Combine(wipFolder,"tesmioloader.stamp")),"the stamp of the other generator is never touched");
 
                 // 0.5.5 step 3: personal changes to the generated building.ini, kept as operations.
@@ -272,7 +293,7 @@ static class UiTests
                 // The game aligns its values with runs of spaces; the fixture does the same, so the
                 // change list is measured the way it really looks.
                 Write(wipBuilding,"; generated by tesmioloader plugins\\buildings.dll\r\n$NAME_STR \"Salt Mine\"\r\n$TYPE_FACTORY\r\n$WORKERS_NEEDED 10\r\n$CONSUMPTION eletric                0.250\r\n$PRODUCTION rocksalt              3.000\r\n");
-                form.SelectTab("sml");Application.DoEvents();
+                form.SelectTab("generated");Application.DoEvents();
                 Check(Children(form).OfType<Button>().Any(x=>(x.AccessibleName??"")=="wip:edit:9188000001"),"every building offers the Change button");
                 form.TestWipEdit("9188000001",window=>
                 {
@@ -297,7 +318,7 @@ static class UiTests
                 // back in and keeps what the package changed.
                 Write(wipBuilding,"; generated by tesmioloader plugins\\buildings.dll\r\n$NAME_STR \"Salt Mine\"\r\n$TYPE_FACTORY\r\n$WORKERS_NEEDED 10\r\n$PRODUCTION rocksalt 4.2\r\n");
                 Write(Path.Combine(wipFolder,"tesmioloader.stamp"),"tesmioloader plugins\\buildings.dll generated this folder.\r\nsection=salt_mine donor=bauxite_mine\r\nhash=99\r\n");
-                form.SelectTab("general");form.SelectTab("sml");Application.DoEvents();
+                form.SelectTab("general");form.SelectTab("generated");Application.DoEvents();
                 written=SafeFiles.Text(wipBuilding);
                 Check(written.Contains("$WORKERS_NEEDED 25")&&written.Contains("$PRODUCTION rocksalt 4.2"),"after a regeneration the changes are back and the new recipe survived");
                 Check(Children(form).OfType<Label>().Any(x=>x.Text.Contains("wieder drin")),"and the blue notice says it happened");
@@ -591,7 +612,7 @@ static class UiTests
                 Check(form.HasLocalResourceEditor&&!form.IsDirty&&form.DirtyCount==1&&form.DirtyMarks==1&&form.SaveEnabled&&form.StatusText=="Ungespeicherte Änderungen"&&form.StatusDetailText.Contains("Sample Plugin"),"switching parks the first entry: footer names it, save stays enabled, its dot stays (0.4.71)");
                 form.TestSetGlobal("max_demands","4");Check(form.IsDirty&&form.DirtyCount==2&&form.DirtyMarks==2&&form.StatusDetailText.Contains("Needs")&&form.StatusDetailText.Contains("Sample Plugin"),"the second entry adds to the unsaved entries");
                 form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();Check(form.DisplayedValue("general/limit")=="9"&&form.IsDirty&&form.DirtyCount==2&&form.HeadingText.EndsWith(" *"),"the parked edit comes back when the entry is shown again");
-                Check(form.TestSaveAll(()=>{})&&!form.IsDirty&&form.DirtyCount==0&&form.DirtyMarks==0&&new Ini(SafeFiles.Text(Path.Combine(plugins,"sample_plugin.ini"))).Get("general","limit")=="9"&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"needs.ini"))).Get("needs","max_demands")=="4","one save writes every unsaved entry (0.4.71)");
+                Check(form.TestSaveAll(()=>{})&&!form.IsDirty&&form.DirtyCount==0&&form.DirtyMarks==0&&new Ini(SafeFiles.Text(Path.Combine(loader,"user_config","sample_plugin.ini"))).Get("general","limit")=="9"&&new LooseIni(SafeFiles.Text(Path.Combine(plugins,"needs.ini"))).Get("needs","max_demands")=="4","one save writes every unsaved entry (0.4.71)");
                 form.TestEdit("general/limit","x");form.TestSearch("Needs");form.SelectIndex(0);Application.DoEvents();Check(!form.SaveEnabled&&!form.StartEnabled&&form.StatusDetailText.Contains("Sample Plugin"),"an invalid parked entry locks Save and Save + Start and is named (0.4.71)");
                 form.TestSearch("Sample");form.SelectIndex(0);Application.DoEvents();Check(form.HasEditor&&form.DisplayedValue("general/limit")=="x"&&!form.StatusValid,"the invalid parked entry comes back with its editor and the red footer");
                 form.TestEdit("general/limit","11");form.TestSearch("Needs");form.SelectIndex(0);Application.DoEvents();form.TestSetGlobal("max_demands","6");Check(form.DirtyCount==2,"two entries are unsaved again");
@@ -620,6 +641,11 @@ static class UiTests
                 form.TestSearch("Resources");form.SelectIndex(0);Application.DoEvents();
                 Check(form.HasLocalResourceEditor&&form.LocalResourceCount==4&&!form.IsDirty,"the Resources editor shows the provided entry as an original");
                 form.TestSearch("AAA Salt");form.SelectIndex(0);Application.DoEvents();
+                // 0.6.10: a provided package with resources asks first; Cancel puts the switch back.
+                string offQuestion="";form.ContentOffPrompt=text=>{offQuestion=text;return DialogResult.Cancel;};form.TestSwitch(false);Application.DoEvents();
+                string[] offLines=offQuestion.Split('\n');int offAlert=Array.FindIndex(offLines,x=>x.StartsWith(MessageWindow.Alert));
+                Check(form.SwitchChecked&&!form.IsDirty&&offLines[0].StartsWith(MessageWindow.Bold)&&offLines[0].Contains("AAA Salt")&&offQuestion.Contains("raw_salt")&&offAlert>=3&&offLines[offAlert-1].Length==0&&offLines[offAlert].Length>20,"switching a provided content package with resources off asks first, names the package and its resources, and Cancel leaves the switch on ["+offQuestion.Replace("\n"," / ")+"]");
+                form.ContentOffPrompt=text=>DialogResult.OK;
                 form.TestSwitch(false);Application.DoEvents();Check(form.IsDirty&&form.SaveEnabled,"switching the package off counts as an unsaved change");
                 Check(form.TestSaveAll(()=>{}),"saving removes the content package");
                 string removedIni=SafeFiles.Text(resourceIni);
@@ -629,11 +655,9 @@ static class UiTests
             using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=simple,Language="de"},null,false))
             {
                 HiddenShow(form);
-                // With the DLL gone from plugins\ this save would have to write it, which is the one
-                // thing the window asks about - so the headless save refuses instead.
-                File.Delete(Path.Combine(plugins,"sample_plugin.dll"));
+                // A save never copies a DLL, so the headless save has nothing to ask about.
                 form.TestEdit("general/limit","7");
-                string dllAnswer=form.CliSave(()=>{});Check(dllAnswer.StartsWith("FAIL"),"--save refuses a save that would copy a DLL into plugins ["+dllAnswer+"]");
+                string dllAnswer=form.CliSave(()=>{});Check(dllAnswer.StartsWith("PASS")&&!File.Exists(Path.Combine(plugins,"sample_plugin.dll"))&&new Ini(SafeFiles.Text(Path.Combine(loader,"user_config","sample_plugin.ini"))).Get("general","limit")=="7","--save writes the personal values and no DLL ["+dllAnswer+"]");
             }
             using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=collection,Language="de"},null,false))
             {
@@ -656,45 +680,51 @@ static class UiTests
                 Check(provideAnswer.StartsWith("PASS")&&form.ContentProvided&&File.Exists(switchPng),"--save then provides the content package ["+provideAnswer+"]");
                 Check(form.CliActivate(false)==null&&form.CliSave(()=>{}).StartsWith("PASS")&&!form.ContentProvided&&!File.Exists(switchPng),"--activate off followed by --save takes it away again");
             }
-            // 0.5.9: a package whose ids the game already has is refused - red, with what to do.
-            // But under Soviet Mod Loader there is no switch to press here at all, and the entry in
-            // the way is usually the one SML built from this very package. The red box then only
-            // makes RMM look broken, so it stays away.
+            // A package whose ids the game already has is refused - red, with what to do.
             Write(resourceIni,SafeFiles.Text(resourceIni).Replace("[resources]","raw_salt = rawgravel, Raw Salt\r\n\r\n[resources]"));
             using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
             {
                 HiddenShow(form);
-                Check(Children(form).OfType<NoticeBox>().Any(x=>x.Tone=="error"),"without SML a clashing id is reported in red");
+                Check(Children(form).OfType<NoticeBox>().Any(x=>x.Tone=="error"),"a clashing id is reported in red");
+                Check(form.SwitchVisible,"a content package always has its switch");
             }
-            File.WriteAllBytes(Path.Combine(plugins,"soviet_mod_loader.dll"),new byte[]{7,7,7});
-            Write(Path.Combine(plugins,"soviet_mod_loader.ini"),"[loader]\nenabled = 1\n");
-            Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nresources=0\n");
-            File.Delete(resourceDll);
-            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
-            {
-                HiddenShow(form);
-                Check(!Children(form).OfType<NoticeBox>().Any(x=>x.Tone=="error"),"with SML in charge the same clash raises no red box");
-                Check(!form.SwitchVisible&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("Soviet Mod Loader")),"the page says who is in charge instead");
-            }
-            // 0.5.16: a fork that SML pushes aside looks exactly like Deposits Plus under SML - no
-            // switch in the header, amber dot, locked page with the way out.
-            File.WriteAllBytes(Path.Combine(plugins,"resources_plus.dll"),new byte[]{7,7,7});
+            // A replacement and the plugin it replaces, both found and both switched on: the
+            // replaced one is amber in the list and in its status line, the replacement is a
+            // normal page, and the start settles the pair.
+            File.WriteAllBytes(Path.Combine(plugins,"resources_plus.dll"),File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));
             Write(Path.Combine(plugins,"resources_plus.ini"),"[resources]\nhook = 2\n[list]\nunobtainium = aluminium, Unobtainium\nalloy_a = steel, Alloy A\nalloy_b = steel, Alloy B\nalloy_c = steel, Alloy C\nalloy_d = steel, Alloy D\nalloy_e = steel, Alloy E\nalloy_f = steel, Alloy F\nalloy_g = steel, Alloy G\n");
-            Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nsoviet_mod_loader=1\nresources=0\nresources_plus=1\n");
+            Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nresources=1\nresources_plus=1\n");
             using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=contentPkg,Language="de"},null,false))
             {
                 HiddenShow(form);form.TestSearch("Resources Plus");form.SelectIndex(0);Application.DoEvents();
-                Check(form.HasLocalResourceEditor&&Children(form).OfType<Button>().Any(x=>x.AccessibleName=="sml:unlock"),"the paused fork opens on its locked page with the way out");
-                Check(!form.SwitchVisible,"the fork's header switch is hidden while SML hosts the capability");
-                Check(form.ShownPaused,"and its dot is amber, not green");
-                // 0.5.19: the plugin-wide switches of the General tab must not be rendered as per-resource fields.
+                Check(form.HasLocalResourceEditor&&form.HeadingText.StartsWith("Resources Plus"),"the replacement opens on its own page ["+form.HeadingText+"]");
+                Check(form.IsDirty,"and counts as unsaved while the plugin it replaces is still on: saving switches that one off");
+                Check(form.SwitchVisible&&form.SwitchChecked&&!form.ShownPaused,"with its switch on and a normal dot");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text.Contains("Ersetzt das Plugin")),"and says which plugin it replaces");
+                // The plugin-wide switches of the General tab must not be rendered as per-resource fields.
                 Check(!Children(form).OfType<Label>().Any(x=>x.Text=="Preise aus der INI anwenden"||x.Text=="Zollhaus-Zeilen protokollieren"),"global fields stay out of the resource detail area");
-                // 0.5.19: eight entries bring a search box above the master list; typing filters the ListBox in place.
-                {var box=Children(form).OfType<TextBox>().Single(x=>x.AccessibleName=="list-search");var lb=Children(form).OfType<ResourceDefinitionList>().Single();Check(lb.Items.Count==8&&!box.ReadOnly,"the master list has a search box that stays typeable on a paused page");box.Text="alloy_c";Application.DoEvents();Check(lb.Items.Count==1&&((LocalResourceItem)lb.Items[0]).Id=="alloy_c"&&lb.SelectedIndex==0,"the filter narrows the list in place and selects the match: "+lb.Items.Count);box.Text="";Application.DoEvents();Check(lb.Items.Count==8,"clearing the filter brings every entry back");}
+                // 0.6.6: names per game language - a sixth heading and one field per language file of the game.
+                {var heads=Children(form).OfType<Label>().Where(x=>(x.AccessibleName??"").StartsWith("heading:")).Select(x=>x.AccessibleName.Substring(8)).ToList();Check(heads.Count==6&&heads[5]=="Namen je Spielsprache","the detail area ends with the heading for the names per game language: "+String.Join(" | ",heads));}
+                Check(Children(form).OfType<Label>().Any(x=>x.Text=="Deutsch")&&Children(form).OfType<Label>().Any(x=>x.Text=="Ukrainisch"),"with a field for German and one for Ukrainian");
+                form.TestSetLocalField("unobtainium","name_german","Unobtanium DE");Check(new LooseIni(form.LocalEffective()).Get("names:German","unobtainium")=="Unobtanium DE","a name typed there lands in [names:German] of the list file");
+                form.TestSetLocalField("unobtainium","name_german","");Check(new LooseIni(form.LocalEffective()).Get("names:German","unobtainium")==null,"and an emptied field takes the line out again");
+                // Eight entries bring a search box above the master list; typing filters the ListBox in place.
+                {var box=Children(form).OfType<TextBox>().Single(x=>x.AccessibleName=="list-search");var lb=Children(form).OfType<ResourceDefinitionList>().Single();Check(lb.Items.Count==8&&!box.ReadOnly,"the master list has a search box");box.Text="alloy_c";Application.DoEvents();Check(lb.Items.Count==1&&((LocalResourceItem)lb.Items[0]).Id=="alloy_c"&&lb.SelectedIndex==0,"the filter narrows the list in place and selects the match: "+lb.Items.Count);box.Text="";Application.DoEvents();Check(lb.Items.Count==8,"clearing the filter brings every entry back");}
                 Check(!Children(form).OfType<Label>().Any(x=>x.Text=="Kein Eintrag – du hast diesen Wert nicht überschrieben"),"empty original fields carry no origin line any more");
-                // 0.5.17: the status line lights no load-path dot for a paused plugin; an amber "paused" dot says why.
                 var dots=Children(form).OfType<Panel>().Where(x=>(x.AccessibleName??"").StartsWith("status-dot:")).Select(x=>x.AccessibleName).ToList();
-                Check(dots.Contains("status-dot:paused")&&!dots.Contains("status-dot:on"),"the status line shows the paused dot and no lit load path");
+                Check(dots.Contains("status-dot:on")&&!dots.Contains("status-dot:paused"),"the replacement's status line shows the lit load path");
+                // The replaced plugin: amber, and a warning that names the replacement.
+                form.TestSearch("Resources");form.SelectIndex(0);Application.DoEvents();
+                Check(form.HeadingText=="Resources"&&form.ShownPaused,"the replaced plugin's dot is amber, not green ["+form.HeadingText+"]");
+                dots=Children(form).OfType<Panel>().Where(x=>(x.AccessibleName??"").StartsWith("status-dot:")).Select(x=>x.AccessibleName).ToList();
+                Check(dots.Contains("status-dot:paused")&&!dots.Contains("status-dot:on"),"its status line shows the amber dot and no lit load path");
+                Check(Children(form).OfType<NoticeBox>().Any(x=>x.Tone=="warning")&&Children(form).OfType<Label>().Any(x=>x.Text.Contains("Resources Plus ersetzt Resources")),"and its page names the replacement that is switched on");
+                // The start settles the pair: the replaced plugin is switched off, nobody is asked.
+                form.UnmetPrompt=text=>DialogResult.No;
+                Check(form.SettleBeforeStart(),"the start goes on");
+                var settled=new Ini(SafeFiles.Text(Path.Combine(loader,"tesmioloader.ini")));
+                Check(settled.Get("plugins","resources")=="0"&&settled.Get("plugins","resources_plus")=="1","the replaced plugin is switched off in tesmioloader.ini, the replacement stays on");
+                Check(!form.ShownPaused,"and the amber dot is gone");
             }
             Console.WriteLine("RESULT "+passed+" UI assertions passed. "+root);return 0;
         }

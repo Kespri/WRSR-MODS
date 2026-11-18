@@ -8,75 +8,87 @@ Das ist die Referenz für Plugin-Autoren: was ein Workshop-Paket braucht, damit 
 
 ## Inhalt
 
-1. [Das Manifest (`soviet.mod.ini`)](#1-das-manifest-sovietmodini)
+1. [Das Manifest (`rmm.mod.ini`)](#1-das-manifest-rmmmodini)
 2. [Einstellungsseite ohne Schema](#2-einstellungsseite-ohne-schema)
 3. [Presentation-Schema (`<name>.launcher.ini`)](#3-presentation-schema)
 4. [Sammlungen](#4-sammlungen)
-5. [Lokale Schemas für installierte Plugins](#5-lokale-schemas-für-installierte-plugins)
+5. [Lokale Schemas (`settings_schemas`)](#5-lokale-schemas-settings_schemas)
 6. [Editor-Schemas: Listen und Abschnitte](#6-editor-schemas)
 7. [Verweisprüfung](#7-verweisprüfung)
 8. [Sprachen](#8-sprachen)
 9. [Symbole und Pfadsicherheit](#9-symbole-und-pfadsicherheit)
-10. [Wie RMM ein Paket bereitstellt](#10-wie-rmm-ein-paket-bereitstellt)
+10. [Belege und Wiederherstellungspunkte](#10-belege-und-wiederherstellungspunkte)
 11. [Inhaltspakete (`[content]`)](#11-inhaltspakete-content)
 
 ---
 
-## 1. Das Manifest (`soviet.mod.ini`)
+## 1. Das Manifest (`rmm.mod.ini`)
 
-Das kleinste gültige Manifest ist das des Soviet Mod Loaders:
+Ein Paket ist ein Ordner im Steam-Workshop-Ordner des Spiels. Der TesmioLoader findet darin jede Plugin-DLL selbst, in jeder Tiefe; ein Manifest braucht er nicht. Das Manifest ist für RMM: Es gibt dem Plugin Namen und Version, nennt seine Abhängigkeiten und sagt, welches Plugin es ersetzt.
+
+Empfohlener Aufbau:
+
+```
+<Paketordner>\
+├── rmm.mod.ini                         das Manifest
+├── plugins\
+│   ├── my_plugin.dll                   die Plugin-DLL
+│   ├── my_plugin.ini                   ihre Standard-INI: gleicher Name, gleicher Ordner
+│   └── my_plugin\                      Zubehör der DLL (Texturen, Texte), falls nötig
+├── config\
+│   ├── my_plugin.launcher.ini          die Einstellungsseite (Kapitel 3 und 6), optional
+│   └── languages\de.ini, en.ini        ihre Texte
+└── README_DE.md, README_EN.md
+```
+
+Das kleinste gültige Manifest:
 
 ```ini
 [mod]
 id = example.my_plugin
 name = My Plugin
 version = 1.0.0
-
-[hooks]
-dll = hooks\my_plugin.dll
 ```
 
-Daraus leitet RMM ab: das Ziel `my_plugin` (der DLL-Dateiname), die Standard-INI `hooks\my_plugin.ini` neben der DLL (falls vorhanden), die persönliche Konfiguration `user_config\my_plugin.ini` und das Schema `config\my_plugin.launcher.ini` (falls vorhanden, sonst aus der INI erzeugt).
+Daraus leitet RMM ab: das Ziel `my_plugin` (der Dateiname der Plugin-DLL im Paket), die Standard-INI `my_plugin.ini` neben der DLL (falls vorhanden), die persönlichen Werte `user_config\my_plugin.ini` im Loader-Ordner und das Schema `config\my_plugin.launcher.ini` (falls vorhanden, sonst eines neben `rmm.exe`, sonst aus der INI erzeugt).
 
-Genau eine `dll`-Zeile ist erlaubt. Wiederholte `dll`-Zeilen, Pfadausbrüche, doppelte IDs und ein `target`, das nicht zum DLL-Namen passt, werden mit genauer Ursache abgewiesen.
-
-Optionale Übersteuerungen:
+Alle Schlüssel:
 
 ```ini
 [mod]
-enabled = 1
+id = example.my_plugin                  ; Pflicht, eindeutig unter allen Paketen
+name = My Plugin                        ; Pflicht
+version = 1.0.0
+plugin = my_plugin                      ; DLL-Name ohne .dll; nötig, wenn im Paket mehrere Plugin-DLLs liegen
+replaces = old_plugin                   ; DLL-Name des Plugins, das dieses hier ersetzt
 tesmio_api_min = 4
 tesmio_api_max = 4
 
 [configuration]
-defaults = hooks\my_plugin.ini          ; Standard-INI
-launcher_schema = config\my_plugin.launcher.ini
-user_config = my_plugin.ini             ; nur Dateiname, liegt neben der DLL
-user_overlay = 0                        ; 1: die DLL liest user_config\<target>.ini selbst
-local_copy = 0                          ; 1: bietet "Dateien nur lokal" an
-replaced_by_sml =                       ; resources | deposits | needs | buildings
-
-[assets]
-dir = hooks\my_plugin                   ; Ordner, der bei "Dateien nur lokal" mit der DLL reist
-
-[autoload]
-format = 1
-kind = plugin
-target = my_plugin
-requires_local = resources|other_plugin
-conflicts_local = old_name|duplicate_name
+launcher_schema = config\my_plugin.launcher.ini   ; nur nötig, wenn das Schema anders heißt oder woanders liegt
+effective_ini = 1                       ; 1: das Plugin öffnet seine INI selbst und sieht user_config nicht (siehe unten)
 
 [dependencies]
 other.plugin = >=1.2.0
 ```
 
+- **Was als Plugin zählt:** eine 64-Bit-DLL mit den Exporten `TsmPluginApiVersion` und `TsmPluginInit`, genau wie beim Loader. Ihr Dateiname ohne `.dll` ist der Name des Plugins: unter ihm steht es in `tesmioloader.ini`, und so heißen seine INI und seine persönlichen Werte.
+- **Wem das Manifest gehört:** RMM sucht von der DLL aus aufwärts den nächsten Ordner mit einem Manifest, höchstens bis zum Paketordner. Liegen mehrere Plugin-DLLs im Paket, bekommt jede einen eigenen Eintrag; das Manifest gehört der DLL, die `plugin` nennt (ohne `plugin` der, die wie der letzte Teil der `id` heißt). Die anderen erscheinen ohne Manifest.
+- **Ohne Manifest** steht eine DLL trotzdem in der Liste: mit der Kennung `local.<name>`, ihrem Dateinamen als Namen und ohne Version.
+- `replaces = old_plugin`: Dein Plugin ersetzt ein anderes. RMM lässt die beiden nie zusammen laufen: Schaltet der Spieler eines ein, schaltet RMM das andere beim Speichern aus; sind beide eingeschaltet, gewinnt beim Start über RMM das Ersatz-Plugin. Der Schlüssel ersetzt keine Vorsicht im Plugin – ohne RMM lädt der Loader beide, dein Plugin sollte das Original also selbst erkennen und dann untätig bleiben.
 - `tesmio_api_min` / `tesmio_api_max`: wenn angegeben, muss API 4 im Bereich liegen.
-- `user_overlay = 1`: Die DLL legt `user_config\<target>.ini` selbst über ihre INI. RMM stellt dann die Original-INI unverändert bereit und schreibt persönliche Werte nur nach `user_config`.
-- `replaced_by_sml = deposits`: Dein Plugin macht dasselbe wie eine der vier Fähigkeiten, die Soviet Mod Loader eingebaut mitbringt (`resources`, `deposits`, `needs`, `buildings`), und tritt beim Spielstart zur Seite, solange SML läuft. RMM zeigt den Eintrag dann mit orangem Punkt statt grau und schreibt in die Karte „Hinweise“, wer gerade zuständig ist. Ein anderer Wert als die vier weist das Paket ab. Dein Plugin muss selbst zur Seite treten — der Schlüssel beschreibt nur, was es tut.
-- `local_copy = 1`: Die Karte „Hinweise“ bietet bei Paketen unter der Workshop Bridge den Schalter „Dateien nur lokal“ an. RMM kopiert DLL, INI und den Ordner aus `[assets] dir` nach `plugins\` (den Ordner unter seinem eigenen Namen, `plugins\my_plugin\...`). Im Assets-Ordner sind keine `.dll`- oder `.exe`-Dateien erlaubt, höchstens 512 Dateien zu je 64 MB, keine Reparse-Punkte.
-- `[dependencies]`: `mod.id = <Bedingung>` mit `>=`, `>`, `=`, `<=`, `<`, einer bloßen Version (mindestens) oder `*`. Wird gegen die Pakete im Workshop-Ordner aufgelöst; ein klassisch installiertes Plugin `plugins\<name>.dll` zählt auch, wenn `<name>` der letzte Teil der Kennung ist (Version ungeprüft). Ein Hook-Paket in der Bridge-Liste gilt als erfüllt. Nicht erfüllte Abhängigkeiten verhindern die Bereitstellung.
-- `[content]` ohne `[hooks] dll` ist ein reines Inhaltspaket: Soviet Mod Loader führt es beim Spielstart selbst zusammen, ohne ihn stellt RMM es über den Schalter „Im Spiel bereitstellen“ in die Editoren der Zielplugins (Kapitel 11).
-- `[content] allow_settings = 1` ist ein Schalter des Soviet Mod Loaders: ohne ihn nimmt er aus einem Paket nur `[list]`, `[base_price]` und `[price]` (bei Bedürfnissen nur `[list]`) und verwirft jeden `[custom:…]`-Abschnitt mit einer Konfliktnotiz. Mit ihm gelten sie — dafür lässt er dann auch den Einstellungsabschnitt des Plugins durch, in die Fragmentdatei gehören also nur `[list]` und `[custom:…]`. RMM liest die Abschnitte ohnehin und beschwert sich über den Schlüssel nicht.
+- `[dependencies]`: `<Kennung> = <Bedingung>` mit `>=`, `>`, `=`, `<=`, `<`, einer bloßen Version (mindestens) oder `*`. Die Kennung ist die `id` eines Pakets oder der DLL-Name eines Plugins. Erfüllt ist sie auch durch eine DLL, die wie der letzte Teil der Kennung heißt (Version ungeprüft), und durch ein Plugin, das das Gesuchte ersetzt. Eine unerfüllte Abhängigkeit verhindert das Speichern nicht; vor dem Spielstart bietet RMM an, das betroffene Plugin auszuschalten.
+- `[mod] enabled = 0` weist das Paket ab; doppelte `id`s weisen beide Pakete ab.
+- `[content]` ohne Plugin-DLL ist ein reines Inhaltspaket (Kapitel 11).
+- **Ältere Manifeste:** Gibt es kein `rmm.mod.ini`, liest RMM ein `soviet.mod.ini`. Daraus gelten zusätzlich `[hooks] dll = <Pfad>` (genau eine Zeile; sie nennt die DLL) und `[autoload] requires_local = a|b` (zählt als Abhängigkeit). Alle anderen Schlüssel älterer Manifeste werden übergangen.
+
+**Die Werte des Spielers.** RMM schreibt nie in den Paketordner. Persönliche Werte liegen in `user_config\<name>.ini` im Loader-Ordner und enthalten nur, was vom Original abweicht. Wie sie bei deinem Plugin ankommen, hängt davon ab, wie es seine INI liest:
+
+- **Über die Host-Tabelle des Loaders** (`configInt`, `configString` mit `plugins\<name>.ini`): Die `tesmioloader.dll` aus dem RMM-Paket legt `user_config\<name>.ini` von selbst darüber. Du musst nichts tun.
+- **Das Plugin öffnet die Datei selbst:** Setze `effective_ini = 1`. RMM schreibt dann beim Speichern zusätzlich die fertige INI (Original plus persönliche Werte) nach `<Loader>\plugins\<name>.ini`; hat der Spieler keinen eigenen Wert, gibt es diese Datei nicht. Dein Plugin muss dafür zuerst `<Loader>\plugins\<name>.ini` lesen und nur, wenn es die nicht gibt, die INI neben seiner DLL. Den Loader-Ordner nennt `baseDir` der Host-Tabelle; `pluginDir` ist der Ordner der DLL, bei einem Workshop-Paket also das Paket selbst.
+- **Listen-Editoren** (Kapitel 6) schreiben die wirksame Datei immer nach `<Loader>\plugins\<name>.ini`; für das Plugin gilt dieselbe Leseregel.
+
+Die `tesmioloader.dll` aus dem RMM-Paket folgt derselben Reihenfolge: Fragt ein Plugin über die Host-Tabelle nach `plugins\<name>.ini`, bekommt es die Datei im Loader-Ordner, wenn es sie gibt, sonst die neben seiner DLL.
 
 ---
 
@@ -89,7 +101,7 @@ Ohne Schema baut RMM eines aus der Standard-INI:
 - der Kommentarblock direkt über dem Schlüssel und ein Kommentar hinter dem Wert werden zur Beschreibung, Zeilenumbrüche bleiben erhalten;
 - der Typ folgt dem Wert: `0`/`1` wird `boolean`, außer der Schlüsselname nennt eine Menge (`count`, `days`, `frequency`, `size`, `limit`, `level`, `scale`, `mode` und ähnliche) oder der Kommentar nennt andere ganze Zahlen oder einen Bereich (`2-12`, `1..6`, „up to 400“); Versionsangaben wie `v1.6` zählen nicht. Namen wie `enabled`, `debug`, `use_*`, `*_enabled` oder ein Kommentar, der beide Zustände nennt, erzwingen `boolean`. Andere Ganzzahlen werden `integer`, Dezimalzahlen `decimal`, alles andere `text`;
 - ein Schlüssel `enabled` vom Typ `boolean` wird zum Aktivierungsfeld;
-- der Kommentarblock am Dateianfang wird zur Paketbeschreibung.
+- der Kommentarblock am Dateianfang wird zur Paketbeschreibung. Zierlinien aus `=`, `-`, `*` und ähnlichen Zeichen werden übergangen, ebenso ein Titelkasten zwischen zwei solchen Linien; die Beschreibung ist der erste Absatz danach.
 
 In diesem Modus darf eine lokale INI Schlüssel enthalten, die die Paket-INI nicht kennt; die strenge Schlüsselprüfung gilt nur mit Schema. Ein Kommentar hinter dem Wert wie `130 ; (stock 121)` bleibt in der Datei, bis der Wert geändert wird.
 
@@ -194,34 +206,21 @@ order = 10
 
 ### 3.5 Aktionszeile
 
-```ini
-[action:prune]
-group = bridge                         ; Karte, in der die Zeile steht; sortiert mit den Feldern nach order
-label = Bridge-Liste aufräumen
-label_key = bridge.prune
-description = ...
-description_key = bridge.prune.description
-button = Jetzt aufräumen
-button_key = bridge.prune.button
-command = bridge_prune                 ; bisher einziger Befehl
-order = 35
-```
-
-`bridge_prune` entfernt Einträge aus der Paketliste der Bridge, deren Paket nicht in der RMM-Liste steht. Der Knopf wird nie gedehnt.
+Ein Abschnitt `[action:<id>]` beschreibt eine Zeile mit einem Knopf, der einen Befehl von RMM auslöst (`command = …`). Zurzeit kennt RMM keinen solchen Befehl; ein Schema mit einem `[action:…]`-Abschnitt wird deshalb abgewiesen.
 
 ### 3.6 Ordnerliste
 
 ```ini
 [folder_list:packs]
 group = packs
-paths = package:hooks\localization | build:plugins\localization   ; jeder Unterordner wird eine Zeile
+paths = package:plugins\localization | build:plugins\localization   ; jeder Unterordner wird eine Zeile
 description_prefix = loc.pack          ; Kurztext je Ordner aus der Sprachdatei: <prefix>.<ordnername>
 note = ...
 note_key = loc.packs.note
 order = 10
 ```
 
-Jede Zeile nennt den Ordner, seinen Kurztext und wo er liegt: „im Paket“ (`package:`-Pfad), „lokal“ (`build:`/`vfs:`-Pfad) oder „lokal, überlagert das Paket“ (beides). Pfadpräfixe: `package:` = `[links] root`, `build:` = Loader-Ordner, `vfs:` = VFS-Wurzel des Loaders (neben `build`, sonst `build\vfs`).
+Jede Zeile nennt den Ordner, seinen Kurztext und wo er liegt: „im Paket“ (`package:`-Pfad), „lokal“ (`build:`/`vfs:`-Pfad) oder „lokal, überlagert das Paket“ (beides). Pfadpräfixe: `package:` = `[links] root`, `build:` = Loader-Ordner (dort liegt `tesmioloader.dll`), `vfs:` = VFS-Wurzel des Loaders (ein Ordner `vfs` neben dem Loader-Ordner, falls es ihn gibt, sonst `vfs` im Loader-Ordner).
 
 ---
 
@@ -272,9 +271,9 @@ Die vier `target_*`-Listen müssen gleich lang sein. Hinzufügen erzeugt lücken
 
 ---
 
-## 5. Lokale Schemas für installierte Plugins
+## 5. Lokale Schemas (`settings_schemas`)
 
-Ein Plugin, das nur als `plugins\<name>.dll` im Loader-Ordner liegt, bekommt sein Schema aus `settings_schemas\<name>.launcher.ini` neben `rmm.exe`, falls diese Datei existiert, sonst aus seiner INI (Abschnitt 2). Ein solches lokales Schema ist ein gewöhnliches Presentation-Schema:
+Ein Plugin, dessen Paket kein Schema mitbringt – ob es als `plugins\<name>.dll` im Loader-Ordner liegt oder aus dem Workshop kommt –, bekommt sein Schema aus `settings_schemas\<name>.launcher.ini` neben `rmm.exe`, falls diese Datei existiert, sonst aus seiner INI (Abschnitt 2). Ein solches lokales Schema ist ein gewöhnliches Presentation-Schema:
 
 ```ini
 [launcher]
@@ -287,15 +286,17 @@ enabled_field = walking/enabled
 language_directory = languages         ; relativ zu settings_schemas
 ```
 
-RMM liefert solche Schemas für accumulator, cities, daynight, depletion, easystart, walking und die Workshop Bridge mit; die deutschen Texte stehen in `settings_schemas\languages\de.ini` unter dem Präfix `<name>.`, die englischen Rückfalltexte im Schema selbst. Ein lokales Schema beschreibt, es verbietet nicht: Werte dürfen einen Kommentar tragen (er bleibt, bis der Wert geändert wird), und Schlüssel, die das Schema nicht kennt, werden in den Hinweisen genannt und unverändert zurückgeschrieben. Freie Werte wie `auto` oder Jahreszahlen mit `off`/`always` verwenden `type = text`.
+RMM liefert solche Schemas für accumulator, cities, daynight, depletion, easystart und walking mit; die deutschen Texte stehen in `settings_schemas\languages\de.ini` unter dem Präfix `<name>.`, die englischen Rückfalltexte im Schema selbst. Ein lokales Schema beschreibt, es verbietet nicht: Werte dürfen einen Kommentar tragen (er bleibt, bis der Wert geändert wird), und Schlüssel, die das Schema nicht kennt, werden in den Hinweisen genannt und unverändert zurückgeschrieben. Freie Werte wie `auto` oder Jahreszahlen mit `off`/`always` verwenden `type = text`.
 
-Installierte Plugins werden als geschützte Basis geführt: Original unter `user_config\.autoload\<name>.upstream.ini`, wirksame INI in `plugins\`, persönliche Werte in `user_config\<name>.ini`. Eine außerhalb von RMM geänderte `plugins\<name>.ini` wird zum neuen Original.
+Ein Plugin im Ordner `plugins\` wird als geschützte Basis geführt: Original unter `user_config\.autoload\<name>.upstream.ini`, wirksame INI in `plugins\`, persönliche Werte in `user_config\<name>.ini`. Eine außerhalb von RMM geänderte `plugins\<name>.ini` wird zum neuen Original. Bei einem Plugin aus dem Workshop bleibt die INI neben der DLL das Original, und RMM schreibt nur `user_config\<name>.ini`.
+
+Im selben Ordner liegt `replacements.ini`: unter `[replaces]` je Zeile `<Plugin> = <Plugin, das es ersetzt>`, für Ersatz-Plugins ohne Manifest. Ein `replaces` im Manifest eines Pakets hat Vorrang.
 
 ---
 
 ## 6. Editor-Schemas
 
-Für INIs, die Listen statt einzelner Werte halten, gibt es drei Editor-Typen. Das Schema liegt in `settings_schemas\` (installierte Plugins) oder im Paket unter `config\<name>.launcher.ini`; im Paket müssen `[editor] plugin` und `config` DLL-Name und INI des Pakets nennen. Die INI des Pakets ist die Originalbasis, persönliche Einträge liegen in `user_config\<name>.editor.ini`, die wirksame Datei ist `plugins\<name>.ini`. DLL, Loader-Eintrag, Bridge-Liste und „Dateien nur lokal“ laufen wie bei jedem Paket.
+Für INIs, die Listen statt einzelner Werte halten, gibt es drei Editor-Typen. Das Schema liegt in `settings_schemas\` oder im Paket unter `config\<name>.launcher.ini`; im Paket müssen `[editor] plugin` und `config` DLL-Name und INI des Pakets nennen. Die INI des Pakets ist die Originalbasis, persönliche Einträge liegen in `user_config\<name>.editor.ini`, die wirksame Datei ist `plugins\<name>.ini` im Loader-Ordner. Der Schalter in `tesmioloader.ini` läuft wie bei jedem Plugin.
 
 | `editor_type` | Aufbau der INI | Beispiel |
 |---|---|---|
@@ -470,10 +471,12 @@ Zeilen werden beim Schreiben normalisiert (`1.0` wird `1`, Auswahlwerte in der S
 [detail:type]
 scope = item                           ; item: Schlüssel im Abschnitt des Eintrags
                                        ; global: [section] key der Plugin-INI, gezeigt auf [global] oder einer [card:]
-                                       ; custom / keyed: keyed_resources
+                                       ; custom: Schlüssel in [custom:<id>] (keyed_resources)
+                                       ; keyed: Zeile <id> = <Wert> im Abschnitt `section` (keyed_resources),
+                                       ;        etwa [base_price] oder [names:German]
 group = research                       ; Zusatzliste (keyed_sections)
 card = log                             ; Karte bei scope = global
-section = deposits                     ; scope = global
+section = deposits                     ; scope = global oder keyed; darf einen Doppelpunkt tragen (names:German)
 key = type
 type = integer                         ; text, integer, decimal, choice, boolean (global), lines, pair, triple
 minimum = 10
@@ -509,7 +512,7 @@ assigned_from = build:plugins\x.ids.ini|ids   ; text: leer = das Plugin vergibt 
                                        ; ihn sich in dieser INI unter der Kennung des Eintrags; RMM zeigt
                                        ; ihn als grauen Platzhalter im Feld
 picker_format = line_edit              ; research_lines: line, line_edit, line_anchor, anchor_edit, edit
-picker_folders = package:hooks\x\assets | build:plugins\x\assets   ; files: erster vorhandener Ordner
+picker_folders = package:plugins\x\assets | build:plugins\x\assets   ; files: erster vorhandener Ordner
 picker_pattern = *.dds
 count_label_key = ...                  ; lines: Zählerbeschriftung (Standard "Anzahl Zeilen")
 maximum_lines = 64                     ; lines: Obergrenze, darüber wird der Zähler rot
@@ -533,7 +536,7 @@ order = 10
 
 [file:noimage]                         ; Dateizeile: erster vorhandener Kandidat wird gezeigt
 card = icons
-paths = workshop=package:hooks\x\noimage.png | local=build:plugins\x\noimage.png
+paths = workshop=package:plugins\x\noimage.png | local=build:plugins\x\noimage.png
 label_key = re.noimage
 order = 20
 
@@ -562,7 +565,7 @@ label = Localization
 [textpack]
 tab = localization
 folder = build:plugins\localization\research_expansion   ; lokales Paket, dort schreibt RMM
-seed = dependency:tesmio.localization|hooks\localization\research_expansion   ; Startbestand aus dem Paket der Abhängigkeit
+seed = dependency:tesmio.localization|plugins\localization\research_expansion   ; Startbestand aus dem Paket der Abhängigkeit
 namespace = research_expansion         ; für ein neues Paket ohne Startbestand
 keys_from = research                   ; Listengruppe, deren Kennungen die Zeilen <id>.name / <id>.desc liefern
 label_key = ...
@@ -577,14 +580,14 @@ Der Reiter zeigt die Rückfallsprache, die Sprachdateien (mit „+“ aus den Sp
 ### 6.7 Reiter für erzeugte Workshop-Ordner
 
 ```ini
-[tab:sml]
-label = SML buildings
-label_key = bp.tab.sml
+[tab:generated]
+label = Generated buildings
+label_key = bp.tab.generated
 order = 30
 
 [wip_buildings]
-tab = sml
-range = sml                  ; sml = von einem anderen Generator erzeugt (auch der Bereich 9100000000..9199999999)
+tab = generated
+range = generated            ; generated = von Buildings Plus oder vom Original-Plugin buildings erzeugt
                              ; own = die Ordner mit dem Stempel des eigenen Plugins
                              ; all = jeder Ordner unter media_soviet\workshop_wip
 label_key = bp.wip
@@ -592,9 +595,9 @@ description_key = bp.wip.description
 empty_key = bp.wip.empty     ; Text, wenn kein Ordner passt
 ```
 
-Der Reiter liest `media_soviet\workshop_wip` und zeigt je Ordner Name (aus `$ITEM_NAME`, sonst aus `$NAME_STR` der building.ini), Nummer, Objektordner und Herkunft. Die Herkunft steht im `tesmioloader.stamp`: Buildings Plus, der Gebäude-Teil des TesmioLoaders (den Soviet Mod Loader mitbringt), oder kein Stempel — dann stammt der Ordner aus dem Spiel-Editor.
+Der Reiter liest `media_soviet\workshop_wip` und zeigt je Ordner Name (aus `$ITEM_NAME`, sonst aus `$NAME_STR` der building.ini), Nummer, Objektordner und Herkunft. Die Herkunft steht im `tesmioloader.stamp`: Buildings Plus, das Original-Plugin buildings, oder kein Stempel — dann stammt der Ordner aus dem Spiel-Editor.
 
-Gemeldet wird von selbst: ein Ordner mit `$OWNER_ID 0` (der Knopf trägt die Steam-ID nach, und **nur** diese Zahl) und ein Ordner, den kein Paket mehr erklärt (Soviet Mod Loader beendet deswegen das Spiel beim Start). Der Stempel wird nie angefasst.
+Gemeldet wird von selbst: ein Ordner mit `$OWNER_ID 0` (der Knopf trägt die Steam-ID nach, und **nur** diese Zahl) und ein Ordner, den kein Paket mehr erklärt. Der Stempel wird nie angefasst.
 
 Über „Ändern…" bearbeitet der Spieler die erzeugte `building.ini`. Gespeichert werden **Änderungen**, nicht die Datei: je Gebäude liegen in `user_config\.autoload\wip\` ein Beleg `<id>.receipt.ini` mit `replace = alte Zeile | neue Zeile`, `remove = Zeile` und `add = Zeile` sowie `<id>.baseline.ini`, die wörtliche Fassung des Generators.
 
@@ -655,26 +658,22 @@ Eingebaute Symbole sind unter anderem `builtin:gear`, `builtin:truck`, `builtin:
 
 ---
 
-## 10. Wie RMM ein Paket bereitstellt
+## 10. Belege und Wiederherstellungspunkte
 
-Jedes Speichern hinterlässt unter `user_config\.autoload\` einen Beleg mit der Paketversion und den Prüfsummen der bereitgestellten Dateien. Sein `mode` sagt, wer die DLL lädt:
+Eine DLL kopiert RMM nie, und ob ein Plugin lädt, entscheidet allein der Eintrag `[plugins] <name>` in `tesmioloader.ini` (kein Eintrag heißt EIN). Jedes Speichern hinterlässt unter `user_config\.autoload\` einen Beleg mit der Paketversion und den Prüfsummen von DLL und Standard-INI. Sein `mode` sagt, wo die DLL liegt:
 
 | `mode` | Bedeutung |
 |---|---|
-| `package` | RMM hat DLL und INI nach `plugins\` kopiert (TesmioLoader klassisch) |
-| `bridge` | nur die INI; die Workshop Bridge lädt die DLL; `[packages] <Ordner> = 1` in `user_config\workshop_bridge.ini` entscheidet |
-| `sml` | nur die INI; der Soviet Mod Loader lädt die DLL |
-| `installed` | Plugin ohne Paket, geschützte Basis |
+| `workshop` | DLL im Workshop-Ordner; geschrieben wird `user_config\<name>.ini`, bei `effective_ini = 1` auch `plugins\<name>.ini` |
+| `installed` | DLL in `plugins\`, geschützte Basis |
 
-Ein geändertes Paket (neue Version, neue DLL oder Standard-INI) zeigt die gelbe Marke „Update“; Speichern übernimmt die neue Fassung und behält persönliche Werte. Unter Bridge oder SML zählt nur die Standard-INI, weil das Spiel die DLL ohnehin aus dem Paket lädt. Vor jedem Speichern hält RMM je Plugin genau einen rollierenden Wiederherstellungspunkt unter `user_config\.autoload\backups\<Paket>\previous`; ein Marker schützt nach einem Absturz vor einem halb geschriebenen Stand.
-
-Für das Plugin `workshop_bridge` selbst überleben die `[packages]`-Zeilen in seiner Overlay-Datei jedes Speichern und „Original wiederherstellen“.
+Ein geändertes Paket (neue Version, neue DLL oder Standard-INI) zeigt die gelbe Marke „Update“. Das Spiel lädt die neue Fassung ohnehin; Speichern gleicht den Beleg an und behält persönliche Werte. Vor jedem Speichern hält RMM je Plugin genau einen rollierenden Wiederherstellungspunkt unter `user_config\.autoload\backups\<Paket>\previous`; ein Marker schützt nach einem Absturz vor einem halb geschriebenen Stand.
 
 ---
 
 ## 11. Inhaltspakete (`[content]`)
 
-Ein Paket ohne `[hooks] dll`, aber mit `[content]`, ist ein Inhaltspaket: es bringt keine DLL mit, sondern Abschnitte für Plugins, die es schon gibt. Das ist dasselbe Format, das der Soviet Mod Loader liest, also läuft ein solches Paket unter beiden Ladern.
+Ein Paket ohne Plugin-DLL, aber mit `[content]` im Manifest, ist ein Inhaltspaket: es bringt keine DLL mit, sondern Abschnitte für Plugins, die es schon gibt.
 
 ```ini
 [mod]
@@ -684,7 +683,7 @@ version = 1.0.0
 enabled = 1
 
 [content]
-resources = tesmio\resources.ini       ; [list] und [custom:<id>] wie in plugins\resources.ini
+resources = tesmio\resources.ini       ; [list], [custom:<id>] und [names:<Sprache>] wie in resources_plus.ini
 deposits  = tesmio\deposits.ini        ; ein Abschnitt je Vorkommen, wie in deposits_plus.ini
 needs     = tesmio\needs.ini           ; [list] wie in needs.ini
 buildings = tesmio\buildings.ini       ; ein Abschnitt je Gebäude, wie in buildings_plus.ini
@@ -695,8 +694,9 @@ Alle fünf Zeilen sind einzeln optional; mindestens eine Inhaltsdatei oder ein A
 
 **Was RMM daraus macht.** Die Paketseite hat keine Einstellungen, nur den Schalter „Im Spiel bereitstellen“. Beim Speichern:
 
-- Jede Inhaltsdatei geht an das erste Plugin, dessen wirksame INI in `plugins\` liegt: `resources` → resources, `deposits` → deposits_plus, sonst deposits, `needs` → needs, `buildings` → buildings_plus, sonst buildings. Fehlt das Plugin, sagt die Seite das und lässt diesen Teil weg.
-- Die Einträge erscheinen im Editor des Plugins als Originale: überschreibbar, aber nicht löschbar. Eine Kennung, die es dort schon gibt, bleibt unangetastet und wird auf der Paketseite als übersprungen genannt.
+- Jede Inhaltsdatei geht an das erste Plugin ihrer Reihe, das der Loader findet und das eingeschaltet ist (sonst an das erste, das er überhaupt findet): `resources` → resources_plus, sonst resources; `deposits` → deposits_plus, sonst deposits; `needs` → needs_plus, sonst needs; `buildings` → buildings_plus, sonst buildings. Fehlt das Plugin, sagt die Seite das und lässt diesen Teil weg.
+- Die Einträge erscheinen im Editor des Plugins als Originale: überschreibbar, aber nicht löschbar. Gibt es eine Kennung dort schon (ein eigener Eintrag, ein Originaleintrag oder einer aus einem anderen Paket), stellt RMM das ganze Paket nicht bereit: Die Paketseite nennt die Kennung, es wird nichts geschrieben und keine Datei kopiert, bis der vorhandene Eintrag weg ist.
+- Bei Ressourcen reisen mit jedem Listeneintrag auch seine Zeilen aus den übrigen Abschnitten der Inhaltsdatei mit: Preise (`[base_price]`, `[price]`) und Namen je Spielsprache (`[names:German]` mit `<kennung> = <Name>`; `German` wie im Dateinamen `sovietGerman.btf` des Spiels). Eine Zeile für eine Kennung, die das Paket nicht selbst mitbringt, bleibt draußen. Die Namen zeigt Resources Plus ab 0.1.4; ältere Fassungen und das Original Resources überlesen den Abschnitt.
 - `assets` wird nach `tesmioloader\vfs` kopiert, Pfad für Pfad.
 - Bei Vorkommen vergibt RMM `type` selbst (10 bis 127, frei gegenüber allem, was das Plugin schon kennt) und setzt `map = auto`; `component` entfällt. Eine einmal vergebene Nummer bleibt beim Abschnitt.
 - Ein Beleg unter `user_config\.autoload\content\<mod-id>\` hält fest, was bereitgestellt ist. Ändert sich das Paket im Workshop, erscheint die Marke „Update“; Speichern übernimmt den neuen Stand.

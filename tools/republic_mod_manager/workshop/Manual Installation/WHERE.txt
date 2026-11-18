@@ -1,43 +1,40 @@
 Republic Mod Manager - manual installation
 ==========================================
 
-Requirement: the TesmioLoader by MaxLegend is installed, so the game folder
-already has tesmioloader\build with tesmiolauncher.exe and tesmioloader.ini.
-Nothing works without it. The tesmioloader.dll in this folder is a corrected
-build of his b0.3.6 (b0.3.6-rmm.1, same API) and replaces the one you have -
-keep a copy of the old one if you want a way back.
+Requirement: the TesmioLoader by MaxLegend (b0.3.7 or newer) is installed, so
+the game folder already has the folder tesmioloader with tesmioloader.dll,
+tesmiolauncher.exe and tesmioloader.ini. Nothing works without it. The
+tesmioloader.dll in this folder is a corrected build of his b0.3.7
+(b0.3.7-rmm.2, same API) and replaces the one you have - keep a copy of the
+old one if you want a way back.
 
 1. Close the game, the TesmioLauncher and Republic Mod Manager.
 
 2. Drag the folder "tesmioloader" (next to this file) onto the game folder:
       C:\Program Files (x86)\Steam\steamapps\common\SovietRepublic
    Windows asks "Merge folders?" - Yes. Existing files may be overwritten;
-   your settings live in user_config and are not touched.
+   your settings are in user_config and in plugins and are not touched. Only
+   an rmm.ini of your own should be saved first.
 
    Afterwards you have:
-      tesmioloader\build\tesmioloader.dll              the loader (corrected build b0.3.6-rmm.1)
-      tesmioloader\build\rmm.exe                       the manager
-      tesmioloader\build\rmm.ini                       its base settings
-      tesmioloader\build\rmm.README_EN.md / _DE.md     guide (English / German)
-      tesmioloader\build\rmm.SCHEMA_EN.md / _DE.md     reference for plugin authors
-      tesmioloader\build\settings_schemas\             settings pages of the plugins
-      tesmioloader\build\plugins\workshop_bridge.dll   loads Workshop packages
-      tesmioloader\build\plugins\workshop_bridge.ini   its base settings
-      tesmioloader\build\plugins\buildings_plus.dll    new buildings from a declaration
-      tesmioloader\build\plugins\buildings_plus.ini    its base settings
-      tesmioloader\build\plugins\resources_plus.dll    own resources (replaces resources.dll)
-      tesmioloader\build\plugins\resources_plus.template.ini   template; the real list resources_plus.ini
-                                                       is created at the first start from your resources.ini
-      tesmioloader\build\plugins\needs_plus.dll        own citizen needs (replaces needs.dll)
-      tesmioloader\build\plugins\needs_plus.template.ini   template; the real list needs_plus.ini
-                                                       is created at the first start from your needs.ini
+      tesmioloader\tesmioloader.dll              the loader (corrected build b0.3.7-rmm.2)
+      tesmioloader\rmm.exe                       the manager
+      tesmioloader\rmm.ini                       its base settings
+      tesmioloader\rmm.README_DE.md / _EN.md     guide (German / English)
+      tesmioloader\rmm.SCHEMA_DE.md / _EN.md     reference for plugin authors
+      tesmioloader\settings_schemas\             settings pages of the plugins
 
-3. Open tesmioloader\build\tesmioloader.ini in a text editor and add this
-   line to the [plugins] section (or set it to 1):
-      workshop_bridge=1
-   Save as plain text (UTF-8, no BOM).
+3. Start rmm.exe. Done.
 
-4. Start rmm.exe. Done.
+You do not have to copy Resources Plus, Needs Plus and Buildings Plus: they
+lie in the folder "plugins" of this Workshop item, and the TesmioLoader loads
+them from there while you are subscribed. If buildings_plus.dll,
+resources_plus.dll, needs_plus.dll or workshop_bridge.dll from an earlier
+installation still lie in tesmioloader\plugins, delete these four files -
+otherwise the loader loads the old copies instead of the current ones. The
+files resources_plus.ini, needs_plus.ini and buildings_plus.ini there are
+your lists and stay.
 
-Removing: delete the files listed above and set workshop_bridge=0 in
-tesmioloader.ini. The user_config folder with your settings can stay.
+Removal: delete the files named above (tesmioloader.dll only when you copy
+the old one back). The folders user_config and plugins with your settings
+can stay.

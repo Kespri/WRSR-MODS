@@ -1,14 +1,21 @@
 ﻿# Republic Mod Manager - installer of the Steam Workshop package.
 #
-# Copies rmm.exe, its settings schemas and the Workshop Bridge from
-# "Manual Installation\tesmioloader\build" into <game>\tesmioloader\build,
-# switches the bridge on in tesmioloader.ini and can create a desktop shortcut.
-# It also replaces tesmioloader.dll with the corrected build that ships in this
-# package (b0.3.6-rmm.1, source in the GitHub repository); the previous file goes
-# into the backup folder. The launcher (tesmiolauncher.exe) and tesmioloader.ini
-# must already be there - the loader itself comes from MaxLegend's Workshop item.
-# -Uninstall removes what this script installed, leaves the loader DLL and your
-# personal settings (user_config) alone.
+# Copies rmm.exe, its settings schemas and the guides from
+# "Manual Installation\tesmioloader" into the loader folder of the game (the folder
+# with tesmioloader.dll, normally <game>\tesmioloader) and can create a desktop
+# shortcut. It also replaces tesmioloader.dll with the corrected build that ships in
+# this package (b0.3.7-rmm.2, source in the GitHub repository); the previous file goes
+# into the backup folder. The launcher (tesmiolauncher.exe) and tesmioloader.ini must
+# already be there - the loader itself comes from MaxLegend's Workshop item.
+#
+# Resources Plus, Needs Plus and Buildings Plus are NOT copied: they lie in the
+# folder "plugins" of this Workshop item, and the loader loads them from there.
+# Copies of them that an earlier version of this installer put into the loader's
+# plugins folder would win over the Workshop files, so they are moved into the backup.
+#
+# -Uninstall removes what this script installed and leaves the loader DLL, rmm.ini
+# and your personal settings (user_config, the lists under plugins) alone. It also
+# works after the loader itself was removed.
 #
 # Start it through Install-RMM.bat (double-click). Options for the console:
 #   -GamePath "C:\...\SovietRepublic"   game folder when it is not found automatically
@@ -41,7 +48,7 @@ function Interactive() {
 }
 
 # ---------------------------------------------------------------- package
-$source = Join-Path $PSScriptRoot 'Manual Installation\tesmioloader\build'
+$source = Join-Path $PSScriptRoot 'Manual Installation\tesmioloader'
 if (-not (Test-Path -LiteralPath (Join-Path $source 'rmm.exe') -PathType Leaf)) {
     Fail (T 'Das Paket ist unvollständig.' 'The package is incomplete.') `
          (T ('rmm.exe fehlt unter ' + $source + '. Bitte das Workshop-Objekt in Steam einmal abbestellen und neu abonnieren.') `
@@ -49,7 +56,13 @@ if (-not (Test-Path -LiteralPath (Join-Path $source 'rmm.exe') -PathType Leaf)) 
 }
 $files = Get-ChildItem -LiteralPath $source -Recurse -File | ForEach-Object { $_.FullName.Substring($source.Length + 1) }
 # Files with the player's own values: written once, never overwritten by an update.
-$keep = @('rmm.ini', 'plugins\workshop_bridge.ini', 'plugins\buildings_plus.ini')
+$keep = @('rmm.ini')
+# What earlier versions of this installer put into the loader folder and this one no
+# longer ships there: moved into the backup, never deleted. The INIs of the three Plus
+# plugins stay where they are - they hold the player's lists.
+$retired = @('plugins\workshop_bridge.dll', 'plugins\workshop_bridge.ini', 'settings_schemas\workshop_bridge.launcher.ini',
+             'plugins\buildings_plus.dll', 'plugins\resources_plus.dll', 'plugins\needs_plus.dll',
+             'plugins\resources_plus.template.ini', 'plugins\needs_plus.template.ini')
 
 # ---------------------------------------------------------------- game folder
 function SteamLibraries() {
@@ -95,18 +108,46 @@ if ($game -eq '' -or -not (Test-Path -LiteralPath (Join-Path $game 'SOVIET64.exe
          (T ('Unter "' + $game + '" liegt keine SOVIET64.exe. Starte Install-RMM.bat aus dem abonnierten Workshop-Ordner oder gib den Ordner an: Install-RMM.bat -GamePath "C:\...\SovietRepublic".') `
             ('There is no SOVIET64.exe under "' + $game + '". Run Install-RMM.bat from the subscribed Workshop folder or pass the folder: Install-RMM.bat -GamePath "C:\...\SovietRepublic".'))
 }
-$build = Join-Path $game 'tesmioloader\build'
 Ok ((T 'Spielordner: ' 'Game folder: ') + $game)
 
 # ---------------------------------------------------------------- loader
-$loaderExe = Join-Path $build 'tesmiolauncher.exe'
-$loaderIni = Join-Path $build 'tesmioloader.ini'
-if (-not (Test-Path -LiteralPath $loaderExe -PathType Leaf) -or -not (Test-Path -LiteralPath $loaderIni -PathType Leaf)) {
-    Fail (T 'Der TesmioLoader ist nicht installiert.' 'The TesmioLoader is not installed.') `
-         (T ('Es fehlt ' + $build + '\tesmiolauncher.exe oder tesmioloader.ini. Republic Mod Manager braucht den TesmioLoader von MaxLegend: im Steam-Workshop abonnieren und nach seiner Anleitung installieren (Quelle: https://github.com/MaxLegend/TesmioLoader). Danach Install-RMM.bat erneut starten.') `
-            ('Missing ' + $build + '\tesmiolauncher.exe or tesmioloader.ini. Republic Mod Manager needs the TesmioLoader by MaxLegend: subscribe to it in the Steam Workshop and install it as its guide says (source: https://github.com/MaxLegend/TesmioLoader). Then run Install-RMM.bat again.'))
+# The loader folder is where tesmioloader.dll lies: <game>\tesmioloader since loader
+# b0.3.7, <game>\tesmioloader\build in older installations, or the game folder itself.
+$build = ''
+foreach ($candidate in @((Join-Path $game 'tesmioloader'), (Join-Path $game 'tesmioloader\build'), $game)) {
+    if ((Test-Path -LiteralPath (Join-Path $candidate 'tesmioloader.dll') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $candidate 'tesmiolauncher.exe') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $candidate 'tesmioloader.ini') -PathType Leaf)) { $build = $candidate; break }
 }
-Ok (T 'TesmioLoader gefunden.' 'TesmioLoader found.')
+function RemoveShortcut() {
+    $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Republic Mod Manager.lnk'
+    if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force; Ok (T 'Desktop-Verknüpfung entfernt.' 'Desktop shortcut removed.') }
+}
+$loaderFound = ($build -ne '')
+if (-not $loaderFound -and $Uninstall) {
+    # Uninstalling must also work after the loader was removed: then the folder is
+    # wherever rmm.exe was installed.
+    foreach ($candidate in @((Join-Path $game 'tesmioloader'), (Join-Path $game 'tesmioloader\build'), $game)) {
+        if (Test-Path -LiteralPath (Join-Path $candidate 'rmm.exe') -PathType Leaf) { $build = $candidate; break }
+    }
+    if ($build -eq '') {
+        RemoveShortcut
+        Write-Host ''
+        Write-Host (T 'Republic Mod Manager ist in diesem Spielordner nicht installiert - es gibt nichts zu entfernen.' 'Republic Mod Manager is not installed in this game folder - there is nothing to remove.') -ForegroundColor Green
+        exit 0
+    }
+    Ok ((T 'Republic Mod Manager gefunden: ' 'Republic Mod Manager found: ') + $build)
+}
+if ($build -eq '') {
+    Fail (T 'Der TesmioLoader ist nicht installiert.' 'The TesmioLoader is not installed.') `
+         (T ('Unter ' + $game + '\tesmioloader fehlen tesmioloader.dll, tesmiolauncher.exe oder tesmioloader.ini. Republic Mod Manager braucht den TesmioLoader von MaxLegend ab b0.3.7: im Steam-Workshop abonnieren und nach seiner Anleitung installieren (Quelle: https://github.com/MaxLegend/TesmioLoader). Danach Install-RMM.bat erneut starten.') `
+            ('tesmioloader.dll, tesmiolauncher.exe or tesmioloader.ini are missing under ' + $game + '\tesmioloader. Republic Mod Manager needs the TesmioLoader by MaxLegend, b0.3.7 or newer: subscribe to it in the Steam Workshop and install it as its guide says (source: https://github.com/MaxLegend/TesmioLoader). Then run Install-RMM.bat again.'))
+}
+if ($loaderFound) { Ok ((T 'TesmioLoader gefunden: ' 'TesmioLoader found: ') + $build) }
+$loaderIni = Join-Path $build 'tesmioloader.ini'
+# Replaced files are saved beside the loader folder when that is the old "build", inside
+# it otherwise.
+$backupRoot = if ((Split-Path -Leaf $build) -ieq 'build') { Split-Path -Parent $build } else { $build }
 
 # ---------------------------------------------------------------- running programs
 $running = @(Get-Process -Name rmm, tesmiolauncher, SOVIET64 -ErrorAction SilentlyContinue)
@@ -116,52 +157,33 @@ if ($running.Count -gt 0) {
             ('Please close first: ' + (($running | ForEach-Object { $_.ProcessName } | Sort-Object -Unique) -join ', ') + '. Files in use cannot be replaced.'))
 }
 
-# ---------------------------------------------------------------- tesmioloader.ini
-# Sets one key of the [plugins] section of tesmioloader.ini; returns $true when the file changed.
-function SetPluginSwitch([string]$path, [string]$name, [string]$value) {
-    $text = [IO.File]::ReadAllText($path)
-    $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
-    $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($l in ($text -split "`r?`n")) { $lines.Add($l) }
-    # drop a trailing empty element produced by a final newline
-    if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') { $lines.RemoveAt($lines.Count - 1) }
-    $section = -1; $end = -1; $found = -1
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        $l = $lines[$i]
-        if ($l -match '^\s*\[(.+)\]\s*$') {
-            if ($section -ge 0 -and $end -lt 0) { $end = $i }
-            if ($Matches[1].Trim().ToLowerInvariant() -eq 'plugins') { $section = $i; $end = -1 }
-            continue
-        }
-        if ($section -ge 0 -and $end -lt 0 -and $l -match ('^\s*' + [regex]::Escape($name) + '\s*=')) { $found = $i }
-    }
-    if ($found -ge 0) {
-        if ($lines[$found] -match ('^\s*' + [regex]::Escape($name) + '\s*=\s*' + [regex]::Escape($value) + '\s*$')) { return $false }
-        $lines[$found] = $name + '=' + $value
-    } elseif ($section -ge 0) {
-        if ($end -lt 0) { $end = $lines.Count }
-        # insert after the last non-empty line of the section
-        $at = $end
-        while ($at -gt $section + 1 -and $lines[$at - 1].Trim() -eq '') { $at-- }
-        $lines.Insert($at, $name + '=' + $value)
-    } else {
-        if ($lines.Count -gt 0 -and $lines[$lines.Count - 1].Trim() -ne '') { $lines.Add('') }
-        $lines.Add('[plugins]'); $lines.Add($name + '=' + $value)
-    }
-    # UTF-8 without a BOM: the loader reads the file byte by byte.
-    [IO.File]::WriteAllText($path, (($lines -join $nl) + $nl), (New-Object Text.UTF8Encoding($false)))
-    return $true
-}
-
 # ================================================================ uninstall
 if ($Uninstall) {
     Write-Host (T 'Entferne Republic Mod Manager ...' 'Removing Republic Mod Manager ...')
     $removed = 0
     foreach ($rel in $files) {
-        # The loader DLL stays: without it the game has no loader at all. The file it
-        # replaced is in tesmioloader\rmm_install_backup\<time> should anyone want it back.
-        if ($rel -ieq 'tesmioloader.dll') { Note (T 'tesmioloader.dll bleibt (die Fassung aus diesem Paket); das Original liegt in tesmioloader\rmm_install_backup.' 'tesmioloader.dll stays (the build from this package); the original is in tesmioloader\rmm_install_backup.'); continue }
         $target = Join-Path $build $rel
+        # The loader DLL stays: without it the game has no loader at all. A file the
+        # installer replaced lies in rmm_install_backup\<time>; there is none when the
+        # loader already was this build.
+        if ($rel -ieq 'tesmioloader.dll') {
+            if (Test-Path -LiteralPath $target -PathType Leaf) {
+                $saved = $null
+                $backups = Join-Path $backupRoot 'rmm_install_backup'
+                if (Test-Path -LiteralPath $backups) {
+                    $saved = Get-ChildItem -LiteralPath $backups -Directory | Sort-Object Name |
+                             Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'tesmioloader.dll') -PathType Leaf } | Select-Object -First 1
+                }
+                if ($saved) { Note ((T 'tesmioloader.dll bleibt (die Fassung aus diesem Paket). Die Datei, die vorher dort lag, findest du unter ' 'tesmioloader.dll stays (the build from this package). The file that was there before is under ') + $saved.FullName) }
+                else { Note (T 'tesmioloader.dll bleibt (die Fassung aus diesem Paket).' 'tesmioloader.dll stays (the build from this package).') }
+            }
+            continue
+        }
+        # rmm.ini holds the player's own settings of Republic Mod Manager.
+        if ($keep -contains $rel) {
+            if (Test-Path -LiteralPath $target -PathType Leaf) { Note ((T 'bleibt (deine Einstellungen): ' 'stays (your settings): ') + $rel) }
+            continue
+        }
         if (Test-Path -LiteralPath $target -PathType Leaf) { Remove-Item -LiteralPath $target -Force; $removed++ }
     }
     foreach ($dir in @('settings_schemas\languages', 'settings_schemas')) {
@@ -169,20 +191,9 @@ if ($Uninstall) {
         if ((Test-Path -LiteralPath $d) -and -not (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1)) { Remove-Item -LiteralPath $d -Force }
     }
     Ok ((T 'Dateien entfernt: ' 'Files removed: ') + $removed)
-    if (SetPluginSwitch $loaderIni 'workshop_bridge' '0') { Ok (T 'tesmioloader.ini: workshop_bridge=0' 'tesmioloader.ini: workshop_bridge=0') }
-    if (SetPluginSwitch $loaderIni 'resources_plus' '0') { Ok (T 'tesmioloader.ini: resources_plus=0' 'tesmioloader.ini: resources_plus=0') }
-    if (Test-Path -LiteralPath (Join-Path $build 'plugins\resources.dll') -PathType Leaf) {
-        if (SetPluginSwitch $loaderIni 'resources' '1') { Ok (T 'tesmioloader.ini: das Original-Plugin resources ist wieder eingeschaltet (resources=1).' 'tesmioloader.ini: the original resources plugin is switched back on (resources=1).') }
-    }
-    Note (T 'plugins\resources_plus.ini bleibt liegen - dort steht deine Ressourcenliste.' 'plugins\resources_plus.ini is kept - it holds your resource list.')
-    if (SetPluginSwitch $loaderIni 'needs_plus' '0') { Ok (T 'tesmioloader.ini: needs_plus=0' 'tesmioloader.ini: needs_plus=0') }
-    if (Test-Path -LiteralPath (Join-Path $build 'plugins\needs.dll') -PathType Leaf) {
-        if (SetPluginSwitch $loaderIni 'needs' '1') { Ok (T 'tesmioloader.ini: das Original-Plugin needs ist wieder eingeschaltet (needs=1).' 'tesmioloader.ini: the original needs plugin is switched back on (needs=1).') }
-    }
-    Note (T 'plugins\needs_plus.ini bleibt liegen - dort steht deine Bedürfnisliste.' 'plugins\needs_plus.ini is kept - it holds your needs list.')
-    $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Republic Mod Manager.lnk'
-    if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force; Ok (T 'Desktop-Verknüpfung entfernt.' 'Desktop shortcut removed.') }
-    Note (T ('Deine persönlichen Einstellungen unter ' + $build + '\user_config bleiben erhalten.') ('Your personal settings under ' + $build + '\user_config are kept.'))
+    RemoveShortcut
+    Note (T 'Resources Plus, Needs Plus und Buildings Plus liegen in diesem Workshop-Objekt und laden weiter, solange du es abonniert hast. Abbestellen entfernt sie; ausschalten kannst du sie im TesmioLauncher.' 'Resources Plus, Needs Plus and Buildings Plus lie in this Workshop item and keep loading while you are subscribed. Unsubscribing removes them; you can switch them off in TesmioLauncher.')
+    Note (T ('Deine Listen und persönlichen Einstellungen unter ' + $build + '\plugins und \user_config bleiben erhalten, ebenso rmm.ini und der Ordner rmm_install_backup.') ('Your lists and personal settings under ' + $build + '\plugins and \user_config are kept, and so are rmm.ini and the folder rmm_install_backup.'))
     Write-Host ''
     Write-Host (T 'Republic Mod Manager wurde entfernt.' 'Republic Mod Manager has been removed.') -ForegroundColor Green
     exit 0
@@ -191,7 +202,7 @@ if ($Uninstall) {
 # ================================================================ install
 Write-Host (T 'Installiere Republic Mod Manager ...' 'Installing Republic Mod Manager ...')
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-$backup = Join-Path $game ('tesmioloader\rmm_install_backup\' + $stamp)
+$backup =Join-Path $backupRoot ('rmm_install_backup\' + $stamp)
 $copied = 0; $kept = 0; $replaced = 0
 foreach ($rel in $files) {
     $from = Join-Path $source $rel
@@ -220,32 +231,30 @@ foreach ($rel in $files) {
     $copied++
 }
 Ok ((T 'Dateien kopiert: ' 'Files copied: ') + $copied + (T ', behalten: ' ', kept: ') + $kept + (T ', ersetzt: ' ', replaced: ') + $replaced)
-if ($replaced -gt 0) { Note ((T 'Sicherung der ersetzten Dateien: ' 'Backup of the replaced files: ') + $backup) }
-Note (T 'tesmioloader.dll ist jetzt die Fassung aus diesem Paket (b0.3.6-rmm.1, gleiche API wie MaxLegends b0.3.6).' 'tesmioloader.dll is now the build from this package (b0.3.6-rmm.1, same API as the b0.3.6 by MaxLegend).')
+Note (T 'tesmioloader.dll ist jetzt die Fassung aus diesem Paket (b0.3.7-rmm.2, gleiche API wie MaxLegends b0.3.7).' 'tesmioloader.dll is now the build from this package (b0.3.7-rmm.2, same API as the b0.3.7 by MaxLegend).')
 
-if (SetPluginSwitch $loaderIni 'workshop_bridge' '1') { Ok (T 'tesmioloader.ini: Workshop Bridge eingeschaltet (workshop_bridge=1).' 'tesmioloader.ini: Workshop Bridge switched on (workshop_bridge=1).') }
-else { Ok (T 'tesmioloader.ini: Workshop Bridge war schon eingeschaltet.' 'tesmioloader.ini: Workshop Bridge was already on.') }
-
-# Resources Plus replaces the original resources plugin: same list, same saves, without the
-# crash on exit. The original is switched off, never deleted; -Uninstall switches it back on.
-if (SetPluginSwitch $loaderIni 'resources_plus' '1') { Ok (T 'tesmioloader.ini: Resources Plus eingeschaltet (resources_plus=1).' 'tesmioloader.ini: Resources Plus switched on (resources_plus=1).') }
-else { Ok (T 'tesmioloader.ini: Resources Plus war schon eingeschaltet.' 'tesmioloader.ini: Resources Plus was already on.') }
-if (Test-Path -LiteralPath (Join-Path $build 'plugins\resources.dll') -PathType Leaf) {
-    if (SetPluginSwitch $loaderIni 'resources' '0') {
-        Ok (T 'tesmioloader.ini: das Original-Plugin resources ist ausgeschaltet (resources=0). Resources Plus übernimmt seine Liste beim nächsten Spielstart nach plugins\resources_plus.ini.' 'tesmioloader.ini: the original resources plugin is switched off (resources=0). Resources Plus takes over its list into plugins\resources_plus.ini at the next game start.')
-        Note (T 'Zurück zum Original: im Republic Mod Manager Resources Plus aus- und resources einschalten, oder in tesmioloader.ini resources=1 und resources_plus=0 setzen. Die DLL wurde nicht angefasst.' 'Back to the original: switch Resources Plus off and resources on in Republic Mod Manager, or set resources=1 and resources_plus=0 in tesmioloader.ini. The DLL was not touched.')
-    } else { Note (T 'tesmioloader.ini: das Original-Plugin resources war schon ausgeschaltet.' 'tesmioloader.ini: the original resources plugin was already off.') }
+# Leftovers of an earlier installation: the Workshop Bridge, and copies of the Plus
+# plugins that would win over the files in this Workshop item and never get an update.
+$moved = 0
+# The Plus copies only go when the loader can reach the ones in this item: the script must
+# run from the subscribed Workshop folder and the DLL must really be in the package.
+$inWorkshop = $PSScriptRoot -match '\\workshop\\content\\784150\\'
+foreach ($rel in $retired) {
+    $old = Join-Path $build $rel
+    if (-not (Test-Path -LiteralPath $old -PathType Leaf)) { continue }
+    if ($rel -match '^plugins\\(buildings_plus|resources_plus|needs_plus)\.') {
+        $name = $Matches[1]
+        if (-not $inWorkshop -or -not (Test-Path -LiteralPath (Join-Path $PSScriptRoot ('plugins\' + $name + '\' + $name + '.dll')) -PathType Leaf)) {
+            Note ((T 'bleibt liegen (dieses Paket liegt nicht im Workshop-Ordner): ' 'left in place (this package is not in the Workshop folder): ') + $rel); continue
+        }
+    }
+    $bparent = Split-Path -Parent (Join-Path $backup $rel)
+    if (-not (Test-Path -LiteralPath $bparent)) { New-Item -ItemType Directory -Path $bparent -Force | Out-Null }
+    try { Move-Item -LiteralPath $old -Destination (Join-Path $backup $rel) -Force; $moved++; Note ((T 'in die Sicherung verschoben: ' 'moved into the backup: ') + $rel) }
+    catch { Note ((T 'konnte nicht verschoben werden: ' 'could not be moved: ') + $rel + ' - ' + $_.Exception.Message) }
 }
-
-# Needs Plus replaces the original needs plugin the same way: same list, same saves, its own file.
-if (SetPluginSwitch $loaderIni 'needs_plus' '1') { Ok (T 'tesmioloader.ini: Needs Plus eingeschaltet (needs_plus=1).' 'tesmioloader.ini: Needs Plus switched on (needs_plus=1).') }
-else { Ok (T 'tesmioloader.ini: Needs Plus war schon eingeschaltet.' 'tesmioloader.ini: Needs Plus was already on.') }
-if (Test-Path -LiteralPath (Join-Path $build 'plugins\needs.dll') -PathType Leaf) {
-    if (SetPluginSwitch $loaderIni 'needs' '0') {
-        Ok (T 'tesmioloader.ini: das Original-Plugin needs ist ausgeschaltet (needs=0). Needs Plus übernimmt seine Liste beim nächsten Spielstart nach plugins\needs_plus.ini.' 'tesmioloader.ini: the original needs plugin is switched off (needs=0). Needs Plus takes over its list into plugins\needs_plus.ini at the next game start.')
-        Note (T 'Zurück zum Original: im Republic Mod Manager Needs Plus aus- und needs einschalten, oder in tesmioloader.ini needs=1 und needs_plus=0 setzen. Die DLL wurde nicht angefasst.' 'Back to the original: switch Needs Plus off and needs on in Republic Mod Manager, or set needs=1 and needs_plus=0 in tesmioloader.ini. The DLL was not touched.')
-    } else { Note (T 'tesmioloader.ini: das Original-Plugin needs war schon ausgeschaltet.' 'tesmioloader.ini: the original needs plugin was already off.') }
-}
+if ($moved -gt 0) { Ok (T 'Ältere Kopien entfernt: Resources Plus, Needs Plus und Buildings Plus lädt der TesmioLoader jetzt direkt aus diesem Workshop-Objekt; die Workshop Bridge wird nicht mehr gebraucht.' 'Older copies removed: the TesmioLoader now loads Resources Plus, Needs Plus and Buildings Plus straight from this Workshop item; the Workshop Bridge is no longer needed.') }
+if ($replaced -gt 0 -or $moved -gt 0) { Note ((T 'Sicherung der ersetzten Dateien: ' 'Backup of the replaced files: ') + $backup) }
 
 # ---------------------------------------------------------------- shortcut
 $want = $false
@@ -274,5 +283,6 @@ if ($want) {
 Write-Host ''
 Write-Host (T 'Republic Mod Manager ist installiert.' 'Republic Mod Manager is installed.') -ForegroundColor Green
 Write-Host ((T 'Starten: ' 'Start: ') + (Join-Path $build 'rmm.exe'))
+Write-Host (T 'Resources Plus, Needs Plus und Buildings Plus lädt der TesmioLoader direkt aus diesem Workshop-Objekt.' 'The TesmioLoader loads Resources Plus, Needs Plus and Buildings Plus straight from this Workshop item.')
 Write-Host (T 'Nach einem Update des Workshop-Objekts einfach Install-RMM.bat erneut ausführen.' 'After an update of the Workshop item just run Install-RMM.bat again.')
 exit 0

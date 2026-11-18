@@ -18,7 +18,6 @@ namespace TesmioAutoload
         // Chrome stays what it is, or every ordinary button would darken with it.
         public static readonly Color Frame = Color.FromArgb(206,215,229), FrameHover = Color.FromArgb(224,232,244);
         // 0.5.9: a paused page - Soviet Mod Loader has this plugin's job, so the cards go grey.
-        public static readonly Color Dim = Color.FromArgb(238,240,243), DimInk = Color.FromArgb(128,136,148), DimHeader = Color.FromArgb(138,148,163);
         [DllImport("dwmapi.dll", PreserveSig=true)] static extern int DwmSetWindowAttribute(IntPtr handle,int attribute,ref int value,int size);
         public static Label Label(string text, float size, bool bold)
         { return new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular), ForeColor = Ink, Margin = new Padding(0, 0, 0, 7), UseMnemonic = false, ContextMenuStrip = CopyMenu() }; }
@@ -155,7 +154,6 @@ namespace TesmioAutoload
     {
         public string HeaderText = "";
         const int HeaderHeight = 56;
-        public bool Dimmed;
         public Card(string header = "") { DoubleBuffered = true; ResizeRedraw = true; BackColor = Color.White; HeaderText=header??""; int s=Theme.Shadow; Padding = HeaderText.Length==0?new Padding(20,20,20+s,20+s):new Padding(20,HeaderHeight+17,20+s,20+s); Margin = new Padding(0,0,0,18); }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -164,14 +162,11 @@ namespace TesmioAutoload
             Theme.DrawShadow(e.Graphics,frame,8,Theme.Shadow,7);
             using (var p = Theme.Rounded(frame,8))
             {
-                // 0.5.9: Dimmed = the plugin is paused (Soviet Mod Loader has its job). The card is
-                // drawn grey instead of white and its header loses its colour, so a whole page can
-                // be seen but is visibly out of service.
-                using (var white = new SolidBrush(Dimmed?Theme.Dim:Color.White)) e.Graphics.FillPath(white,p);
+                using (var white = new SolidBrush(Color.White)) e.Graphics.FillPath(white,p);
                 if(HeaderText.Length>0)
                 {
                     var state=e.Graphics.Save();e.Graphics.SetClip(p);
-                    using(var fill=new SolidBrush(Dimmed?Theme.DimHeader:Theme.SelectionBlue))e.Graphics.FillRectangle(fill,0,0,frame.Width+1,HeaderHeight);
+                    using(var fill=new SolidBrush(Theme.SelectionBlue))e.Graphics.FillRectangle(fill,0,0,frame.Width+1,HeaderHeight);
                     e.Graphics.Restore(state);
                     using(var font=new Font("Segoe UI",15,FontStyle.Bold))TextRenderer.DrawText(e.Graphics,HeaderText,font,new Rectangle(23,0,Math.Max(0,frame.Width-46),HeaderHeight),Color.White,TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
                 }

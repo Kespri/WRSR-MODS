@@ -1,8 +1,8 @@
-# ❄️ Weather Roads 0.3.3
+# ❄️ Weather Roads 0.3.5
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
-Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds up on roads, how fast it melts naturally, and gives plowed roads a temporary protection: a protection phase in game minutes, then a weaker "salt phase" in game hours. With Technical Service Storage the loaded grit decides how strong that protection is. Snow and melting work without Technical Services and without a snowplow.
+Controls in *Workers & Resources: Soviet Republic* 1.1.1.13 how fast snow builds up on roads, how fast it melts naturally, and gives plowed roads a temporary protection: a protection phase in game minutes, then a weaker "salt phase" in game hours. With Technical Service Storage the loaded grit decides how strong that protection is. Snow and melting work without Technical Services and without a snowplow.
 
 ---
 
@@ -28,14 +28,14 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.9 (the identities of `SOVIET64.exe` and `C3DDLL64.dll` and the hook signatures are verified; other builds are refused)
-- TesmioLoader API 4
+- WRSR 1.1.1.13 (the identities of `SOVIET64.exe` and `C3DDLL64.dll` and the hook signatures are verified; other builds are refused)
+- TesmioLoader b0.3.7 or newer (API 4)
 - **Optional:** Technical Service Storage with its grit spreader service for material-dependent protection and dry-plowing detection; without it every plowing counts with strength 1.00
 - **No** Localization plugin needed; the overlay has built-in German and English texts
 
 ### In three steps
-1. **Choose one installation method** (see below) and enable the plugin.
-2. **Check the values:** the supplied settings are tuned (snow 30 %, melting 45 %, protection phase 240 game minutes, salt phase 24 game hours). Overlay and detailed log stay off for normal play.
+1. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
+2. **Check the values:** the supplied settings are tuned (snow 35 %, melting 45 %, protection phase 240 game minutes, salt phase 24 game hours). Overlay and detailed log stay off for normal play.
 3. **Restart the game completely.** `logs\tesmioloader.weather_roads.log` names version, configuration path, signature check, active components and the status of the grit spreader service.
 
 ---
@@ -65,78 +65,55 @@ Controls in *Workers & Resources: Soviet Republic* 1.1.1.9 how fast snow builds 
 
 ### 🆕 New in 0.3.0
 - ✅ Every text in Republic Mod Manager and in this guide rewritten: shorter, in players' language, switches with ON and OFF instead of 1 and 0, line breaks in longer explanations. The note on the interplay with Technical Service Storage now sits in the "Notes" card.
-- ✅ **INI beside the DLL:** when `plugins\weather_roads.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package under Soviet Mod Loader or the Workshop Bridge. The chosen path is logged as `configuration file:`.
+- ✅ **INI beside the DLL:** when `tesmioloader\plugins\weather_roads.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package. The chosen path is logged as `configuration file:`.
 - ✅ Schema for Republic Mod Manager in the package: five tabs with every setting, German and English.
 
 ---
 
 ## 💾 Installation
 
-Choose **one** of the four methods. The same DLL must never be loaded twice.
+Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ---
 
-### Method 1️⃣: Classic TesmioLoader
+### Method 1️⃣: Steam Workshop (recommended)
 
 ```
-1. Copy weather_roads.dll and weather_roads.ini from hooks\
-   → tesmioloader\build\plugins\
-
-2. Enable weather_roads in the TesmioLauncher
-3. Restart the game completely
+1. Subscribe to the Workshop item
+2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+   by itself on the next game start – nothing is copied
+3. The DLL finds the INI next to itself in the package
+4. Steam updates apply from the next game start
 ```
+
+A newly found plugin is switched on. You switch it off and on in TesmioLauncher or with "Plugin active" in Republic Mod Manager.
 
 ---
 
-### Method 2️⃣: Soviet Mod Loader (SML)
+### Method 2️⃣: By hand into the loader folder
 
 ```
-1. Subscribe to the Workshop item – SML reads subscribed packages by itself
-2. SML loads the DLL through soviet.mod.ini from the package, the INI sits beside it
-3. Remove or disable a local weather_roads.dll in plugins\ first
+1. Copy weather_roads.dll and weather_roads.ini from plugins\
+   → <game>\tesmioloader\plugins\
+
+2. Restart the game completely
 ```
 
----
-
-### Method 3️⃣: Workshop Bridge (without SML)
-
-```
-1. Select the package in Republic Mod Manager
-2. Switch "Plugin enabled" on
-3. workshop_bridge loads the DLL straight from the package; it finds the INI beside itself
-4. Steam updates apply immediately
-```
-
----
-
-### Method 4️⃣: Republic Mod Manager with "Files local only"
-
-```
-1. Select the package in Republic Mod Manager, adjust the settings, Save
-2. Tab "General", card "Notes": switch "Files local only" on
-3. Confirmation with file list → DLL and INI are copied to
-   tesmioloader\build\plugins\ when saving
-4. The Workshop Bridge skips the package automatically afterwards
-```
-
-**"Files local only" in detail**
-- For everyone who wants to keep using the plugin without a Steam subscription
-- With local files Steam updates apply only after saving again (yellow "Update" mark)
-- Switching it off removes only the files Republic Mod Manager copied
+For everyone who wants to use the plugin without the Steam subscription. A DLL in `tesmioloader\plugins` takes priority over the one of the same name from the Workshop; you then copy updates yourself.
 
 ---
 
 ## 🧰 Republic Mod Manager
 
-The package contains a presentation schema in the `config` folder. Republic Mod Manager shows Weather Roads in five tabs, German and English:
+The package contains a presentation schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Weather Roads in five tabs, German and English:
 
-- **General:** notes, "Files local only", a button for this guide; plugin, save road protection, detailed events
+- **General:** notes, a button for this guide; plugin, save road protection, detailed events
 - **Snow and melting:** snow build-up, natural melting, appearance of plowed areas
 - **Snowplowing:** protection phase, salt phase, factor, dry plowing
-- **Overlay:** window, language, key, position and appearance
+- **Info window:** window, language, key, position and appearance
 - **Advanced:** timing and batching of the gradual build-up
 
-Republic Mod Manager writes the effective file `plugins\weather_roads.ini` with every key; the INI in the package stays unchanged.
+The INI in the package stays unchanged. Republic Mod Manager keeps your personal values in `tesmioloader\user_config\weather_roads.ini` and writes the finished INI to `tesmioloader\plugins\weather_roads.ini` on saving – that is where the plugin reads it.
 
 ---
 
@@ -145,8 +122,8 @@ Republic Mod Manager writes the effective file `plugins\weather_roads.ini` with 
 ### Main file: `weather_roads.ini`
 
 The DLL reads in this order:
-- **First:** `tesmioloader\build\plugins\weather_roads.ini` when it exists (classic installation, "Files local only" or the effective INI written by Republic Mod Manager)
-- **Otherwise:** the INI beside the DLL, in the package `hooks\weather_roads.ini` (Soviet Mod Loader, Workshop Bridge)
+- **First:** `tesmioloader\plugins\weather_roads.ini` when it exists (installed by hand or the finished INI from Republic Mod Manager)
+- **Otherwise:** the INI beside the DLL, in the Workshop package `plugins\weather_roads.ini`
 
 **UTF-8 without BOM.** `;` only on its own line, no comments after values. Decimals with a dot (`0.30`), switches as `0` or `1`. Changes apply after a complete restart.
 
@@ -221,7 +198,7 @@ On load the plugin checks whether the sidecar file belongs to exactly this saveg
 
 - Loading does not restart the protection period; higher INI durations do not extend saved treatments afterwards.
 - Without an extra file the savegame loads normally (`status=no-sidecar`); earlier treatments cannot be restored then.
-- Damaged or mismatching extra data is discarded. Very old files from 0.2.7 can be rejected because of the earlier save timing; treat again and save.
+- Damaged or mismatching extra data is discarded.
 - `[persistence] enabled = 0` stops reading and writing; existing files stay.
 - When transferring a savegame take the whole folder. Steam Cloud and ZIP autosaves are not confirmed.
 
@@ -263,6 +240,8 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 - The weather call chain accounts for the hook of `daynight`; other combinations are not verified.
 
 ### Version compatibility
+- **0.3.5:** nothing changes in the game; only log texts tidied
+- **0.3.4:** for WRSR 1.1.1.13; otherwise unchanged
 - **0.3.3:** defaults `accumulation_multiplier` 0.35 and `maximum_accumulation_per_burst` 95; otherwise unchanged
 - **0.3.2:** weather field read as a roll 0 to 7, only 1 = snowfall; names in the info window and the log; otherwise unchanged
 - **0.3.1:** `release_follows_weather` (default 1), otherwise unchanged
@@ -289,7 +268,7 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 ### Logging
 
 Messages go to `tesmioloader.log` (mirrored status, warning and error messages) and `logs\tesmioloader.weather_roads.log` (plugin log, with `detailed_events = 1` also EVENT messages). Switch the details off again after troubleshooting.
-- In **Republic Mod Manager** the document icon at the bottom of the plugin bar opens the log view with filter and sender.
+- In **Republic Mod Manager** the log icon in the sidebar opens the log view with filter and sender.
 
 Search for:
 - `configuration file` → which INI was chosen
@@ -300,10 +279,10 @@ Search for:
 
 ## 📦 File structure
 
-**Workshop package** (Steam subscription, SML, Workshop Bridge)
+**Workshop package** (Steam subscription)
 ```
-weather_roads\
-├── hooks\
+<Workshop item>\
+├── plugins\
 │   ├── weather_roads.dll           (plugin)
 │   └── weather_roads.ini           (original INI with explanations)
 ├── config\                         (schema for Republic Mod Manager)
@@ -311,23 +290,28 @@ weather_roads\
 │   └── languages\
 │       ├── de.ini
 │       └── en.ini
-├── soviet.mod.ini                  (manifest for SML, Bridge and Republic Mod Manager)
+├── rmm.mod.ini                     (manifest for Republic Mod Manager)
 ├── workshopconfig.ini              (Steam Workshop entry)
 ├── previewimage.png
+├── LICENSE                         (GNU GPL v3)
 ├── README_DE.md
 └── README_EN.md
 ```
 
-**Loader folder** (method 1 by hand or "Files local only")
+**Loader folder** (only with method 2 or with Republic Mod Manager)
 ```
-tesmioloader\build\
+<game>\tesmioloader\
 ├── plugins\
-│   ├── weather_roads.dll
-│   └── weather_roads.ini           (effective INI)
+│   ├── weather_roads.dll           (method 2 only)
+│   └── weather_roads.ini           (method 2, or the finished INI from Republic Mod Manager)
+├── user_config\
+│   └── weather_roads.ini           (personal values from Republic Mod Manager)
 ├── logs\
 │   └── tesmioloader.weather_roads.log
 └── tesmioloader.log
 ```
+
+Loaded from the Workshop, DLL and INI stay in the package; `tesmioloader\plugins` then holds only the finished INI, once you have changed a value in Republic Mod Manager and saved.
 
 ---
 
@@ -358,5 +342,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Weather Roads 0.3.3  
-**For:** WRSR 1.1.1.9 | TesmioLoader API 4
+**Last update:** Weather Roads 0.3.5  
+**For:** WRSR 1.1.1.13 | TesmioLoader API 4

@@ -1,6 +1,6 @@
 # Buildings Plus – build notes
 
-Target: WRSR 1.1.1.9, TesmioLoader API 4. Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD
+Target: WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address), TesmioLoader API 4. Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. Self-test: the same file with
 `/DBUILDINGS_PLUS_TEST` as an executable, `buildings_plus_test.exe <fresh scratch folder>` builds a fake
 game folder and checks generation, replacement rules, material rewrite, stamp, prune, refusal of foreign
@@ -8,6 +8,20 @@ folders, the object rename and the id catalog. `buildings_plus_test.exe --run <i
 folder>` generates the sections of a real INI from a real game folder into an out folder of your choice,
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
+
+## 0.1.11 (2026-11-18)
+
+- `buildings_plus.ini` and the id catalog `buildings_plus.ids.ini` are addressed through
+  `<baseDir>\plugins\`, no longer through `pluginDir`. TesmioLoader b0.3.7 hands every plugin the
+  folder of its own DLL as `pluginDir`: loaded from a Workshop item the plugin would have read
+  only the package INI (never the finished INI Republic Mod Manager writes into the loader
+  folder) and would have written the catalog into the Workshop folder, which Steam rewrites on
+  every update - and the numbers in that file are part of the saved games. The INI beside the
+  DLL stays the fallback when the loader folder has none. For a DLL in `<loader>\plugins`
+  nothing changes.
+- Self-test: 67 checks pass (its dry-run host names `<out>\plugins` both ways, so the tests did
+  not need a change). Not in the game yet; the build before this one generated the example
+  pharmacy on 1.1.1.13 from `<loader>\plugins`.
 
 ## 0.1.10 (2026-09-20)
 
@@ -111,7 +125,7 @@ goes to `<out>\plugins`). History newest first.
   building.ini uses. Before, validation refused every such line ("line N has no $TOKEN") and skipped
   the whole section, which meant no token carrying data could be declared at all: no
   `$CONNECTION_*`, no `$RESOURCE_VISUALIZATION`, no `$VEHICLE_STATION`. `strip` could remove such a
-  block since 0.1.1 but nothing could create one.
+  block before, but nothing could create one.
 - Only the first line of a section still has to carry a token: it is emitted after the `$NAME` line,
   so a data line there would attach itself to the name, and a typo would quietly become data. An
   empty line is refused as well. The replacement logic already ignored tokenless lines
@@ -206,7 +220,7 @@ goes to `<out>\plugins`). History newest first.
 
 ## Technical notes
 
-- The folder is generated in `TsmPluginInit`: plugins are initialised from DllMain before the game's
+- The folder is generated in `TsmPluginStart` (`TsmPluginInit` before 0.1.3): plugins are initialised from DllMain before the game's
   main thread runs, so a folder written then is found when the game lists `workshop_wip`. The loader's
   VFS cannot serve it, because the game enumerates that directory and the VFS redirects opens only.
 - `tesmioloader.stamp` marks generated folders; a folder without it is never touched (id collision

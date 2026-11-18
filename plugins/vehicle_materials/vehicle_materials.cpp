@@ -13,16 +13,16 @@
 // same strict reader; the merged result is validated as one configuration.
 //
 // Supported game build:
-//   version     WRSR 1.1.1.9
-//   SHA256      296644a9f207d609031fc2ae73fed2dcb34619a1d55a35d1c7b51965ce6841b8
-//   timestamp   0x6A3EB6AD
+//   version     WRSR 1.1.1.13
+//   SHA256      4df5fbecc75300e3b843ae4e6426761c84ae2e989321c011c6f560be79122125
+//   timestamp   0x6A8D4087
 //   image size  0xA9D000
 //
 // Verified hook and helpers:
-//   vehicle requirement builder RVA 0x3F8D10
+//   vehicle requirement builder RVA 0x3F8C50  (0x3F8D10 in 1.1.1.9)
 //   requirement vector           vehicle + 0x85C8
-//   merge helper                 RVA 0x2A18C0
-//   ResourceGet                  RVA 0x2AA830
+//   merge helper                 RVA 0x2A1840  (0x2A18C0 in 1.1.1.9)
+//   ResourceGet                  RVA 0x2AA7B0  (0x2AA830 in 1.1.1.9)
 
 #include "../../src/tesmio_plugin.h"
 #include "../tesmio_config.h"
@@ -44,7 +44,7 @@
 
 #define PLUGIN_INI      "vehicle_materials.ini"
 #define PLUGIN_OVERLAY  "user_config\\vehicle_materials.ini"
-#define PLUGIN_VERSION  "0.4.0"
+#define PLUGIN_VERSION  "0.4.1"
 #define PLUGIN_LOG_NAME "tesmioloader.vehicle_materials.log"
 
 static const size_t MAX_INI_BYTES = 1u * 1024u * 1024u;
@@ -54,12 +54,12 @@ static const int MAX_NAME = 64;
 static const int MAX_DEBUG_LIMIT = 10000;
 static const float MAX_COEFFICIENT = 1000000.0f;
 
-static const DWORD RVA_VEHICLE_MATERIAL_BUILDER = 0x003F8D10;
-static const DWORD RVA_MERGE_REQUIREMENTS        = 0x002A18C0;
-static const DWORD RVA_RESOURCE_GET              = 0x002AA830;
+static const DWORD RVA_VEHICLE_MATERIAL_BUILDER = 0x003F8C50;
+static const DWORD RVA_MERGE_REQUIREMENTS        = 0x002A1840;
+static const DWORD RVA_RESOURCE_GET              = 0x002AA7B0;
 static const DWORD RVA_RESOURCE_MANAGER          = 0x009D4F10;
 
-static const DWORD EXPECTED_TIMESTAMP = 0x6A3EB6AD;
+static const DWORD EXPECTED_TIMESTAMP = 0x6A8D4087;
 static const size_t EXPECTED_IMAGE_SIZE = 0xA9D000;
 
 static const unsigned char EXPECTED_PROLOGUE[15] =
@@ -970,7 +970,7 @@ static bool BuildMatches()
         timestamp != EXPECTED_TIMESTAMP)
     {
         Report("FATAL", "SOVIET64.exe", "unsupported-build",
-            "Build mismatch: mapped=0x%llX PE-size=0x%08X timestamp=0x%08X; expected size=0x%llX timestamp=0x%08X. Action: use WRSR 1.1.1.9",
+            "Build mismatch: mapped=0x%llX PE-size=0x%08X timestamp=0x%08X; expected size=0x%llX timestamp=0x%08X. Action: use WRSR 1.1.1.13",
             (unsigned long long)g_exeSize, imageSize, timestamp,
             (unsigned long long)EXPECTED_IMAGE_SIZE, EXPECTED_TIMESTAMP);
         return false;
@@ -991,7 +991,48 @@ static bool BuildMatches()
         memcmp(site, EXPECTED_PROLOGUE, sizeof(EXPECTED_PROLOGUE)) != 0)
     {
         Report("FATAL", "SOVIET64.exe", "builder-prologue",
-            "Material-builder prologue changed. Action: verify WRSR 1.1.1.9 and check for a conflicting plugin");
+            "Material-builder prologue changed. Action: verify WRSR 1.1.1.13 and check for a conflicting plugin");
+        return false;
+    }
+
+    // The two helpers are called, not hooked, so no hook installer checks
+    // their bytes. A matching time stamp does not prove an unchanged binary,
+    // and calling into whatever else lies there would be a crash far from its
+    // cause. ResourceGet may already carry another plugin's inline hook (a
+    // jump over its first bytes), so only the merge helper is compared in
+    // full and ResourceGet is accepted with either its own prologue or a jump.
+    static const unsigned char kMergePrologue[16] =
+    {
+        0x48,0x89,0x5C,0x24,0x10,
+        0x48,0x89,0x6C,0x24,0x18,
+        0x56,
+        0x41,0x56,
+        0x41,0x57,
+        0x48
+    };
+    static const unsigned char kResourceGetPrologue[12] =
+    {
+        0x40,0x55,
+        0x57,
+        0x41,0x56,
+        0x48,0x8B,0xEC,
+        0x48,0x83,0xEC,0x40
+    };
+    BYTE* merge = g_exeBase + RVA_MERGE_REQUIREMENTS;
+    BYTE* get = g_exeBase + RVA_RESOURCE_GET;
+    if (!ReadablePtr(merge, sizeof(kMergePrologue)) ||
+        memcmp(merge, kMergePrologue, sizeof(kMergePrologue)) != 0)
+    {
+        Report("FATAL", "SOVIET64.exe", "merge-prologue",
+            "The requirement merge helper is not where WRSR 1.1.1.13 has it. Action: verify the game version; no hook was installed");
+        return false;
+    }
+    if (!ReadablePtr(get, sizeof(kResourceGetPrologue)) ||
+        (memcmp(get, kResourceGetPrologue, sizeof(kResourceGetPrologue)) != 0 &&
+         get[0] != 0xE9 && !(get[0] == 0xFF && get[1] == 0x25) && !(get[0] == 0x48 && get[1] == 0xB8)))
+    {
+        Report("FATAL", "SOVIET64.exe", "resourceget-prologue",
+            "ResourceGet is not where WRSR 1.1.1.13 has it. Action: verify the game version; no hook was installed");
         return false;
     }
     return true;
@@ -1064,7 +1105,7 @@ static VectorResourceState FindResourceInVector(void* vehicle, void* resource)
 
 static Category AutomaticCategory(int rawType)
 {
-    // Verified for WRSR 1.1.1.9: 1=road, 6=ship, 7=airplane; remaining
+    // Verified for WRSR 1.1.1.9 (the builder's code is the same in 1.1.1.13): 1=road, 6=ship, 7=airplane; remaining
     // production vehicle types use the rail/rolling-stock coefficients.
     if (rawType == 1) return CAT_ROAD;
     if (rawType == 6) return CAT_SHIP;
@@ -1333,7 +1374,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
             !ReadablePtr(resourceManager, sizeof(void*)))
         {
             Report("FATAL", "SOVIET64.exe", "helper-validation",
-                "A required helper or the resource manager is unreadable. Action: verify WRSR 1.1.1.9; no hook was installed");
+                "A required helper or the resource manager is unreadable. Action: verify WRSR 1.1.1.13; no hook was installed");
             LogSummary("Startup", false);
             return 1;
         }

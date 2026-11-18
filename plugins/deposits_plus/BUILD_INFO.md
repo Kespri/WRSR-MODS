@@ -1,7 +1,7 @@
 # Deposits Plus – build notes
 
 Fork of the `deposits` plugin from the TesmioLoader by MaxLegend (Tesmio), GPL v3. Target:
-WRSR 1.1.1.9 (SOVIET64.exe SHA-256 `296644A9F207D609031FC2AE73FED2DCB34619A1D55A35D1C7B51965CE6841B8`),
+WRSR 1.1.1.13 (SOVIET64.exe SHA-256 `4DF5FBECC75300E3B843AE4E6426761C84AE2E989321C011C6F560BE79122125`),
 TesmioLoader API 4. Build: the standard line of the root `build.bat` (`cl /O2 /MT /W3 /EHsc /LD`,
 kernel32.lib) compiles `deposits_plus.cpp`; the headers `deposit_generation.h`, `deposit_country.h`,
 `deposit_visual_shader.h` and the `.inl` files are included, `third_party` holds Microsoft's DXIL
@@ -9,6 +9,144 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.4.17 (2026-11-19)
+
+- `AdoptOriginalDeposits` runs at every game start for as long as there is no
+  `<loader>\plugins\deposits_plus.ini`, and it creates that file only when the original has
+  deposits of its own - so for most players it ran its search forever. The search walked the whole
+  Workshop content folder (every file of every subscribed item, depth 8) for `deposits.dll`.
+  New `AdoptFindDllInWorkshop`: the DLL is looked for only where a TesmioLoader package keeps a
+  plugin - `<item>\<dll>`, `<item>\plugins\<dll>`, `<item>\plugins\<folder>\<dll>` - which is one
+  listing of the Workshop root plus two attribute checks per item. The smallest path still wins.
+  A copy buried deeper is not found by the plugin any more; Republic Mod Manager, which asks the
+  loader's own discovery, still takes such deposits over.
+- Checked without the game: the takeover harness, 20 checks (four new: folder below `plugins`,
+  directly in the item, a copy buried deeper is ignored, the smaller path of two items counts).
+
+## 0.4.16 (2026-11-18)
+
+Two faults of a brush whose deposit has no pictures and names no resource, seen in the game with
+a deposit taken over from the original (user's screenshot: a fifth brush pair with the gas
+picture, called "Bauxite").
+
+- Picture. `LoadToolIcon` asked the engine for `editor/tool_<verb>_<name>.png` without looking
+  whether the file exists. `CreateManagedTexture` hands out a texture object whatever happens and
+  `Load2DFromFile` reports nothing, so the "did not load - keeps bauxite's icon" branch never ran
+  and the button showed what the texture last held: the picture of the brush loaded just before.
+  New `ToolIconFileExists`: the engine's own file check (`C3DHelp_CheckIfFileExist`, which sees
+  the loader's VFS; the slot is now also taken in `InstallEditorPatch`, not only when there are
+  extra maps), and as a second opinion the file directly under `<vfs>\media_soviet` and under the
+  game's `media_soviet`. A missing picture is not loaded; the button keeps the donor's icon and
+  the WARN line is written, as the code always meant to.
+- Caption. The hover text comes from the record of the resource the deposit's `icon` names; with
+  no such resource the donor's caption stayed ("Bauxite"), so two brush pairs carried the same
+  name. Such a brush now gets the deposit's own name (section name, first letter capitalised)
+  under a text id of this plugin: `DEP_TEXT_ID_BASE` 1100000 + the deposit's index, answered by a
+  new IAT hook on `C3D_LANGUAGE::GetString` (`h_DepGetString`); every other id is passed on. The
+  hook is installed with the editor patch when at least one brush is declared (one more hook in
+  the loader's summary). A deposit whose `icon` names an existing resource is unchanged.
+- Checked offline (scratchpad harness including the plugin source): file check with and without
+  the engine's answer, own caption id and text, pass-through of other ids - 12 checks, all met.
+  The take-over harness of 0.4.15 still passes. Not run in the game yet.
+
+## 0.4.15 (2026-11-18)
+
+- Deposits the player added to the original plugin's `deposits.ini` are taken over once. Their
+  type numbers and tokens are part of his saves, and this plugin's list did not know them: it read
+  `<loader>\plugins\deposits_plus.ini` or the INI beside the DLL and never looked at the
+  original's file.
+- `AdoptOriginalDeposits`, called at the top of `LoadDepositRegistry`: when the loader folder has
+  no `deposits_plus.ini`, the original's `deposits.ini` is looked for in `<loader>\plugins` (the
+  only place the original itself reads) and otherwise beside the original's DLL in the Workshop
+  folder (the loader's discovery rule, as in Resources Plus 0.1.5). Every section of it that is a
+  deposit (not `[deposits]`, the original's settings) and that the shipped list does not have by
+  name is appended to a copy of the shipped INI, block for block with its comment lines; the file
+  gets a header naming both sources. A section whose type number or token the shipped list - or a
+  section taken just before - already uses is left out with a WARN line.
+- Nothing is created when there is nothing to take over: the shipped INI is then read directly,
+  as before, and keeps following the package. With a file made here, a later change of the shipped
+  INI does not reach the player until Republic Mod Manager has saved once: RMM 0.6.7 takes the
+  added sections over as entries of the player and regenerates the file from the package INI.
+- Package schema: `token` is `unique = 1` now, as the plugin has always required.
+- Checked offline with a harness that includes the plugin source and builds fake Steam trees
+  (scratchpad): two extra deposits with comment lines, the settings section and the four defaults
+  not copied, the plugin's own reader finding six deposits in the created file, a second start
+  leaving the file alone, type and token collisions, an existing list file, the original only in
+  the Workshop folder, no original - 16 checks, all met. Not run in the game.
+
+## 0.4.14 (2026-11-18)
+
+- Brush pictures travel with the plugin. The engine asks for a brush button's picture as
+  `editor/tool_<verb>_<name>.png`, and the loader serves such a path only from its own VFS folder;
+  a DLL loaded from a Workshop item could not put a file there, so its buttons showed the donor's
+  icon unless the player had the pictures already. New folder `deposits_plus\editor` beside the DLL
+  (package: `plugins\deposits_plus\editor`, by hand: `<loader>\plugins\deposits_plus\editor`) with
+  the eight pictures of the shipped deposits (sand, clay, gas, copper; paint and erase).
+  `ProvideToolIcons`, called from `InstallEditorPatch` when at least one brush is declared, copies
+  for every brush the picture that is missing in `<vfs root>\media_soviet\editor`
+  (`host->vfsRoot`, the same root `BlankMapPath` writes to). An existing file is never replaced
+  (`CopyFileA` with fail-if-exists); the copy loses a read-only attribute. Log:
+  `editor   <n> brush picture(s) copied into ...`, or a WARN with the Windows error. Only names of
+  letters, digits and `_` are copied. Nothing changes for a brush without a picture on either
+  side: the button keeps the donor's icon.
+- Three log lines named a game build that is long gone ("differ from build v1.1.1.7"); they say
+  1.1.1.13 now, the build the expected bytes belong to.
+- Comments: version tags removed, stale folder names corrected. No other code change.
+- The DLL of 0.4.13 was run from the Workshop folder on 2026-11-18 (list read from the package
+  INI). The picture copy of 0.4.14 has not been run in the game yet.
+
+## 0.4.13 (2026-11-18)
+
+- The deposit list is read from `<loader>\plugins\deposits_plus.ini` when that file exists and
+  otherwise from `deposits_plus.ini` beside the DLL. Before, only the loader folder was tried: a
+  DLL the loader takes straight from a Workshop item (TesmioLoader b0.3.7 finds it there itself)
+  had no file to read until Republic Mod Manager had saved once, and came up with "no mod
+  deposit types". The log names the file the list came from.
+- The global keys are still read through the host table (`plugins\deposits_plus.ini`). Upstream
+  b0.3.7 hands a Workshop plugin the INI beside its DLL for that name; the loader build
+  b0.3.7-rmm.2 prefers the file in `<loader>\plugins` when it exists, so list and switches come
+  from the same file again. On an unpatched loader the switches of a Workshop DLL come from the
+  package INI even when a finished INI lies in the loader folder.
+- Not tested in the game yet with the DLL in a Workshop folder.
+
+## 0.4.12 (2026-11-18)
+
+- New key `[deposits_plus] legacy_adopt_min_cells` (default 500, 0..1048576, 0 = adopt anything).
+  When a save without metadata is first loaded, sand is taken over from the old terrain channel
+  (area-averaged to the 1024 x 1024 resource map). If fewer cells than this are non-zero there,
+  the channel now counts as empty and the first distribution applies. Before, any non-zero cell
+  recorded sand as "existing": a save made with the original deposits plugin that held 102 stray
+  mask texels got no sand and, once saved, never would (seen in the game on 2026-11-16).
+- The log names the number of adopted cells, or says that the channel was treated as empty.
+- A save that was already stored with sand recorded as adopted is not revisited.
+
+## 0.4.11 (2026-11-16)
+
+Ported to WRSR 1.1.1.13. Every site was found again with `my_plugins\tests\portmap.pl` from its
+1.1.1.9 bytes; 0 changed instructions, only rel32 / RIP-relative operands differ.
+
+- Unchanged: parser site 0x10EAB8 / 0x10EAE8 / 0x118805, sampler 0x8360, world save 0x7C20, tool
+  lookup 0x3AAA0, terrain overlay 0xAEE0, every `.data` address and both mask import slots.
+- -0x80: ResourceGet 0x2AA7B0, the whole mine scan (dispatch 0x1DD763, mask and map brackets
+  0x1DD448 .. 0x1DDE35, radius 0x1DCABD), vehicle tick 0x1B161A, the editor (panel 0x233100,
+  rocks 0x22EE20, dispatch 0x30D120, cursor 0x2F0E90, texels 0x238AF0, paint 0x2350C0 /
+  0x2352F0).
+- -0x70: minimap 0x4BDE10 / 0x4BFED0, clip helper 0x446180, world-save call 0x42CD3E.
+- -0xC0: editor button 0x3826A0, tooltip 0x383BB0, vehicle eligibility 0x3E3A39. +0x20: mine
+  work sum 0x176E18.
+  +0xA0: quarry arrival 0x66E6C8. +0x1A0: strcmp thunk 0x84F6C0.
+- Float pool: +0x10 for most constants, +0x8 for 0.5 / 0.85 / the badge offset / the icon scale,
+  +0xC for the panel size; each taken from the instruction that loads it.
+- Signatures with a displacement re-read: map open (`.. 9C 6D 7B 00`), map close (`.. CB 63 7B 00`).
+- Fixed: `kRadiusSources` and the default radius still held the addresses of the build before
+  1.1.1.9, so on 1.1.1.9 a mod deposit with `radius = oil` read 140 instead of 130 (the float 0x18
+  further on). The table now names the operands of the radius function: 130, 210, 50, 30, 250,
+  170, 150.
+- The brake recognises the original `deposits.dll` wherever it was loaded from (module handle plus
+  its `TsmPluginInit` export), not only as a file in `plugins\`.
+- Sand surface: the expected C3DDLL64.dll stamp is 0x6A8B496D; `CreateShaders`+0x2BA and the
+  C3D_TERRAIN constructor carry the same bytes as before. The pixel-shader hashes of
+  `default_terrain.inix` were not compared with the new game files.
 ## 0.4.10 (2026-09-20)
 
 - Audit round, no new feature; addresses, record layouts and the save format are unchanged.
@@ -21,7 +159,8 @@ User documentation: README_DE.md / README_EN.md. History newest first, technical
 - Reads and writes of `g_extra` run under `g_lock`.
 - The blank DDS writer checks the written byte count, logs GetLastError and deletes the partial file;
   `GenerationAtomicWrite` logs GetLastError before DeleteFileA.
-- `ValidateDeposits`: `building_type` must be 7 or 92, `minimap` 0 or 1 (WARN and default otherwise).
+- `ValidateDeposits`: `building_type` must be 7 or 92, any other value rejects the deposit;
+  `minimap` must be 0 or 1 (WARN and treated as 1 otherwise).
 - `deposit_visual_runtime.inl`: DOS and NT headers are checked with ReadablePtr, `e_magic` and
   `Signature` before any field is read.
 - RMM schema (package): `maximum_items = 32` (MAX_DEPOSITS) and `[list:tiles] maximum_items = 16`
