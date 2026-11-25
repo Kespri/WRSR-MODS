@@ -1,8 +1,8 @@
-# 🧰 Resources Button Fix 0.4.3
+# 🧰 Resources Button Fix 0.4.5
 
 **TesmioLoader-Plugin für kompakte Werkzeugraster im Geländeeditor**
 
-Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Workers & Resources: Soviet Republic* 1.1.1.13 neu: im Fenster **Resources** stehen die Malen-Schaltflächen blockweise über ihren Löschen-Schaltflächen, im Fenster **Rocks/Gravel** wahlweise nebeneinander oder in zwei Reihen. Zusätzliche Werkzeuge aus deposits.dll oder Deposits Plus, etwa Sand, werden automatisch einbezogen.
+Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Workers & Resources: Soviet Republic* 1.2.0.9 neu: im Fenster **Resources** stehen die Malen-Schaltflächen blockweise über ihren Löschen-Schaltflächen, im Fenster **Rocks/Gravel** wahlweise nebeneinander oder in zwei Reihen. Zusätzliche Werkzeuge aus deposits.dll oder Deposits Plus, etwa Sand, werden automatisch einbezogen.
 
 ---
 
@@ -26,8 +26,8 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader ab b0.4.5 (API 4)
 - Optional: deposits.dll oder Deposits Plus – deren zusätzliche Ressourcen- und Geländewerkzeuge werden im jeweils richtigen Fenster mit eingeordnet.
 
 ### In drei Schritten
@@ -63,7 +63,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Steam-Updates gelten ab dem nächsten Spielstart
 ```
@@ -231,7 +231,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 ## 💾 Kompatibilität
 
 ### Spiel und Loader
-- Feste, für 1.1.1.13 geprüfte Codepositionen; eine andere Spielversion wird abgelehnt, bevor ein Hook installiert wird
+- Feste, für 1.2.0.9 geprüfte Codepositionen; eine andere Spielversion wird abgelehnt, bevor ein Hook installiert wird
 - Vor jeder Änderung werden PE-Signatur, 64-Bit-Maschinentyp, Zeitstempel, Image-Größe, die Bytes des gemeinsamen Schaltflächen-Hooks und die Reichweite aller Sprünge geprüft
 - Aufrufe aus Bäumen und anderen Fenstern werden unverändert weitergereicht; ein Laufzeitfehler schaltet die Layoutänderung für die Sitzung sicher ab
 - Ohne nahen Speicher für die optionalen Übergänge bleibt die Anordnung aktiv, nur die nachfolgenden Bedienelemente behalten dann ihre Position
@@ -240,6 +240,8 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
+- **0.4.5:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
+- **0.4.4:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.4.3:** Fehlt ein Wert in der INI, gilt jetzt derselbe Standard wie in der mitgelieferten INI. Vorher wichen drei eingebaute Standards ab: Spalten je Block und Schaltflächengröße im Fenster Resources, Abstand zum Pinsel im Fenster Rocks/Gravel. Dazu aufgeräumte Log-Texte; mit vollständiger INI ändert sich im Spiel nichts
 - **0.4.2:** Die zusätzlichen Schaltflächen von Deposits Plus werden jetzt auch erkannt. Vorher suchte das Plugin nur nach dem Original-Plugin deposits, und die zusätzlichen Paare liefen aus dem Fenster Resources heraus
 - **0.4.1:** Für WRSR 1.1.1.13
@@ -253,7 +255,7 @@ Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schalt
 
 | Problem | Ursache | Lösung |
 |---|---|---|
-| Plugin tut nichts | `enabled = 0`, Spielversion nicht 1.1.1.13 oder INI ungültig | Log auf `unsupported-build` oder `configuration` prüfen |
+| Plugin tut nichts | `enabled = 0`, Spielversion nicht 1.2.0.9 oder INI ungültig | Log auf `unsupported-build` oder `configuration` prüfen |
 | Änderung wird nicht sichtbar | Fenster nicht neu geöffnet oder Live-Neuladen abgewiesen | Fenster schließen und öffnen; Log auf `reload-rejected` prüfen |
 | Schaltflächen zu klein | automatische Untergrenze 0.25 erreicht | weniger Spalten, mehr Blöcke oder `expand_window = 1` |
 | Werkzeuge fehlen im Raster | Kapazität überschritten | `columns_per_block` oder `maximum_blocks` erhöhen |
@@ -334,5 +336,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung und prü
 
 ---
 
-**Letzte Aktualisierung:** Resources Button Fix 0.4.3  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Resources Button Fix 0.4.5  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

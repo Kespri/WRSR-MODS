@@ -1,8 +1,8 @@
-# 🧰 Resources Button Fix 0.4.3
+# 🧰 Resources Button Fix 0.4.5
 
 **TesmioLoader plugin for compact tool grids in the terrain editor**
 
-Rearranges the tool buttons in two windows of the terrain editor of *Workers & Resources: Soviet Republic* 1.1.1.13: in the **Resources** window the paint buttons stand in blocks above their erase buttons, in the **Rocks/Gravel** window either side by side or in two rows. Extra tools from deposits.dll or Deposits Plus, such as sand, are included automatically.
+Rearranges the tool buttons in two windows of the terrain editor of *Workers & Resources: Soviet Republic* 1.2.0.9: in the **Resources** window the paint buttons stand in blocks above their erase buttons, in the **Rocks/Gravel** window either side by side or in two rows. Extra tools from deposits.dll or Deposits Plus, such as sand, are included automatically.
 
 ---
 
@@ -26,8 +26,8 @@ Rearranges the tool buttons in two windows of the terrain editor of *Workers & R
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 - Optional: deposits.dll or Deposits Plus – their additional resource and terrain tools are arranged in the right window as well.
 
 ### In three steps
@@ -63,7 +63,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. Steam updates apply from the next game start
 ```
@@ -231,7 +231,7 @@ The file is checked as a complete new configuration set. If only one line is inv
 ## 💾 Compatibility
 
 ### Game and loader
-- Fixed code positions verified for 1.1.1.13; another game version is refused before any hook is installed
+- Fixed code positions verified for 1.2.0.9; another game version is refused before any hook is installed
 - Before every change the PE signature, 64-bit machine type, time stamp, image size, the bytes of the shared button hook and the reach of every jump are checked
 - Calls from trees and other windows are passed through unchanged; a runtime fault safely disables the layout change for the session
 - Without near memory for the optional transitions the arrangement stays active, only the following controls then keep their position
@@ -240,6 +240,8 @@ The file is checked as a complete new configuration set. If only one line is inv
 The plugin changes neither game files nor savegames; it only arranges buttons in the memory of the running game.
 
 ### Version compatibility
+- **0.4.5:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
+- **0.4.4:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
 - **0.4.3:** if a value is missing from the INI, the same default as in the shipped INI now applies. Before, three compiled defaults differed: columns per block and button size in the Resources window, gap to the Brush in the Rocks/Gravel window. Log texts tidied as well; with a complete INI nothing changes in the game
 - **0.4.2:** the extra buttons of Deposits Plus are now recognised as well. Before, the plugin only looked for the original deposits plugin, and the extra pairs ran out of the Resources window
 - **0.4.1:** for WRSR 1.1.1.13
@@ -253,7 +255,7 @@ The plugin changes neither game files nor savegames; it only arranges buttons in
 
 | Problem | Cause | Solution |
 |---|---|---|
-| Plugin does nothing | `enabled = 0`, game version not 1.1.1.13 or invalid INI | check the log for `unsupported-build` or `configuration` |
+| Plugin does nothing | `enabled = 0`, game version not 1.2.0.9 or invalid INI | check the log for `unsupported-build` or `configuration` |
 | Change not visible | window not reopened or live reload rejected | close and open the window; check the log for `reload-rejected` |
 | Buttons too small | automatic lower limit 0.25 reached | fewer columns, more blocks or `expand_window = 1` |
 | Tools missing from the grid | capacity exceeded | raise `columns_per_block` or `maximum_blocks` |
@@ -334,5 +336,5 @@ A: No. Republic Mod Manager shows every setting with a description and checks th
 
 ---
 
-**Last update:** Resources Button Fix 0.4.3  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Resources Button Fix 0.4.5  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

@@ -1,9 +1,27 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 0.3.1. Target: SOVIET64.exe 1.1.1.13 (PE stamp 0x6A8D4087), TesmioLoader API 4.
+- Plugin version 0.3.3. Target: SOVIET64.exe 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 0.3.3 (2026-11-25)
+
+- Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, image 0x00AE9000); 1.2.0.8 is refused by the stamp.
+  CUSTOMHOUSE: panel 0x751410 -> 0x751860, the two list calls 0x752475 / 0x7524B5 ->
+  0x7528C5 / 0x752905, the column function 0x804930 -> 0x804D60, the row pitch instruction
+  0x80499C -> 0x804DCC (its displacement bytes are `7F D1 14 00` now, the constant is still 25.0).
+
+## 0.3.2 (2026-11-25)
+
+- Ported to WRSR 1.2.0.8 (PE stamp 0x6B0097B2, image 0x00AE9000); 1.1.1.13 is refused by the
+  stamp. CUSTOMHOUSE: panel 0x71B5B0 -> 0x751410, the two list calls 0x71C615 / 0x71C655 ->
+  0x752475 / 0x7524B5, the column function 0x7C68C0 -> 0x804930, the row pitch instruction
+  0x7C692C -> 0x80499C (its displacement bytes are `F7 D4 14 00` now, the constant is still 25.0).
+- Verified: the three functions are unchanged apart from call targets and RIP-relative operands
+  (`portmap.pl`, `portlists\ui_layout_fixes.cmp`: 94 of 96, 100 of 112, 183 of 192 bytes equal),
+  both call sites call the column function, `bytearrays.pl` matches both expected byte strings.
+  Not run in the game yet.
 
 ## 0.3.1 (2026-11-16)
 

@@ -23,7 +23,7 @@
 // deposits_plus.ini declared - and carry its own per-deposit keys in the same file.
 // `depletion` does both.
 //
-// Everything here is addresses for SOVIET64.exe v1.1.1.13. See
+// Everything here is addresses for SOVIET64.exe v1.2.0.9. See
 // docs/05-deposits.md.
 
 #include "../../src/tesmio_plugin.h"
@@ -52,7 +52,7 @@ static bool InstallGeneration();
 // C3D_MIDDLEPOINT, the object every managed asset is created through. Both the
 // resource table at 0x2A1D60 and the editor's button drawer pass this same
 // address.
-#define P_MIDDLEPOINT   0x9EACD0
+#define P_MIDDLEPOINT   0xA34D90   // v1.2.0.8; was 0x9EACD0
 
 // ResourceGet, for the one thing here that needs it: the minimap button takes
 // its icon straight out of a resource record. Called at the patched entry point
@@ -60,7 +60,7 @@ static bool InstallGeneration();
 // name resolve without either plugin knowing about the other - if `resources`
 // is installed its hook is on that address, and if it is not, the base game's
 // own lookup answers and a mod icon simply has no record.
-#define P_RESOURCEGET   0x2AA7B0   // v1.1.1.13; was 0x2AA830. Independent of
+#define P_RESOURCEGET   0x2C6380   // v1.2.0.9; was 0x2AA7B0. Independent of
                                    // plugins/resources' own copy of this same
                                    // address - see docs/02-findings.md
 typedef unsigned __int64 (*t_ResourceGet)(void*, void*, void*, void*);
@@ -187,17 +187,17 @@ static int      g_tileCount;
 // averages over an empty set: the building window then shows quality of source
 // as -2147483648, a NaN cast to int. Naming them rather than taking a number
 // means a mod deposit tracks the game's own value if a patch ever changes it.
-// v1.1.1.13: every address is the operand of its branch in the radius function
-// (0x1DCA60), values read back 130, 210, 50, 30, 250, 170, 150. The table had
+// v1.2.0.9: every address is the operand of its branch in the radius function
+// (0x1F7510), values read back 130, 210, 50, 30, 250, 170, 150. The table once
 // kept the addresses of the build before 1.1.1.9 and read 0x18 past each one.
 static const struct { const char* name; DWORD rva; } kRadiusSources[] = {
-    { "oil",          0x90ABF4 },   // type 0
-    { "ore",          0x90AD48 },   // types 1, 2, 6 - iron, coal and uranium share it
-    { "bauxite",      0x90AA38 },   // type 7
-    { "gravel",       0x90A9B0 },   // type 3
-    { "wood",         0x90ADC8 },   // type 4
-    { "water",        0x90AC94 },   // type 8
-    { "watersurface", 0x90AC30 },   // type 9
+    { "oil",          0x9521D4 },   // type 0
+    { "ore",          0x952328 },   // types 1, 2, 6 - iron, coal and uranium share it
+    { "bauxite",      0x952014 },   // type 7
+    { "gravel",       0x951F8C },   // type 3
+    { "wood",         0x9523A8 },   // type 4
+    { "water",        0x952274 },   // type 8
+    { "watersurface", 0x952210 },   // type 9
 };
 
 static bool KeyIs(const char* line, const char* want) { return _stricmp(line, want) == 0; }
@@ -663,7 +663,7 @@ static void LoadDepositRegistry()
             d->component    = -1;
             d->buildingType = 7;
             d->map          = DEP_MAP_2;
-            d->radiusRva    = 0x90AD48;
+            d->radiusRva    = 0x952328;
             d->wantMinimap  = 1;
             d->desertFillRelief = true; d->desertFillMin = 60; d->desertFillMax = 100;
             continue;
@@ -1002,28 +1002,28 @@ static void ValidateDeposits()
 // runtime base, so only the rvas are hard-coded - and those are verified byte
 // for byte before a single byte is written.
 
-// v1.1.1.13 rvas throughout this file; the v1.1.1.9 values noted per line, derivation in
+// v1.2.0.9 rvas throughout this file; the value of the build before noted per line, derivation in
 // docs/02-findings.md. The parser site's own bytes include a rip-relative
 // displacement to $TYPE_MINE_BAUXITE, which is why kParserOrig below is not
 // simply the old bytes: the string did not move, so the displacement had to
 // change when the site did.
-#define P_PARSER_SITE      0x10EAB8   // was 0x10EAC8. LEA RDX,[$TYPE_MINE_BAUXITE]
-#define P_PARSER_NEXT      0x10EAE8   // was 0x10EAF8. next token check
-#define P_PARSER_DONE      0x118805   // was 0x118815. shared exit
-#define P_STRCMP           0x84F6C0   // was 0x84F520
-#define P_STR_BAUXITE      0x8895C0   // unchanged - .rdata string, not in the float pool
-#define P_PARSER_TOKEN     0x49A0     // [rbp+..] the token just read
-#define P_PARSER_BTYPE     0x1E10     // [rbp+..] building type
-#define P_PARSER_DTYPE     0x1E18     // [rbp+..] deposit type
+#define P_PARSER_SITE      0x1270B4   // v1.2.0.9; was 0x10EAB8. was 0x10EAC8. LEA RDX,[$TYPE_MINE_BAUXITE]
+#define P_PARSER_NEXT      0x1270E4   // v1.2.0.9; was 0x10EAE8. was 0x10EAF8. next token check
+#define P_PARSER_DONE      0x130FCA   // v1.2.0.9; was 0x118805. was 0x118815. shared exit
+#define P_STRCMP           0x892266   // v1.2.0.9; was 0x84F6C0. was 0x84F520
+#define P_STR_BAUXITE      0x8CEBD0   // v1.2.0.9; was 0x8895C0. unchanged - .rdata string, not in the float pool
+#define P_PARSER_TOKEN     0x4C50     // v1.2.0.8; was 0x49A0. [rbp+..] the token just read
+#define P_PARSER_BTYPE     0x1E18     // v1.2.0.8; was 0x1E10. [rbp+..] building type
+#define P_PARSER_DTYPE     0x1E20     // v1.2.0.8; was 0x1E18. [rbp+..] deposit type
 
-#define P_DISPATCH_SITE    0x1DD763   // was 0x1DD7E3. CMP [RSI+0x368],6
-#define P_DISPATCH_BODY6   0x1DD76C   // was 0x1DD7EC. body of the type 6 case
-#define P_DISPATCH_TAIL    0x1DD7A6   // was 0x1DD826. CMP [RSI+0x368],7
-#define P_GAMEOBJ          0x9941F0   // unchanged - .data does not move in this build
-#define P_SAMPLER          0x8360
-#define P_DEP_TYPE_FIELD   0x368      // building object, the deposit type
-#define P_MAP1_OFF         0xF00      // gameobj -> resourcemap
-#define P_MAP2_OFF         0xF08      // gameobj -> resourcemap2
+#define P_DISPATCH_SITE    0x1F8104   // v1.2.0.9; was 0x1DD763. was 0x1DD7E3. CMP [RSI+0x368],6
+#define P_DISPATCH_BODY6   0x1F810D   // v1.2.0.9; was 0x1DD76C. was 0x1DD7EC. body of the type 6 case
+#define P_DISPATCH_TAIL    0x1F8147   // v1.2.0.9; was 0x1DD7A6. was 0x1DD826. CMP [RSI+0x368],7
+#define P_GAMEOBJ          0x9DDC88   // v1.2.0.8; was 0x9941F0. unchanged - .data does not move in this build
+#define P_SAMPLER          0x8880   // v1.2.0.8; was 0x8360
+#define P_DEP_TYPE_FIELD   0x370      // v1.2.0.8; was 0x368. building object, the deposit type
+#define P_MAP1_OFF         0xFA0      // v1.2.0.8; was 0xF00. gameobj -> resourcemap
+#define P_MAP2_OFF         0xFA8      // v1.2.0.8; was 0xF08. gameobj -> resourcemap2
 
 // Search radius by deposit type, rva 0x1DCA70 - 111 bytes, returns in XMM0.
 // A type it does not know falls through to XORPS XMM0,XMM0, and a radius of
@@ -1036,8 +1036,8 @@ static void ValidateDeposits()
 //   1DCADA  C3                    RET
 //   1DCADB  0F 57 C0              XORPS XMM0,XMM0
 //   1DCADE  C3                    RET
-#define P_RADIUS_SITE      0x1DCABD   // was 0x1DCB3D
-#define P_RADIUS_WATERSURF 0x90AC30   // was 0x90AC20 - the constant the type 9 branch returns
+#define P_RADIUS_SITE      0x1F746D   // v1.2.0.9; was 0x1DCABD. was 0x1DCB3D
+#define P_RADIUS_WATERSURF 0x952210   // v1.2.0.9; was 0x90AC30. was 0x90AC20 - the constant the type 9 branch returns
 
 // The terrain's own material mask, and the two sites that bracket it.
 //
@@ -1057,13 +1057,13 @@ static void ValidateDeposits()
 // and 1DDE08 is the same five instructions with MaskTextureClose. Opening it
 // per sample point instead would be a GPU Map/Unmap per point - the mistake
 // docs/07-pitfalls.md already records - so both are patched, or neither.
-#define P_MASK_OPEN_SITE   0x1DD489   // was 0x1DD509
-#define P_MASK_OPEN_NEXT   0x1DD4A6   // was 0x1DD526 - where its JNZ lands
-#define P_MASK_CLOSE_SITE  0x1DDDF8   // was 0x1DDE78
-#define P_MASK_CLOSE_NEXT  0x1DDE15   // was 0x1DDE95
-#define P_MASK_OPEN_IAT    0x86CF38   // C3D_TERRAIN::MaskTextureOpen
-#define P_MASK_CLOSE_IAT   0x86CF30   // C3D_TERRAIN::MaskTextureClose
-#define P_TERRAIN_OFF      0xED8      // gameobj -> C3D_TERRAIN
+#define P_MASK_OPEN_SITE   0x1F7E39   // v1.2.0.9; was 0x1DD489. was 0x1DD509
+#define P_MASK_OPEN_NEXT   0x1F7E56   // v1.2.0.9; was 0x1DD4A6. was 0x1DD526 - where its JNZ lands
+#define P_MASK_CLOSE_SITE  0x1F87CB   // v1.2.0.9; was 0x1DDDF8. was 0x1DDE78
+#define P_MASK_CLOSE_NEXT  0x1F87E8   // v1.2.0.9; was 0x1DDE15. was 0x1DDE95
+#define P_MASK_OPEN_IAT    0x8B1F88   // v1.2.0.8; was 0x86CF38. C3D_TERRAIN::MaskTextureOpen
+#define P_MASK_CLOSE_IAT   0x8B1F80   // v1.2.0.8; was 0x86CF30. C3D_TERRAIN::MaskTextureClose
+#define P_TERRAIN_OFF      0xF78      // v1.2.0.8; was 0xED8. gameobj -> C3D_TERRAIN
 #define P_TERRAIN_MASK     0x158      // C3D_TERRAIN -> its material mask texture
 
 // The resource maps need the same bracket, and every mod type was missing it.
@@ -1092,29 +1092,30 @@ static void ValidateDeposits()
 // Both sites are heads of their block and reached by fall-through only. The
 // cave puts our types in front of the displaced check, exactly as the mask
 // bracket does; the rejoin re-reads the type, so a clobbered EAX costs nothing.
-#define P_MAP_OPEN_SITE    0x1DD448   // was 0x1DD4C8
-#define P_MAP_OPEN_NEXT    0x1DD464   // was 0x1DD4E4 - the types 6-7 check, which re-reads EAX
-#define P_MAP_CLOSE_SITE   0x1DDE15   // was 0x1DDE95
-#define P_MAP_CLOSE_NEXT   0x1DDE35   // was 0x1DDEB5 - the types 6-7 close check
+#define P_MAP_OPEN_SITE    0x1F7DF8   // v1.2.0.9; was 0x1DD448. was 0x1DD4C8
+#define P_MAP_OPEN_NEXT    0x1F7E14   // v1.2.0.9; was 0x1DD464. was 0x1DD4E4 - the types 6-7 check, which re-reads EAX
+#define P_MAP_CLOSE_SITE   0x1F87E8   // v1.2.0.9; was 0x1DDE15. was 0x1DDE95
+#define P_MAP_CLOSE_NEXT   0x1F8808   // v1.2.0.9; was 0x1DDE35. was 0x1DDEB5 - the types 6-7 close check
 #define P_TEX_OPEN         0x80       // TextureAccessOpen,  vtable slot 16
 #define P_TEX_CLOSE        0x90       // TextureAccessClose, vtable slot 18
 
 // v1.1.1.9. The displacement changed even though $TYPE_MINE_BAUXITE did not
 // move: the site did, so the compiler's own distance to the string changed
 // with it. Re-read directly off the new site rather than recomputed by hand.
-static const BYTE kParserOrig[]   = { 0x48, 0x8D, 0x15, 0x01, 0xAB, 0x77, 0x00 };
-static const BYTE kDispatchOrig[] = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x06 };
+// v1.2.0.8: read off the new sites again; the deposit type moved to +0x370.
+static const BYTE kParserOrig[]   = { 0x48, 0x8D, 0x15, 0x15, 0x7B, 0x7A, 0x00 };
+static const BYTE kDispatchOrig[] = { 0x83, 0xBE, 0x70, 0x03, 0x00, 0x00, 0x06 };
 static const BYTE kRadiusOrig[]   = { 0x83, 0xF9, 0x09, 0x75, 0x09 };
-static const BYTE kMaskOrig[]     = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x03 };  // both bracket sites
+static const BYTE kMaskOrig[]     = { 0x83, 0xBE, 0x70, 0x03, 0x00, 0x00, 0x03 };  // both bracket sites
 // Verified past the bytes the jump replaces, so the check pins the site, not
 // just five common encodings: the MOV that follows carries the build's own
 // rip-relative displacement to the game object.
 // v1.1.1.9. Same reasoning as kParserOrig: the gameobj displacement is
 // recomputed from the new site even though P_GAMEOBJ (0x9941F0) is unchanged.
 static const BYTE kMapOpenOrig[]  = { 0x83, 0xF8, 0x02, 0x77, 0x17,
-                                      0x48, 0x8B, 0x05, 0x9C, 0x6D, 0x7B, 0x00 };
-static const BYTE kMapCloseOrig[] = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x02, 0x77, 0x17,
-                                      0x48, 0x8B, 0x05, 0xCB, 0x63, 0x7B, 0x00 };
+                                      0x48, 0x8B, 0x05, 0x84, 0x5E, 0x7E, 0x00 };
+static const BYTE kMapCloseOrig[] = { 0x83, 0xBE, 0x70, 0x03, 0x00, 0x00, 0x02, 0x77, 0x17,
+                                      0x48, 0x8B, 0x05, 0x90, 0x54, 0x7E, 0x00 };
 
 // ---------------------------------------------------------------- maps past the engine's two
 //
@@ -1175,8 +1176,8 @@ static const BYTE kMapCloseOrig[] = { 0x83, 0xBE, 0x68, 0x03, 0x00, 0x00, 0x02, 
 // nothing this update added lands before it, same as P_ED_TERRAIN_RVA below.
 // The call site moved with everything around it; found again by its
 // address-independent `mov rdx,r15` immediately before the call.
-#define P_WORLD_SAVE_RVA   0x7C20     // FUN_140007c20(self, folder) - SaveToDDS x4
-#define P_WORLD_SAVE_CALL  0x42CD3E   // was 0x42CDAE - the only `call 0x7C20` in the executable
+#define P_WORLD_SAVE_RVA   0x8140     // v1.2.0.8; was 0x7C20. FUN_140007c20(self, folder) - SaveToDDS x4
+#define P_WORLD_SAVE_CALL  0x45108E   // v1.2.0.9; was 0x42CD3E. was 0x42CDAE - the only `call 0x7C20` in the executable
 
 #define TEX_LOAD2D         2          // vtbl+0x10   Load2DFromFile(path,0,0,0,0)
 #define TEX_INIT_TEMP      19         // vtbl+0x98   TextureAccessInitTempResource
@@ -1657,7 +1658,7 @@ static void EmitDispatchCase(Emit& e, const DepositDef* d, BYTE* mapSlot)
         e.d32(d->map == DEP_MAP_2 ? P_MAP2_OFF : P_MAP1_OFF);               // mov r9,[r9+map]
     }
     e.b(0x4C); e.b(0x8D); e.b(0x45); e.b(0x38);                             // lea r8,[rbp+0x38]
-    e.b(0x48); e.b(0x8D); e.b(0x95); e.d32(0xB0);                           // lea rdx,[rbp+0xb0]
+    e.b(0x48); e.b(0x8D); e.b(0x95); e.d32(0xC0);                           // lea rdx,[rbp+0xc0] - v1.2.0.8; was 0xb0
     e.b(0xE8); e.rel32(g_exeBase + P_SAMPLER);                              // call sampler
     e.b(0xF3); e.b(0x0F); e.b(0x10); e.b(0x40);
     e.b((BYTE)(d->component * 4));                                          // movss xmm0,[rax+c*4]
@@ -1794,7 +1795,7 @@ static bool PatchDepositType()
         memcmp(dispatchSite, kDispatchOrig, sizeof(kDispatchOrig)) != 0 ||
         memcmp(radiusSite,   kRadiusOrig,   sizeof(kRadiusOrig))   != 0)
     {
-        Logf("patch  site bytes differ from build 1.1.1.13 - refusing to patch");
+        Logf("patch  site bytes differ from build 1.2.0.9 - refusing to patch");
         return false;
     }
 
@@ -1808,7 +1809,7 @@ static bool PatchDepositType()
         (memcmp(mapOpenSite,  kMapOpenOrig,  sizeof(kMapOpenOrig))  != 0 ||
          memcmp(mapCloseSite, kMapCloseOrig, sizeof(kMapCloseOrig)) != 0))
     {
-        Logf("patch  resource-map bracket bytes differ from build 1.1.1.13 - "
+        Logf("patch  resource-map bracket bytes differ from build 1.2.0.9 - "
              "%d map deposit(s) dropped", g_mapCount);
         int kept = 0;
         for (int i = 0; i < g_depCount; i++)
@@ -1827,7 +1828,7 @@ static bool PatchDepositType()
         (memcmp(maskOpenSite,  kMaskOrig, sizeof(kMaskOrig)) != 0 ||
          memcmp(maskCloseSite, kMaskOrig, sizeof(kMaskOrig)) != 0))
     {
-        Logf("patch  terrain-mask bracket bytes differ from build 1.1.1.13 - "
+        Logf("patch  terrain-mask bracket bytes differ from build 1.2.0.9 - "
              "%d mask deposit(s) dropped", g_terrainCount);
         int kept = 0;
         for (int i = 0; i < g_depCount; i++)
@@ -2013,14 +2014,14 @@ static bool PatchDepositType()
 }
 // ---------------------------------------------------------------- working vehicles
 //
-// WRSR 1.1.1.9 has four separate (depositType == 3 || depositType == 7)
+// The game has four separate (depositType == 3 || depositType == 7)
 // gates for excavators. Extend the gates, not the building's identity: changing
-// +0x368 to gravel even temporarily would also change deposit sampling.
+// +0x370 to gravel even temporarily would also change deposit sampling.
 //
-// 176DF8: working-vehicle contribution called from the type-7 mine tick.
-// 1B169A: the corresponding inlined contribution in the alternate mine tick.
-// 3E3AF9: shared vehicle eligibility (3E2900), used by purchase and assignment.
-// 66E628: quarry vehicle arrival/working-state transition.
+// 18FC18: working-vehicle contribution called from the type-7 mine tick.
+// 1CA56A: the corresponding inlined contribution in the alternate mine tick.
+// 402C09: shared vehicle eligibility, used by purchase and assignment.
+// 69F274: quarry vehicle arrival/working-state transition.
 //
 // Only the type predicates are replaced. Skill 3, fuel/condition checks,
 // capacity, road/access rules, production formula and native work routines stay
@@ -2034,7 +2035,7 @@ struct WorkingVehicleSite
     size_t size;
     size_t prepareSize;       // SUB/LEA producing depositType - 3
     bool ecx;                // the predicate uses ECX here, EAX at the others
-    BYTE typeDescModRm;       // CMP dword ptr [typedesc+0x360], 7
+    BYTE typeDescModRm;       // CMP dword ptr [typedesc+0x368], 7
     DWORD acceptRva;
     DWORD rejectRva;
     DWORD guardRva;
@@ -2049,32 +2050,35 @@ static const BYTE kVehiclePower[] = {
 static const BYTE kVehicleTick[] = {
     0x41,0x8D,0x43,0xFD, 0xA9,0xFB,0xFF,0xFF,0xFF, 0x74,0x1B
 };
+// v1.2.0.8: the eligibility test ends in a near JNE now (it was a short one),
+// so that site is fifteen bytes; its descriptor register is RSI (it was RBP).
 static const BYTE kVehicleEligibility[] = {
-    0x41,0x8D,0x41,0xFD, 0xA9,0xFB,0xFF,0xFF,0xFF, 0x75,0x56
+    0x41,0x8D,0x41,0xFD, 0xA9,0xFB,0xFF,0xFF,0xFF, 0x0F,0x85,0xEC,0xF5,0xFF,0xFF
 };
 static const BYTE kVehicleArrival[] = {
-    0x83,0xE8,0x03, 0xA9,0xFB,0xFF,0xFF,0xFF, 0x0F,0x85,0x90,0,0,0
+    0x83,0xE8,0x03, 0xA9,0xFB,0xFF,0xFF,0xFF, 0x0F,0x85,0x91,0,0,0
 };
 static const BYTE kVehiclePowerGuard[] = {
     0x41,0x83,0x3C,0xC9,0x03, 0x75,0x18,
-    0x48,0x8B,0x87,0x18,0x03,0,0, 0x8B,0x88,0x68,0x03,0,0
+    0x48,0x8B,0x87,0x18,0x03,0,0, 0x8B,0x88,0x70,0x03,0,0
 };
 static const BYTE kVehicleTickGuard[] = { 0x41,0x83,0x3C,0xCA,0x03, 0x75,0x0B };
 static const BYTE kVehicleEligibilityGuard[] = {
-    0x83,0xFF,0x07, 0x0F,0x85,0xBD,0,0,0, 0x44,0x8B,0x8D,0x68,0x03,0,0
+    0x83,0xFF,0x07, 0x0F,0x85,0x57,0xF6,0xFF,0xFF, 0x44,0x8B,0x8E,0x70,0x03,0,0
 };
 static const BYTE kVehicleArrivalGuard[] = {
-    0x41,0x83,0xFE,0x07, 0x0F,0x85,0xA4,0,0,0, 0x8B,0x86,0x68,0x03,0,0
+    0x41,0x83,0xFE,0x07, 0x0F,0x85,0xA5,0,0,0, 0x8B,0x86,0x70,0x03,0,0
 };
+// v1.2.0.9 addresses. Each line: site, accepted path, rejected path, guard.
 static const WorkingVehicleSite kWorkingVehicleSites[] = {
-    { 0x176E18, kVehiclePower, sizeof(kVehiclePower), 3, true, 0xB8,
-      0x176E3E, 0x176E23, 0x176E04, kVehiclePowerGuard, sizeof(kVehiclePowerGuard), "mine work sum" },
-    { 0x1B161A, kVehicleTick, sizeof(kVehicleTick), 4, false, 0xBF,
-      0x1B1640, 0x1B1625, 0x1B1613, kVehicleTickGuard, sizeof(kVehicleTickGuard), "alternate mine work sum" },
-    { 0x3E3A39, kVehicleEligibility, sizeof(kVehicleEligibility), 4, false, 0xBD,
-      0x3E3A44, 0x3E3A9A, 0x3E39D4, kVehicleEligibilityGuard, sizeof(kVehicleEligibilityGuard), "purchase/assignment eligibility" },
-    { 0x66E6C8, kVehicleArrival, sizeof(kVehicleArrival), 3, false, 0xBE,
-      0x66E6D6, 0x66E766, 0x66E6B8, kVehicleArrivalGuard, sizeof(kVehicleArrivalGuard), "quarry vehicle arrival" }
+    { 0x18FAA8, kVehiclePower, sizeof(kVehiclePower), 3, true, 0xB8,
+      0x18FACE, 0x18FAB3, 0x18FA94, kVehiclePowerGuard, sizeof(kVehiclePowerGuard), "mine work sum" },
+    { 0x1CA40A, kVehicleTick, sizeof(kVehicleTick), 4, false, 0xBF,
+      0x1CA430, 0x1CA415, 0x1CA403, kVehicleTickGuard, sizeof(kVehicleTickGuard), "alternate mine work sum" },
+    { 0x402EB9, kVehicleEligibility, sizeof(kVehicleEligibility), 4, false, 0xBE,
+      0x402EC8, 0x4024B4, 0x402E54, kVehicleEligibilityGuard, sizeof(kVehicleEligibilityGuard), "purchase/assignment eligibility" },
+    { 0x69F544, kVehicleArrival, sizeof(kVehicleArrival), 3, false, 0xBE,
+      0x69F552, 0x69F5E3, 0x69F534, kVehicleArrivalGuard, sizeof(kVehicleArrivalGuard), "quarry vehicle arrival" }
 };
 static const size_t kWorkingVehicleSiteCount = sizeof(kWorkingVehicleSites) / sizeof(kWorkingVehicleSites[0]);
 static BYTE* g_workingVehicleCave;
@@ -2104,7 +2108,7 @@ static void EmitWorkingVehicleGate(Emit& e, const WorkingVehicleSite& site,
 
     // Do not extend a non-mine with a coincidentally equal subtype. These
     // descriptor registers are already live at the respective native sites.
-    e.b(0x83); e.b(site.typeDescModRm); e.d32(0x360); e.b(7);
+    e.b(0x83); e.b(site.typeDescModRm); e.d32(0x368); e.b(7);   // building type; +0x360 before v1.2.0.8
     BYTE* notMine = e.jne32();
     for (int i = 0; i < g_depCount; i++)
     {
@@ -2146,7 +2150,7 @@ static bool InstallWorkingVehiclePatch()
             !VehicleSiteMatches(site.guardRva, site.guard, site.guardSize) ||
             site.acceptRva >= g_exeSize || site.rejectRva >= g_exeSize)
         {
-            Logf("vehicles WARN %s at RVA 0x%lX differs from WRSR 1.1.1.13 "
+            Logf("vehicles WARN %s at RVA 0x%lX differs from WRSR 1.2.0.9 "
                  "or is unreadable. All working-vehicle extensions disabled; no vehicle gates changed",
                  site.label, site.rva);
             return false;
@@ -2287,8 +2291,8 @@ static bool InstallWorkingVehiclePatch()
 // and the region outlines, so it sits on top of them where the base game's own
 // layers sit underneath.
 
-#define P_MINIMAP_DRAW_RVA 0x4BDE10   // was 0x4BDE80. FUN_1404bdde0 - draws the coloured overlay
-#define P_MINIMAP_ROW_RVA  0x4BFED0   // was 0x4BFF40. FUN_1404bfea0 - draws + handles the button row
+#define P_MINIMAP_DRAW_RVA 0x4E42F0   // v1.2.0.9; was 0x4BDE10. was 0x4BDE80. FUN_1404bdde0 - draws the coloured overlay
+#define P_MINIMAP_ROW_RVA  0x4E63B0   // v1.2.0.9; was 0x4BFED0. was 0x4BFF40. FUN_1404bfea0 - draws + handles the button row
 
 static const BYTE kMinimapDrawPrologue[] = {
     0x48, 0x8B, 0xC4,                                 // mov rax,rsp
@@ -2309,10 +2313,10 @@ static const BYTE kMinimapRowPrologue[] = {
 };
 #define MINIMAP_ROW_STOLEN (sizeof(kMinimapRowPrologue))
 
-// v1.1.1.13: .data is where it was once more; the .rdata pool moved by +0x8,
-// +0xC or +0x10 depending on the constant, so every address below was taken
-// from the instruction that loads it (my_plugins/tests/portmap.pl). What
-// follows is the note of the port before.
+// v1.2.0.8: .data and the .rdata pool both moved, by no single distance, so
+// every address below was taken from the instruction that loads it
+// (my_plugins/tests/portmap.pl) and the float constants were read back by
+// value. What follows is the note of the port before.
 // Globals the vanilla functions already use. v1.1.1.9 did not move .data at
 // all (confirmed for the game object, the resource vector and others via the
 // lea sites that resolve them - docs/02-findings.md), so every plain object
@@ -2321,31 +2325,31 @@ static const BYTE kMinimapRowPrologue[] = {
 // sit in a second cluster further out that moved by -0x20 instead - both
 // shifts confirmed by the VALUE at the new address, not assumed from the
 // first.
-#define G_GAMEOBJ         0x9941F0   // +0xED8 terrain, +0xF08 resourcemap2
-#define G_PANEL           0x9BE060   // the one C3D_PANEL2D the whole minimap draws through
-#define G_TECHNIQUE       0x9EAD08   // current shader technique, set by the last BeginDraw
-#define G_PANEL_FULLSIZE  0x909F64   // was 0x909F58. w/h passed to every Draw() call in this UI
-#define G_SLOT_BG_TEX     0x9DFF38   // background box texture, shared by every button
-#define G_SLOT_SEL_TEX    0x9E03E8   // "selected" badge texture, shared by every button
-#define G_CLICK_FLAG      0xA54E91   // nonzero for one frame on a real click
-#define G_MOUSE_OBJ       0xA54B90   // C3D_INPUT instance
-#define G_RES_SELF        0x9D4F10   // "self" object every ResourceGet call in this UI uses
-#define G_RES_VECTOR      0x9E11C0   // the resource vector records live in: begin, end, capacity
-#define G_CLIP_HELPER_OBJ 0x9DFCC0   // passed to the per-icon clip-rect helper
-#define G_DPI             0x992088
-#define G_ROW_X0          0x90A998   // was 0x90A988
-#define G_ROW_STEP        0x90AA54   // was 0x90AA44
-#define G_ROW_Y0          0x90AB28   // was 0x90AB18
-#define G_ICON_SCALE      0x909E5C   // was 0x909E54
-#define G_HITBOX_HALF     0x90A6B8   // was 0x90A6A8
-#define G_BADGE_OFFSET    0x909CE0   // was 0x909CD8
+#define G_GAMEOBJ         0x9DDC88   // v1.2.0.8; was 0x9941F0. +0xED8 terrain, +0xF08 resourcemap2
+#define G_PANEL           0xA08070   // v1.2.0.8; was 0x9BE060. the one C3D_PANEL2D the whole minimap draws through
+#define G_TECHNIQUE       0xA34DC8   // v1.2.0.8; was 0x9EAD08. current shader technique, set by the last BeginDraw
+#define G_PANEL_FULLSIZE  0x951500   // v1.2.0.9; was 0x909F64. was 0x909F58. w/h passed to every Draw() call in this UI
+#define G_SLOT_BG_TEX     0xA29F78   // v1.2.0.8; was 0x9DFF38. background box texture, shared by every button
+#define G_SLOT_SEL_TEX    0xA2A460   // v1.2.0.8; was 0x9E03E8. "selected" badge texture, shared by every button
+#define G_CLICK_FLAG      0xA9EF51   // v1.2.0.8; was 0xA54E91. nonzero for one frame on a real click
+#define G_MOUSE_OBJ       0xA9EC50   // v1.2.0.8; was 0xA54B90. C3D_INPUT instance
+#define G_RES_SELF        0xA1EF20   // v1.2.0.8; was 0x9D4F10. "self" object every ResourceGet call in this UI uses
+#define G_RES_VECTOR      0xA2B270   // v1.2.0.9; was 0x9E11C0. the resource vector records live in: begin, end, capacity
+#define G_CLIP_HELPER_OBJ 0xA29D00   // v1.2.0.8; was 0x9DFCC0. passed to the per-icon clip-rect helper
+#define G_DPI             0x9DC08C   // v1.2.0.8; was 0x992088
+#define G_ROW_X0          0x951F74   // v1.2.0.9; was 0x90A998. was 0x90A988
+#define G_ROW_STEP        0x952030   // v1.2.0.9; was 0x90AA54. was 0x90AA44
+#define G_ROW_Y0          0x952108   // v1.2.0.9; was 0x90AB28. was 0x90AB18
+#define G_ICON_SCALE      0x9513F4   // v1.2.0.9; was 0x909E5C. was 0x909E54
+#define G_HITBOX_HALF     0x951C70   // v1.2.0.9; was 0x90A6B8. 5.0
+#define G_BADGE_OFFSET    0x951260   // v1.2.0.9; was 0x909CE0. was 0x909CD8
 // 0.5f. The vanilla code loads this one constant for two unrelated jobs: the
 // inset of the overlay quad inside the minimap panel, and the size of the
 // "selected" badge. Both uses below read it from here.
-#define G_HALF            0x909DE4   // was 0x909DDC
-#define G_COLOR_IDLE      0x90C110   // was 0x90C100. float4 tint, not hovered
-#define G_COLOR_HOVER     0x90C4D0   // was 0x90C4C0. float4 tint, hovered
-#define G_COLOR_OVERLAY   0x90C2E0   // was 0x90C2D0. float4 (1,0,0,1) - the red every deposit layer is drawn in
+#define G_HALF            0x95136C   // v1.2.0.9; was 0x909DE4. was 0x909DDC
+#define G_COLOR_IDLE      0x9537C0   // v1.2.0.9; was 0x90C110. was 0x90C100. float4 tint, not hovered
+#define G_COLOR_HOVER     0x953BA0   // v1.2.0.9; was 0x90C4D0. was 0x90C4C0. float4 tint, hovered
+#define G_COLOR_OVERLAY   0x953990   // v1.2.0.9; was 0x90C2E0. was 0x90C2D0. float4 (1,0,0,1) - the red every deposit layer is drawn in
 
 // The minimap's hover text, and it needed no unexported formatter after all.
 // Every vanilla layer does exactly this when its icon is hovered:
@@ -2357,17 +2361,17 @@ static const BYTE kMinimapRowPrologue[] = {
 // - a swprintf into one global wide buffer the panel draws later. So a mod layer
 // needs the same three things it already has: the resource its `icon` names, that
 // record's caption id, and the same label.
-#define G_LANG            0x997590   // C3D_LANGUAGE
-#define G_TOOLTIP_BUF     0x9E24B0   // the wide buffer the hover text is built in
+#define G_LANG            0x9E15A0   // v1.2.0.8; was 0x997590. C3D_LANGUAGE
+#define G_TOOLTIP_BUF     0xA2C560   // v1.2.0.9; was 0x9E24B0. the wide buffer the hover text is built in
 #define G_TOOLTIP_CHARS   0x800
-#define P_FORMAT_WIDE     0x5290     // (wchar_t* buf, size_t chars, const wchar_t* fmt, ...)
+#define P_FORMAT_WIDE     0x52D0     // v1.2.0.8; was 0x5290. (wchar_t* buf, size_t chars, const wchar_t* fmt, ...)
 #define TXT_DEPOSIT_LABEL 0x2F3      // the "<label>: <resource>" prefix every layer uses
 #define RES_CAPTION_OFF   0x40       // resource record -> its caption's localisation id
-#define G_PANEL_POS       0x9BE2F0   // 2 floats: x,y of the next Draw()
-#define G_PANEL_PAD       0x9BE2F8
-#define G_PANEL_SIZE      0x9BE2E8   // 2 floats: w,h of the next Draw()
-#define G_PANEL_COLOR     0x9BE30C   // 4 floats: tint of the next Draw()
-#define P_CLIP_HELPER     0x446180   // was 0x4461F0. FUN_140446150 - not exported, internal only
+#define G_PANEL_POS       0xA08300   // v1.2.0.8; was 0x9BE2F0. 2 floats: x,y of the next Draw()
+#define G_PANEL_PAD       0xA08308   // v1.2.0.8; was 0x9BE2F8
+#define G_PANEL_SIZE      0xA082F8   // v1.2.0.8; was 0x9BE2E8. 2 floats: w,h of the next Draw()
+#define G_PANEL_COLOR     0xA0831C   // v1.2.0.8; was 0x9BE30C. 4 floats: tint of the next Draw()
+#define P_CLIP_HELPER     0x46AA70   // v1.2.0.9; was 0x446180. was 0x4461F0. FUN_140446150 - not exported, internal only
 
 #define G_TECH_GET_HANDLE 0x50       // technique vtbl+0x50  GetConstantHandle(name)->handle
 #define G_TECH_SET_VEC    0x68       // technique vtbl+0x68  SetVectorConstant(handle, float4*)
@@ -2525,8 +2529,8 @@ static void DrawDepositOverlay(BYTE* param_1, const DepositDef* d)
     // Neither pointer is guaranteed there, and following a null one faults
     // inside this module, where the vectored crash handler does not look.
     BYTE* gameobj = *(BYTE**)(g_exeBase + G_GAMEOBJ);
-    if (!ReadablePtr(gameobj, 0xF10)) return;
-    BYTE* terrain = *(BYTE**)(gameobj + 0xED8);
+    if (!ReadablePtr(gameobj, P_TERRAIN_OFF + sizeof(void*))) return;
+    BYTE* terrain = *(BYTE**)(gameobj + P_TERRAIN_OFF);
     if (!ReadablePtr(terrain, 0x8F0)) return;
 
     // Whichever kind of map the section named. An extra one is not in the game
@@ -2879,24 +2883,24 @@ static void InstallMinimapPatch()
 // Icons are loaded explicitly from "editor/tool_<name>.png", so a brush needs
 // nothing but two PNGs in the VFS named after its `editor` key.
 
-// v1.1.1.13 rvas throughout; the v1.1.1.9 values noted per line. The first four are
+// v1.2.0.9 rvas throughout; the value of the build before noted per line. The first four are
 // re-verified by their prologue at load. The last three are not - taken as raw
 // function pointers with no check, same as cities' P_RENUMBER/P_SLIDER - so
 // each was picked as the single unambiguous .pdata function start at the
 // local shift, and P_ED_TOOL_FIND's is additionally unchanged, sitting early
 // enough in .text that this update's growth all lands after it.
-#define P_ED_PANEL_RVA    0x233100   // was 0x233180. FUN_140233110 - draws the Resources tab
-#define P_ED_DISPATCH_RVA 0x30D120   // was 0x30D1A0. FUN_14030d100 - applies the active tool, every frame
-#define P_ED_CURSOR_RVA   0x2F0E90   // was 0x2F0F10. FUN_1402f0e70 - decides which tools get the round cursor
-#define P_ED_TEXELS_RVA   0x238AF0   // was 0x238B70. FUN_140238b00 - the generic deposit texel writer
+#define P_ED_PANEL_RVA    0x24E240   // v1.2.0.9; was 0x233100. was 0x233180. FUN_140233110 - draws the Resources tab
+#define P_ED_DISPATCH_RVA 0x32B8C0   // v1.2.0.9; was 0x30D120. was 0x30D1A0. FUN_14030d100 - applies the active tool, every frame
+#define P_ED_CURSOR_RVA   0x30DD10   // v1.2.0.9; was 0x2F0E90. was 0x2F0F10. FUN_1402f0e70 - decides which tools get the round cursor
+#define P_ED_TEXELS_RVA   0x253C60   // v1.2.0.9; was 0x238AF0. was 0x238B70. FUN_140238b00 - the generic deposit texel writer
 
-#define P_ED_TOOL_FIND    0x03AAA0   // unchanged. FUN_14003aaa0 - tool lookup by name
-#define P_ED_DRAW_BUTTON  0x3826A0   // was 0x382760. FUN_1403826c0 - draws one tool button
-#define P_ED_PAINT        0x2350C0   // was 0x235140. FUN_1402350d0 - one brush tick for one deposit
+#define P_ED_TOOL_FIND    0x3D8D0   // v1.2.0.8; was 0x03AAA0. unchanged. FUN_14003aaa0 - tool lookup by name
+#define P_ED_DRAW_BUTTON  0x3A15A0   // v1.2.0.9; was 0x3826A0. was 0x382760. FUN_1403826c0 - draws one tool button
+#define P_ED_PAINT        0x250200   // v1.2.0.9; was 0x2350C0. was 0x235140. FUN_1402350d0 - one brush tick for one deposit
 
 // Editor object fields.
-#define ED_ACTIVE_TOOL    0xD428     // char* - the descriptor of the selected tool
-#define ED_BRUSH_CURSOR   0x10F0     // set per frame for tools that want the round cursor
+#define ED_ACTIVE_TOOL    0xD4C8     // v1.2.0.9; was 0xD428. char* - the descriptor of the selected tool
+#define ED_BRUSH_CURSOR   0x1120     // v1.2.0.8; was 0x10F0. set per frame for tools that want the round cursor
 
 // Tool descriptor. Stride from the vector 0x3AAA0 walks; fields from the
 // button drawer, which is the only thing that reads them.
@@ -2905,7 +2909,7 @@ static void InstallMinimapPatch()
 #define TOOL_CAPTION      0x40       // localisation id of the hover text
 #define TOOL_BUILDING     0x48       // a building type for a build tool, 0 for a terrain one
 #define TOOL_ICON_TEX     0x58       // the texture the button binds
-#define TOOL_ICON_PATH    0xB4       // empty on every built-in tool - see below
+#define TOOL_ICON_PATH    0xB5       // v1.2.0.8; was 0xB4. empty on every built-in tool - see below
 
 // The hover text, and why our buttons had none.
 //
@@ -2924,24 +2928,24 @@ static void InstallMinimapPatch()
 // 0x383BD0 before it returns, which is before an appended hook has drawn
 // anything, and our accumulator went nowhere. Calling the consumer ourselves,
 // once, after our own buttons, is the whole fix.
-#define P_ED_TOOLTIP      0x383BB0   // was 0x383C70. FUN_140383bd0(editorSelf, hoveredTool)
+#define P_ED_TOOLTIP      0x3A2CC0   // v1.2.0.9; was 0x383BB0. was 0x383C70. FUN_140383bd0(editorSelf, hoveredTool)
 
 // Engine globals and vtable slots the icon needs.
-#define G_MIDDLEPOINT     0x9EACD0   // C3D_MIDDLEPOINT the button drawer creates textures through
+#define G_MIDDLEPOINT     0xA34D90   // v1.2.0.8; was 0x9EACD0. C3D_MIDDLEPOINT the button drawer creates textures through
 #define TEX_LOAD2DFILE    0x10       // texture vtbl+0x10, slot 2: Load2DFromFile(path,0,0,0,0)
 
 // Resources-tab layout, all floats in .rdata, all read from the game so a
 // patch release that moves the grid moves our buttons with it.
-// v1.1.1.13; the pool moved +0x10 (0.85: +0x8), each value confirmed at its new
+// v1.2.0.9; each value confirmed at its new
 // address. v1.1.1.9 addresses: 0x90AA28, 0x90AB14, 0x90ADB8, 0x90AAFC, 0x909ED4,
 // 0x90AB2C, 0x90AB84 respectively.
-#define G_ED_X_A          0x90AA38   // 50
-#define G_ED_X_B          0x90AB24   // 85
-#define G_ED_Y_BASE       0x90ADC8   // 250
-#define G_ED_Y_CAPTION    0x90AB0C   // 80
-#define G_ED_BUTTON       0x909EDC   // 0.85, the size argument every button is drawn with
-#define G_ED_ROW_STEP     0x90AB3C   // 90, paint row to erase row
-#define G_ED_COL_STEP     0x90AB94   // 105, resource to resource
+#define G_ED_X_A          0x952014   // v1.2.0.9; was 0x90AA38. 50
+#define G_ED_X_B          0x952104   // v1.2.0.9; was 0x90AB24. 85
+#define G_ED_Y_BASE       0x9523A8   // v1.2.0.9; was 0x90ADC8. 250
+#define G_ED_Y_CAPTION    0x9520EC   // v1.2.0.9; was 0x90AB0C. 80
+#define G_ED_BUTTON       0x951474   // v1.2.0.9; was 0x909EDC. 0.85, the size argument every button is drawn with
+#define G_ED_ROW_STEP     0x95211C   // v1.2.0.9; was 0x90AB3C. 90, paint row to erase row
+#define G_ED_COL_STEP     0x952174   // v1.2.0.9; was 0x90AB94. 105, resource to resource
 
 #define ED_IDX_BAUXITE    4          // 0x2350D0's index, not the channel
 #define ED_CH_BAUXITE     6          // what that index becomes by the time it reaches 0x238B00
@@ -2962,18 +2966,18 @@ static void InstallMinimapPatch()
 // Two functions, one constant apart, and the channel encoding is the deposit
 // brush's: channel = (component + 1) & 3. So rock paints component 2, which is
 // exactly the component gravel is mined from.
-#define P_ED_ROCKS_PANEL  0x22EE20   // was 0x22EEA0. FUN_14022ee30 - draws the Rocks tab
-#define P_ED_PAINT_ROCK   0x2352F0   // was 0x235370. FUN_140235300 - one rock brush tick
+#define P_ED_ROCKS_PANEL  0x249F00   // v1.2.0.9; was 0x22EE20. was 0x22EEA0. FUN_14022ee30 - draws the Rocks tab
+#define P_ED_PAINT_ROCK   0x250430   // v1.2.0.9; was 0x2352F0. was 0x235370. FUN_140235300 - one rock brush tick
 #define ED_CH_ROCK        3          // the EditMask channel that call passes
 
 // Rocks-tab layout, all read from the game for the same reason the Resources
 // tab's are. x = DPI*(50 + 85), y = DPI*(250 + 80), one button 0.85 wide, and
 // 85 apart across; the mod row sits one 90-step below the vanilla one.
-// v1.1.1.13; same pool as the Resources tab above.
-#define G_ED_ROCK_X_A     0x90AA38   // 50
-#define G_ED_ROCK_X_B     0x90AB24   // 85 - and the step between buttons
-#define G_ED_ROCK_Y_BASE  0x90ADC8   // 250
-#define G_ED_ROCK_Y_CAP   0x90AB0C   // 80
+// v1.2.0.9; same pool as the Resources tab above.
+#define G_ED_ROCK_X_A     0x952014   // v1.2.0.9; was 0x90AA38. 50
+#define G_ED_ROCK_X_B     0x952104   // v1.2.0.9; was 0x90AB24. 85 - and the step between buttons
+#define G_ED_ROCK_Y_BASE  0x9523A8   // v1.2.0.9; was 0x90ADC8. 250
+#define G_ED_ROCK_Y_CAP   0x9520EC   // v1.2.0.9; was 0x90AB0C. 80
 
 static const BYTE kEdPanelPrologue[] = {
     0x48, 0x8B, 0xC4,                                  // mov rax,rsp
@@ -3007,9 +3011,10 @@ static const BYTE kEdRocksPrologue[] = {
     0x53,                                              // push rbx
     0x56,                                              // push rsi
     0x57,                                              // push rdi
-    0x41, 0x56,                                        // push r14
+    0x41, 0x54,                                        // push r12
+    0x41, 0x57,                                        // push r15
     0x48, 0x8D, 0x68, 0xA1,                            // lea rbp,[rax-0x5f]
-    0x48, 0x81, 0xEC, 0xF0, 0x00, 0x00, 0x00           // sub rsp,0xf0
+    0x48, 0x81, 0xEC, 0xF8, 0x00, 0x00, 0x00           // sub rsp,0xf8
 };
 static const BYTE kEdTexelsPrologue[] = {
     0x48, 0x8B, 0xC4,                                  // mov rax,rsp
@@ -3525,10 +3530,10 @@ static void h_ED_Cursor(void* self)
 // reads at whichever texture this deposit actually lives in, let the engine
 // draw its own overlay, and put all of it back.
 
-#define P_ED_TERRAIN_RVA  0xAEE0     // unchanged in v1.1.1.9. FUN_14000aee0 - contour lines and the resource overlay
+#define P_ED_TERRAIN_RVA  0xD7B0     // v1.2.0.8; was 0xAEE0. unchanged in v1.1.1.9. FUN_14000aee0 - contour lines and the resource overlay
 #define G_OVL_FLAGS       0x23       // gameobj, six bytes, one per paintable channel
 #define G_OVL_COUNT       6
-#define G_OVL_VEC_C2      0x90BDE0   // was 0x90BDD0 - the float4 the +0x23 branch passes: (0,0,1,0).
+#define G_OVL_VEC_C2      0x953400   // v1.2.0.9; was 0x90BDE0. was 0x90BDD0 - the float4 the +0x23 branch passes: (0,0,1,0).
                                      // A further .rdata cluster, confirmed at -0x20 rather than
                                      // the -0x18 above - see G_COLOR_OVERLAY
 
@@ -3908,7 +3913,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 {
     TsmBind(host);
     info->name    = "deposits_plus";
-    info->version = "0.4.17";
+    info->version = "0.4.19";
 
     // deposits_plus is a fork of the upstream deposits plugin: same code sites,
     // same service name, same save file. Both loaded at once would double the

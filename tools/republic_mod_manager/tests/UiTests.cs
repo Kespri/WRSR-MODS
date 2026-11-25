@@ -34,7 +34,7 @@ static class UiTests
             if(args.Length!=2)return 2;string source=Path.GetFullPath(args[0]),root=Path.GetFullPath(args[1]);if(Directory.Exists(root))throw new IOException("Use a fresh UI test directory.");
             string collection=Path.Combine(root,"workshop"),package=Path.Combine(collection,"fixture_vehicle_materials"),loader=Path.Combine(root,"build");CopyTree(source,package);
             string simple=MakeSimplePackage(collection,Path.Combine(package,"hooks","vehicle_materials.dll"));string unsupported=Path.Combine(collection,"9876543210");Write(Path.Combine(unsupported,"soviet.mod.ini"),"[mod]\nid=example.other\nname=ZZ Other Mod\nversion=1.0\n[hooks]\ndll=one.dll\ndll=two.dll\n");
-            string plugins=Path.Combine(loader,"plugins"),resourceIni=Path.Combine(plugins,"resources.ini"),resourceDll=Path.Combine(plugins,"resources.dll");Directory.CreateDirectory(plugins);File.WriteAllBytes(resourceDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));string needsDll=Path.Combine(plugins,"needs.dll");File.WriteAllBytes(needsDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"needs.ini"),"[list]\nfurniture = eletronics, 1.0, advanced, 0.35, 0.010\nmedicine = eletronics, 0.5, none, 0.30, 0.008\n[needs]\nenabled = 1\ndemand = 1\nstorage = 1\nmax_demands = 7\nwhen_full = skip\nprobe = 1\nlog_seconds = 60\n");string needsDllHash=SafeFiles.HashFile(needsDll);string depositsDll=Path.Combine(plugins,"deposits.dll");File.WriteAllBytes(depositsDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n[copper]\ntoken = $TYPE_MINE_COPPER\ntype = 10\nmap = resourcemap2\ncomponent = 3\nradius = ore\nicon = copper_ore\nminimap = 1\neditor = copper\n[sand]\ntoken = $TYPE_MINE_SAND\ntype = 11\nmap = terrain\ncomponent = 1\nradius = gravel\nicon = sand\nminimap = 1\neditor = sand\n");string depositsDllHash=SafeFiles.HashFile(depositsDll);File.WriteAllBytes(Path.Combine(plugins,"buildings_plus.dll"),File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n\n[example]\ndonor = shop_clothes\nobject = Pharmacy\nname = Pharmacy\n");
+            string plugins=Path.Combine(loader,"plugins"),resourceIni=Path.Combine(plugins,"resources.ini"),resourceDll=Path.Combine(plugins,"resources.dll");Directory.CreateDirectory(plugins);File.WriteAllBytes(resourceDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));string needsDll=Path.Combine(plugins,"needs.dll");File.WriteAllBytes(needsDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"needs.ini"),"[list]\nfurniture = eletronics, 1.0, advanced, 0.35, 0.010\nmedicine = eletronics, 0.5, none, 0.30, 0.008\n[needs]\nenabled = 1\ndemand = 1\nstorage = 1\nmax_demands = 7\nwhen_full = skip\nprobe = 1\nlog_seconds = 60\n");string needsDllHash=SafeFiles.HashFile(needsDll);string depositsDll=Path.Combine(plugins,"deposits.dll");File.WriteAllBytes(depositsDll,File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n[copper]\ntoken = $TYPE_MINE_COPPER\ntype = 10\nmap = resourcemap2\ncomponent = 3\nradius = ore\nicon = copper_ore\nminimap = 1\neditor = copper\n[sand]\ntoken = $TYPE_MINE_SAND\ntype = 11\nmap = terrain\ncomponent = 1\nradius = gravel\nicon = sand\nminimap = 1\neditor = sand\n");string depositsDllHash=SafeFiles.HashFile(depositsDll);File.WriteAllBytes(Path.Combine(plugins,"buildings_plus.dll"),File.ReadAllBytes(Path.Combine(package,"hooks","vehicle_materials.dll")));Write(Path.Combine(plugins,"buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n\n[example]\ndonor = shop_clothes\nobject = Pharmacy\nname = Pharmacy\nstrip = $PROFESORS_NEEDED\n");
             Write(resourceIni,"[list]\nglass=aluminium, Glass\ncable=steel, Cable\nsand=bauxite, Sand\n[resources]\nhook=2\n");Write(Path.Combine(loader,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nresources=1\nneeds=1\ndeposits=1\nvehicle_materials=1\nsample_plugin=1\n");
             string resourcesHash=SafeFiles.HashFile(resourceIni),resourceDllHash=SafeFiles.HashFile(resourceDll),profile=Path.Combine(root,"ui-state.ini");var defaults=new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=package,Language="de"};var notes=new List<string>();var store=new UiStateStore(profile);
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
@@ -177,7 +177,7 @@ static class UiTests
                 Check(cardState.Text.StartsWith("Wird beim n"),"with the donor in place the row says the folder is written at the next start");
                 // The details tab carries the fields, the lines tab the editor: the donor's
                 // building.ini beside your own lines, with what each of yours removes.
-                int dialogTabs=0;bool editorThere=false,added=false,keepOffered=false,namedGone=false,takenOnce=false,resultReadOnly=false,noDuplicate=false,overwritten=false,keptBoth=false,cancelled=false,resultLocked=false;
+                int dialogTabs=0;bool editorThere=false,added=false,keepOffered=false,namedGone=false,takenOnce=false,resultReadOnly=false,noDuplicate=false,overwritten=false,keptBoth=false,cancelled=false,resultLocked=false,guidedStart=false,guidedDonor=false,guidedMine=false;
                 form.CardDialogPrompt=dialog=>
                 {
                     dialogTabs=Children(dialog).OfType<Button>().Count(x=>(x.AccessibleName??"").StartsWith("card-tab:"));
@@ -186,10 +186,10 @@ static class UiTests
                     select("lines");Application.DoEvents();
                     var editor=form.TestDonorEditor;editorThere=editor!=null;
                     if(editor==null)return DialogResult.Cancel;
-                    editor.TestType("$WORKERS_NEEDED 150");editor.TestAdd();Application.DoEvents();
+                    guidedStart=editor.TestButtons=="000"&&editor.TestPicked==""&&editor.TestHint.Length>20;editor.TestSelectDonor(1);Application.DoEvents();guidedDonor=editor.TestPicked.Contains("$WORKERS_NEEDED")&&editor.TestButtons=="101";editor.TestType("");Application.DoEvents();guidedDonor=guidedDonor&&editor.TestButtons=="001";editor.TestType("$WORKERS_NEEDED 150");editor.TestAdd();Application.DoEvents();
                     added=editor.Lines.Contains("$WORKERS_NEEDED 150");
                     editor.TestSelectMine(0);Application.DoEvents();
-                    keepOffered=editor.TestHasKeep;
+                    keepOffered=editor.TestHasKeep;guidedMine=editor.TestPicked=="$WORKERS_NEEDED 150"&&editor.TestButtons=="000";editor.TestType("$WORKERS_NEEDED 151");Application.DoEvents();guidedMine=guidedMine&&editor.TestButtons=="110";editor.TestType("$WORKERS_NEEDED 150");Application.DoEvents();
                     // A picture of the dialog: it is never shown in the test, so it has to be
                     // laid out by hand before it can be drawn.
                     dialog.StartPosition=FormStartPosition.Manual;dialog.Location=new Point(-20000,-20000);dialog.Size=new Size(1120,780);
@@ -244,7 +244,7 @@ static class UiTests
                 Check(overwritten,"the same setting with another value overwrites when you say so");
                 Check(keptBoth,"a second line is allowed when you insist, and then it is reported");
                 Check(cancelled,"Cancel in that question adds nothing");
-                Check(resultLocked,"the result view switches the editing buttons off and the donor view switches them back on");
+                Check(resultLocked,"the result view switches the editing buttons off and the donor view switches them back on");Check(guidedStart,"0.6.16 donor editor: with nothing picked and nothing typed the three buttons are grey and the hint says how to start");Check(guidedDonor,"0.6.16 donor editor: a picked donor line stands in the read-only box; Add and Drop are on, Replace is not, and without a new line only Drop is left");Check(guidedMine,"0.6.16 donor editor: one of your lines picked - nothing to do until its copy is changed, then Add and Replace");
 
 
                 // 0.5.8: the + opens the very same dialog, only empty - one way for adding and
@@ -454,6 +454,61 @@ static class UiTests
                     owner.Close();
                 }
             }
+            // 0.7.0: the same editor for a Buildings Plus building - one file, the donor's, and the
+            // plugin's own command rule (ClonePlan), where a block of several lines is one command.
+            {
+                var donor=new List<string>{"$NAME 2020","$TYPE_SHOP","$WORKERS_NEEDED 20","$STORAGE RESOURCE_TRANSPORT_COVERED 40","$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40","$RESOURCE_VISUALIZATION 2","position 1 0 1","rotation 0.0","","$RESOURCE_VISUALIZATION 2","position 2 0 2","rotation 0.0","","end"};
+                using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop_clothes"},f=>donor,new string[0],new string[0],new string[0],new string[0],null,null,null,new Font("Segoe UI",10),true,()=>"$NAME_STR \"Apotheke\""))
+                {
+                    Check(editor.TestEditable&&editor.TestButtons=="00000","0.7.0 clone editor: nothing picked, nothing typed - all buttons off");
+                    editor.TestSelectLine(4);editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand");
+                    Check(editor.TestButtons=="11111","0.7.0 clone editor: a picked line and a new one switch all five buttons on");
+                    editor.TestInsert(true);
+                    Check(editor.Insert.First()=="1 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand"&&!editor.TestProblems.Any(),"0.7.0 clone editor: After writes insert = 1 | anchor | new line");
+                    editor.TestSelectLine(10);
+                    Check(editor.TestPicked.Contains("$RESOURCE_VISUALIZATION 2")&&editor.TestPicked.Contains("position 2 0 2")&&editor.TestButtons=="00001","0.7.0 clone editor: clicking a data line picks its whole block");
+                    editor.TestRemove();
+                    Check(editor.Remove.First()=="$RESOURCE_VISUALIZATION 2 | position 2 0 2"&&!editor.TestProblems.Any(),"0.7.0 clone editor: the anchor takes just enough data lines to be the only one");
+                    editor.TestSelectLine(2);editor.TestType("$WORKERS_NEEDED 8");editor.TestReplace();
+                    Check(editor.Replace.First()=="$WORKERS_NEEDED 20 | $WORKERS_NEEDED 8","0.7.0 clone editor: Replace writes old | new");
+                    editor.TestType("$RESOURCE_VISUALIZATION 0\nposition 5 0 5\nrotation 0.0");editor.TestAdd();
+                    Check(editor.Add.First()=="$RESOURCE_VISUALIZATION 0 | position 5 0 5 | rotation 0.0","0.7.0 clone editor: a typed block becomes one add with a field per line");
+                    editor.TestType("position 1");
+                    Check(editor.TestButtons.StartsWith("0000")&&editor.TestHint.Length>10,"0.7.0 clone editor: a new line without a token switches the buttons off");
+                    editor.TestView(true);
+                    var made=editor.TestResult.ToList();
+                    Check(made[0]=="$NAME_STR \"Apotheke\""&&!made.Contains("$NAME 2020")&&made.Contains("$WORKERS_NEEDED 8")&&!made.Contains("position 2 0 2")&&made.IndexOf("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand")==made.IndexOf("$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40")+1,"0.7.0 clone editor: the result carries the name line on top and the work of every command");
+                    editor.TestView(false);editor.TestType("");
+                    using(var frame=new Form{StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(1080,700),Font=new Font("Segoe UI",10),BackColor=Color.White})
+                    {
+                        editor.TestSelectCommand(3);frame.Controls.Add(editor);
+                        frame.Show();Application.DoEvents();frame.PerformLayout();Application.DoEvents();
+                        using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-clone-editor.png"));}
+                        editor.TestView(true);Application.DoEvents();
+                        using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-clone-result.png"));}
+                        editor.TestView(false);Application.DoEvents();
+                        frame.Hide();frame.Controls.Remove(editor);
+                    }
+                }
+            }
+            // 0.7.2: the clone editor takes several blocks at once - one command per block.
+            {
+                var donor=new List<string>{"$NAME 2020","$TYPE_SHOP","$WORKERS_NEEDED 20","$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40","$RESOURCE_VISUALIZATION 2","position 1 0 1","end"};
+                using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop_clothes"},f=>donor,new string[0],new string[0],new string[0],new string[0],null,null,null,new Font("Segoe UI",10),true,()=>""))
+                {
+                    editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel");
+                    Check(editor.TestButtons=="10000"&&editor.TestHint.Contains("eigenen Befehl"),"0.7.2 clone editor: two typed lines can be appended and the hint says each becomes its own command ["+editor.TestButtons+"]");
+                    editor.TestAdd();
+                    Check(editor.Add.Count()==2&&editor.Add.First().EndsWith("120 sand")&&editor.Add.Last().EndsWith("120 gravel")&&!editor.TestProblems.Any(),"0.7.2 clone editor: Append writes one add command per line that begins with $ ["+String.Join(" ; ",editor.Add)+"]");
+                    editor.TestSelectLine(3);editor.TestType("$STORAGE_SPECIAL RESOURCE_TRANSPORT_OPEN 5 steel\n$RESOURCE_VISUALIZATION 0\nposition 9 0 9");
+                    editor.TestInsert(true);
+                    Check(editor.Insert.Count()==2&&editor.Insert.First()=="1 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $STORAGE_SPECIAL RESOURCE_TRANSPORT_OPEN 5 steel"&&editor.Insert.Last()=="1 | $STORAGE_SPECIAL RESOURCE_TRANSPORT_OPEN 5 steel | $RESOURCE_VISUALIZATION 0 | position 9 0 9"&&!editor.TestProblems.Any(),"0.7.2 clone editor: After writes one command per block, the second hanging on the first; data lines stay with their block ["+String.Join(" ; ",editor.Insert)+" // "+String.Join(",",editor.TestProblems)+"]");
+                    var made=editor.TestResult.Select(x=>x.Trim()).ToList();int fuel=made.IndexOf("$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40");
+                    Check(fuel>=0&&made[fuel+1]=="$STORAGE_SPECIAL RESOURCE_TRANSPORT_OPEN 5 steel"&&made[fuel+2]=="$RESOURCE_VISUALIZATION 0"&&made[fuel+3]=="position 9 0 9","0.7.2 clone editor: the result carries the blocks below the anchor in the typed order ["+String.Join(" ; ",made)+"]");
+                    editor.TestSelectLine(1);editor.TestType("$WORKERS_NEEDED 20\n$QUALITY 2");editor.TestInsert(true);
+                    Check(editor.Insert.Contains("1 | $TYPE_SHOP | $WORKERS_NEEDED 20 | $QUALITY 2")&&!editor.TestProblems.Any(),"0.7.2 clone editor: a first line the donor has too cannot carry a chain - both lines stay in one command, which fits ["+String.Join(" ; ",editor.Insert)+" // "+String.Join(",",editor.TestProblems)+"]");
+                }
+            }
             // 0.5.8: the commands editor of a Vanilla Buildings rule set. Driven on its own, with a
             // target file handed in - the wiring into the dialog is the same as for the donor editor.
             {
@@ -461,9 +516,9 @@ static class UiTests
                 using(var editor=new TargetLinesEditor(new Language("de"),new[]{@"buildings_types\shop.ini",@"2496571917\x\building.ini"},
                     f=>f.StartsWith("buildings_types")?file:null,new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
                 {
-                    Check(editor.TestEditable,"an existing target file leaves the buttons on");
+                    Check(editor.TestEditable,"an existing target file leaves the buttons on");Check(editor.TestButtons=="00000"&&editor.TestPicked==""&&editor.TestHint.Length>20,"0.6.16: with nothing picked and nothing typed all five buttons are grey and the hint says how to start");editor.TestType("$LIFESPAN 1");Check(editor.TestButtons=="10000","0.6.16: a new line without a picked one can only be appended");editor.TestType("$LIFESPAN 1\n$LIFESPAN 2");Check(editor.TestButtons=="10000"&&editor.TestHint.Contains("eigenen Befehl"),"0.7.2: two lines typed below each other can be appended, and the hint says each becomes a command of its own ["+editor.TestButtons+"]");editor.TestType("$LIFESPAN 1");editor.TestSelectLine(1);Check(editor.TestPicked=="$WORKERS_NEEDED 20"&&editor.TestTyped=="$LIFESPAN 1"&&editor.TestButtons=="11111","0.6.17: picking a line leaves the new-line box alone - the anchor does not appear there a second time");editor.TestType("");Check(editor.TestButtons=="00001","0.6.17: a picked line without a new one - only Remove is on");editor.TestCopyPicked();Check(editor.TestTyped=="$WORKERS_NEEDED 20"&&editor.TestButtons=="00001","0.6.17: a double-click copies the picked line down; until the copy is changed only Remove is on");editor.TestType("$WORKERS_NEEDED 30");Check(editor.TestButtons=="11111","0.6.16: a picked line and a new one switch all five buttons on");
                     editor.TestSelectLine(1);editor.TestType("$WORKERS_NEEDED 30");editor.TestReplace();
-                    Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30","picking the line and typing the new one writes the replace command");
+                    Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30","picking the line and typing the new one writes the replace command");Check(editor.TestPicked=="$WORKERS_NEEDED 20"&&editor.TestTyped=="$WORKERS_NEEDED 30","0.6.16: the new command is picked and shows its anchor in the read-only box and its new line below");
                     editor.TestSelectLine(1);editor.TestType("$LIFESPAN 4000");editor.TestInsert(true);
                     Check(editor.Insert.First()=="1 | $WORKERS_NEEDED 20 | $LIFESPAN 4000","insert carries the position, the picked anchor and the new line");
                     editor.TestType("$CITIZEN_ABLE_SERVE 6");editor.TestAdd();
@@ -483,10 +538,10 @@ static class UiTests
                     // A picture of it: the control has to sit in a window that was shown once.
                     using(var frame=new Form{StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(1080,660),Font=new Font("Segoe UI",10),BackColor=Color.White})
                     {
-                        editor.TestSelectCommand(0);frame.Controls.Add(editor);
+                        editor.TestSelectCommand(1);frame.Controls.Add(editor);
                         frame.Show();Application.DoEvents();frame.PerformLayout();Application.DoEvents();
                         using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-editor.png"));}
-                        editor.TestView(true);Application.DoEvents();
+                        editor.TestSelectLine(2);Application.DoEvents();using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-picked.png"));}editor.TestView(true);Application.DoEvents();
                         using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-result.png"));}
                         editor.TestView(false);Application.DoEvents();
                         frame.Hide();frame.Controls.Remove(editor);
@@ -502,15 +557,59 @@ static class UiTests
                     f=>f=="a.ini"?linked:second,new string[0],new string[0],new string[0],new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
                 {
                     editor.TestSelectLine(2);
-                    Check(editor.TestTyped.Contains("$CONNECTION_ROAD")&&editor.TestTyped.Contains("-19.12 0.36 -30.02"),"clicking a point line puts the whole connection block into the box");
+                    Check(editor.TestTyped==""&&editor.TestPicked.Contains("-19.12 0.36 -30.02"),"0.6.17: clicking a point line picks the whole connection block and leaves the new-line box empty");editor.TestCopyPicked();Check(editor.TestTyped.Contains("$CONNECTION_ROAD")&&editor.TestTyped.Contains("-19.12 0.36 -30.02"),"a double-click puts the whole connection block into the box");Check(editor.TestPicked.Contains("$CONNECTION_ROAD")&&editor.TestPicked.Contains("-19.12 0.36 -30.02")&&editor.TestButtons=="00001","0.6.16: a picked connection stands as a block in the read-only box; only Remove is on");editor.TestType("$CONNECTION_ROAD\n1 0 1\n2 0 2");Check(editor.TestButtons=="11001","0.6.16: a new connection can replace the picked one or be appended, never inserted");
                     editor.TestRemove();
                     Check(editor.RemoveLink.Count()==1&&editor.RemoveLink.First().StartsWith("$CONNECTION_ROAD | -19.12"),"Remove on a connection writes remove_connection with its points");
                     editor.TestType("$CONNECTION_PEDESTRIAN\n1 0 1\n2 0 2");editor.TestAdd();
                     Check(editor.AddLink.First()=="$CONNECTION_PEDESTRIAN | 1 0 1 | 2 0 2","a typed connection block becomes add_connection");
                     Check(!editor.TestProblems.Any(),"both connection commands fit this file");
                     // The rule set's second target has none of it: the box says so.
-                    editor.TestEverywhere(true);
-                    Check(editor.TestSpread("remove_connection",0)==1,"with the box ticked the command is counted against every target");
+                    Check(editor.TestSpread("remove_connection",0)==1,"0.7.1: every target is checked without a box to tick - the command fits one of the two");
+                    Check(editor.TestSpreadNote.Contains("1 von 2")&&editor.TestBadTargets.Count()==1&&editor.TestBadTargets.First()=="b.ini","0.7.1: the red line says the rule set reaches 1 of 2 target files, and b.ini is the marked one ["+editor.TestSpreadNote+"]");
+                }
+                // 0.7.2: several lines in the new-line box are several commands, never one glued line.
+                {
+                    var plain=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","$STORAGE RESOURCE_TRANSPORT_COVERED 40","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop.ini"},f=>plain,new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                    {
+                        editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel");
+                        Check(editor.TestButtons=="10000","0.7.2: two typed lines without a picked one switch Append on ["+editor.TestButtons+"]");
+                        editor.TestAdd();
+                        Check(editor.Add.Count()==2&&editor.Add.First().EndsWith("120 sand")&&editor.Add.Last().EndsWith("120 gravel")&&!editor.TestProblems.Any(),"0.7.2: Append writes one add command per typed line, in the typed order ["+String.Join(" ; ",editor.Add)+"]");
+                        editor.TestSelectLine(1);editor.TestType("$LIFESPAN 1\n$QUALITY 2");
+                        Check(editor.TestButtons=="11111"&&editor.TestHint.StartsWith("Mehrere Zeilen"),"0.7.2: with a picked line all five buttons take several lines ["+editor.TestButtons+"]");
+                        editor.TestInsert(true);
+                        Check(editor.Insert.Count()==2&&editor.Insert.First()=="1 | $WORKERS_NEEDED 20 | $LIFESPAN 1"&&editor.Insert.Last()=="1 | $LIFESPAN 1 | $QUALITY 2"&&!editor.TestProblems.Any(),"0.7.2: After writes the first line behind the anchor and hangs the second on the first ["+String.Join(" ; ",editor.Insert)+"]");
+                        var made=editor.TestResult.Select(x=>x.Trim()).ToList();int w=made.IndexOf("$WORKERS_NEEDED 20");
+                        Check(w>=0&&made[w+1]=="$LIFESPAN 1"&&made[w+2]=="$QUALITY 2","0.7.2: the result carries the two lines below the anchor in the typed order ["+String.Join(" ; ",made)+"]");
+                        editor.TestSelectLine(2);editor.TestType("$STORAGE RESOURCE_TRANSPORT_COVERED 80\n$STORAGE RESOURCE_TRANSPORT_OPEN 10");editor.TestReplace();
+                        Check(editor.Replace.Count()==1&&editor.Replace.First()=="$STORAGE RESOURCE_TRANSPORT_COVERED 40 | $STORAGE RESOURCE_TRANSPORT_COVERED 80"&&editor.Insert.Contains("1 | $STORAGE RESOURCE_TRANSPORT_COVERED 80 | $STORAGE RESOURCE_TRANSPORT_OPEN 10")&&!editor.TestProblems.Any(),"0.7.2: Replace swaps the picked line for the first typed one and puts the second below it ["+String.Join(" ; ",editor.Replace.Concat(editor.Insert))+"]");
+                        editor.TestSelectLine(1);editor.TestType("$WORKERS_NEEDED 20\n$PROFESORS_NEEDED 3");
+                        Check(editor.TestButtons=="10111","0.7.2: when the first typed line is the picked one, Replace stays off ["+editor.TestButtons+"]");
+                        editor.TestInsert(false);
+                        Check(editor.Insert.Contains("0 | $WORKERS_NEEDED 20 | $PROFESORS_NEEDED 3"),"0.7.2: the copied anchor line is not inserted a second time ["+String.Join(" ; ",editor.Insert)+"]");
+                        using(var frame=new Form{StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(1120,760),Font=new Font("Segoe UI",10),BackColor=Color.White})
+                        {
+                            editor.TestSelectLine(1);editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\r\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 gravel");frame.Controls.Add(editor);
+                            frame.Show();Application.DoEvents();frame.PerformLayout();Application.DoEvents();
+                            using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-many.png"));}
+                        }
+                    }
+                }
+                using(var editor=new TargetLinesEditor(new Language("de"),new[]{"a.ini","b.ini"},
+                    f=>f=="a.ini"?linked:second,new[]{"$LIFESPAN 1"},new string[0],new string[0],new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                {
+                    Check(editor.TestSpreadNote==""&&!editor.TestBadTargets.Any(),"0.7.1: a rule set that fits every target shows no red line");
+                    editor.TestSelectLine(4);editor.TestType("$WORKERS_NEEDED 30");editor.TestReplace();
+                    Check(editor.TestSpreadNote.Contains("1 von 2"),"0.7.1: the red line appears with the first command that misses a target");
+                    using(var frame=new Form{StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(1120,720),Font=new Font("Segoe UI",10),BackColor=Color.White})
+                    {
+                        editor.TestTarget(1);editor.TestSelectCommand(1);
+                        Check(editor.TestEffect.Contains("gibt es in der Datei nicht")&&!editor.TestEffect.Contains("target_problem"),"0.7.1: the box below the commands says in words why a command misses, not its key ["+editor.TestEffect+"]");
+                        frame.Controls.Add(editor);
+                        frame.Show();Application.DoEvents();frame.PerformLayout();Application.DoEvents();
+                        using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-target-spread.png"));}
+                    }
                 }
             }
             // 0.23.0: profiles and restore points window, driven through its test hooks.

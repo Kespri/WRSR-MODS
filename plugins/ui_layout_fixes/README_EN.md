@@ -1,8 +1,8 @@
-# 🪟 UI Layout Fixes 0.3.1
+# 🪟 UI Layout Fixes 0.3.3
 
 **TesmioLoader plugin for targeted corrections to single info windows**
 
-Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1.1.1.13. Every window type is its own module with its own configuration, target checks and switch. Currently included: the **CUSTOMHOUSE** module (wider row spacing of the resource list in the customs house) and the **TEXT_WRAP** module (game captions you list by text id are wrapped and drawn line by line instead of running off their window; the route hint of the vehicle window is preset). There is deliberately no global row spacing.
+Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1.2.0.9. Every window type is its own module with its own configuration, target checks and switch. Currently included: the **CUSTOMHOUSE** module (wider row spacing of the resource list in the customs house) and the **TEXT_WRAP** module (game captions you list by text id are wrapped and drawn line by line instead of running off their window; the route hint of the vehicle window is preset). There is deliberately no global row spacing.
 
 ---
 
@@ -25,8 +25,8 @@ Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 - No dependency on other plugins
 
 ### In three steps
@@ -63,7 +63,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds the INI next to itself in the package
 4. Steam updates apply from the next game start
@@ -177,16 +177,16 @@ Limit: if the game copies a text into a buffer of its own before printing, the p
 
 | Property | Expected value |
 |---|---|
-| Game version | `SOVIET64.exe 1.1.1.13` |
-| PE time stamp | `0x6A8D4087` |
-| Size of the executable image | `0x00A9D000` |
+| Game version | `SOVIET64.exe 1.2.0.9` |
+| PE time stamp | `0x6B05A574` |
+| Size of the executable image | `0x00AE9000` |
 
 ---
 
 ## 💾 Compatibility
 
 ### Game and loader
-- Exactly supported game version 1.1.1.13 for CUSTOMHOUSE; other versions are refused because memory addresses and signatures depend on the version. TEXT_WRAP changes no game code and depends only on the text ids
+- Exactly supported game version 1.2.0.9 for CUSTOMHOUSE; other versions are refused because memory addresses and signatures depend on the version. TEXT_WRAP changes no game code and depends only on the text ids
 - Compatible with the resources plugin, which hooks the same text lookup; the hooks chain in load order
 - Only languages that separate words with spaces are wrapped (Chinese and Japanese stay unchanged)
 - No dependency on the Localization plugin or any other TesmioLoader plugin
@@ -196,6 +196,8 @@ Limit: if the game copies a text into a buffer of its own before printing, the p
 The plugin changes neither game files nor savegames.
 
 ### Version compatibility
+- **0.3.3:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
+- **0.3.2:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
 - **0.3.1:** for WRSR 1.1.1.13; otherwise unchanged
 - **0.3.0:** first published version with the modules CUSTOMHOUSE and TEXT_WRAP
 
@@ -302,5 +304,5 @@ A: No. Republic Mod Manager shows every switch and value with descriptions and c
 
 ---
 
-**Last update:** UI Layout Fixes 0.3.1  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** UI Layout Fixes 0.3.3  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

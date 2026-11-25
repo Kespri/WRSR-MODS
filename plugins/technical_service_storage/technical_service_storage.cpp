@@ -24,17 +24,17 @@
 //     no per-road direct-depot consumption.
 //
 // Verified game build:
-//   WRSR       1.1.1.13
-//   SHA256     4df5fbecc75300e3b843ae4e6426761c84ae2e989321c011c6f560be79122125
-//   timestamp  0x6A8D4087
-//   image size 0xA9D000
+//   WRSR       1.2.0.9
+//   SHA256     91a2ff66fd02e02a51f38f4d2106ccb56af9510af9a6fb7e7b93ae4249358ea7
+//   timestamp  0x6B05A574
+//   image size 0xAE9000
 //
 // Verified UI path:
-//   Technical Services panel        RVA 0x74C6A0
-//   native storage renderer         RVA 0x706DA0
-//   post-storage section helper     RVA 0x6F4CE0
-//   native Technical Services call  RVA 0x74FA20 -> 0x706DA0
-//   post-storage insertion call     RVA 0x74FA39 -> 0x6F4CE0
+//   Technical Services panel        RVA 0x784350
+//   native storage renderer         RVA 0x73CA40
+//   post-storage section helper     RVA 0x72AC60
+//   native Technical Services call  RVA 0x7876F0 -> 0x73CDB0
+//   post-storage insertion call     RVA 0x787709 -> 0x72AC60
 //
 // Confirmed runtime layout:
 //   building + 0x970/+0x978 = std::vector<Storage>, stride 0xE0
@@ -67,27 +67,31 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION  "0.3.5"
+#define PLUGIN_VERSION  "0.3.7"
 #define SPREADER_DIAGNOSTIC_VERSION PLUGIN_VERSION
 #define PLUGIN_LOG_NAME "tesmioloader.technical_service_storage.log"
 
 #pragma comment(lib, "user32.lib")
 
 // -----------------------------------------------------------------------------
-// Verified WRSR v1.1.1.13 addresses and signatures
+// Verified WRSR v1.2.0.9 addresses and signatures
 
-static const DWORD RVA_TECHNICAL_SERVICES_PANEL = 0x0074C6A0;
-static const DWORD RVA_NATIVE_STORAGE_PANEL      = 0x00706DA0;
-static const DWORD RVA_POST_STORAGE_SECTION      = 0x006F4CE0;
-static const DWORD RVA_TECH_NATIVE_STORAGE_CALL  = 0x0074FA20;
-static const DWORD RVA_TECH_POST_STORAGE_CALL    = 0x0074FA39;
+static const DWORD RVA_TECHNICAL_SERVICES_PANEL = 0x00784350;
+static const DWORD RVA_NATIVE_STORAGE_PANEL      = 0x0073CDB0;
+static const DWORD RVA_POST_STORAGE_SECTION      = 0x0072AC60;
+static const DWORD RVA_TECH_NATIVE_STORAGE_CALL  = 0x007876F0;
+static const DWORD RVA_TECH_POST_STORAGE_CALL    = 0x00787709;
 // The native warning builder has completed at this instruction sequence, but
-// its UTF-16 text at rbp+0x250 has not yet been measured or drawn.  The plugin
+// its UTF-16 text at rbp+0x2A0 has not yet been measured or drawn.  The plugin
 // appends the material warnings here so the game itself applies its warning
 // font, wrapping, line spacing and dynamic panel-height calculation.
-static const DWORD RVA_TECH_WARNING_APPEND_TRANSITION = 0x0074DC9D;
+static const DWORD RVA_TECH_WARNING_APPEND_TRANSITION = 0x0078596D;
 static const size_t TECH_WARNING_APPEND_OVERWRITE_LENGTH = 22;
 static const size_t TECH_WARNING_BUFFER_CAPACITY = 1024;
+// The panel's own frame: the 1024-character buffer starts at rbp+0x2A0 and ends
+// at rbp+0xAA0, where the stack cookie is stored (`lea rcx,[rbp+0x2A0]` at
+// exe+0x7854F2, `mov [rbp+0xAA0],rax` in the prologue).
+static const size_t TECH_WARNING_BUFFER_FRAME_OFFSET = 0x2A0;
 // The stock full-row storage renderer uses one shared flag at rbp-0x40 to
 // decide whether every per-resource discard button is visible. Technical
 // Services model fuel and every configured material as separate one-slot
@@ -96,67 +100,67 @@ static const size_t TECH_WARNING_BUFFER_CAPACITY = 1024;
 // other panel and bypasses only this gate while the Technical Services panel is
 // being rendered. The original renderer still owns the per-row amount check,
 // icon, localized tooltip, dynamic discard step and click operation.
-static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_GATE = 0x0070F9C6;
-static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_FALLTHROUGH = 0x0070F9D0;
-static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_SKIP = 0x0070FD36;
+static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_GATE = 0x00745C7C;
+static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_FALLTHROUGH = 0x00745C86;
+static const DWORD RVA_STORAGE_DISCARD_VISIBILITY_SKIP = 0x00745FE6;
 static const size_t STORAGE_DISCARD_VISIBILITY_OVERWRITE_LENGTH = 10;
 // The executable contains three copies of the Empty weight / Engine power UI.
 // The first two copies are inactive and are not hooked. The visible vehicle
 // window uses the third copy: r15 is the selected vehicle throughout this block
-// and the engine-label call at 0x7DC0A7 uses the shared formatted-text renderer.
-static const DWORD RVA_VEHICLE_UI_EMPTY_WEIGHT_READ = 0x007C0C99;
-static const DWORD RVA_VEHICLE_UI_ENGINE_POWER_READ = 0x007C0CA2;
-static const DWORD RVA_ACTIVE_VEHICLE_ENGINE_LABEL_DRAW_CALL = 0x007DC0A7;
-static const DWORD RVA_OFFICE_PRIORITY_LABEL_DRAW_CALL = 0x0027356B;
-static const DWORD RVA_OFFICE_PRIORITY_ROW = 0x00273470;
-static const DWORD RVA_OFFICE_PRIORITY_DRAW_TEXT_IAT = 0x0086C878;
-static const DWORD RVA_OFFICE_PRIORITY_DRAW_FORMATTED_TEXT_IAT = 0x0086C880;
-static const DWORD RVA_LOCALIZATION_GET_TEXT_IAT = 0x0086C890;
-static const DWORD RVA_LOCALIZATION_CONTEXT = 0x00997590;
-static const DWORD RVA_PANEL_COLLISION_IAT = 0x0086C850;
-static const DWORD RVA_INPUT_GET_MOUSE_SOLID_IAT = 0x0086C868;
-static const DWORD RVA_PANEL_CONTEXT = 0x009BE060;
-static const DWORD RVA_PANEL_RECT_SIZE = 0x009BE2E8;
-static const DWORD RVA_PANEL_RECT_POSITION = 0x009BE2F0;
-static const DWORD RVA_PANEL_RECT_PADDING = 0x009BE2F8;
-static const DWORD RVA_PANEL_RECT_COLOR = 0x009BE30C;
-static const DWORD RVA_INPUT_CONTEXT = 0x00A54B90;
-static const DWORD RVA_INPUT_CLICK_FLAG = 0x00A54E91;
-static const DWORD RVA_FONT_MANAGER_CONTEXT = 0x00996FB0;
-static const DWORD RVA_CURRENT_UI_FONT_POINTER = 0x00995220;
+// and the engine-label call at 0x81B0BB uses the shared formatted-text renderer.
+static const DWORD RVA_VEHICLE_UI_EMPTY_WEIGHT_READ = 0x007FEF2C;
+static const DWORD RVA_VEHICLE_UI_ENGINE_POWER_READ = 0x007FEF35;
+static const DWORD RVA_ACTIVE_VEHICLE_ENGINE_LABEL_DRAW_CALL = 0x0081B4EB;
+static const DWORD RVA_OFFICE_PRIORITY_LABEL_DRAW_CALL = 0x0028E90B;
+static const DWORD RVA_OFFICE_PRIORITY_ROW = 0x0028E810;
+static const DWORD RVA_OFFICE_PRIORITY_DRAW_TEXT_IAT = 0x008B1918;
+static const DWORD RVA_OFFICE_PRIORITY_DRAW_FORMATTED_TEXT_IAT = 0x008B1920;
+static const DWORD RVA_LOCALIZATION_GET_TEXT_IAT = 0x008B1930;
+static const DWORD RVA_LOCALIZATION_CONTEXT = 0x009E15A0;
+static const DWORD RVA_PANEL_COLLISION_IAT = 0x008B18F0;
+static const DWORD RVA_INPUT_GET_MOUSE_SOLID_IAT = 0x008B1908;
+static const DWORD RVA_PANEL_CONTEXT = 0x00A08070;
+static const DWORD RVA_PANEL_RECT_SIZE = 0x00A082F8;
+static const DWORD RVA_PANEL_RECT_POSITION = 0x00A08300;
+static const DWORD RVA_PANEL_RECT_PADDING = 0x00A08308;
+static const DWORD RVA_PANEL_RECT_COLOR = 0x00A0831C;
+static const DWORD RVA_INPUT_CONTEXT = 0x00A9EC50;
+static const DWORD RVA_INPUT_CLICK_FLAG = 0x00A9EF51;
+static const DWORD RVA_FONT_MANAGER_CONTEXT = 0x009E0FC0;
+static const DWORD RVA_CURRENT_UI_FONT_POINTER = 0x009DF338;
 static const int NATIVE_TEXT_ID_PRIORITY = 20139;
 
 static const DWORD RVA_OFFICE_PRIORITY_ROW_CALLS[9] = {
-    0x0074F0E2, 0x0074F1CF, 0x0074F2AB,
-    0x0074F387, 0x0074F463, 0x0074F53F,
-    0x0074F61B, 0x0074F6F7, 0x0074F7D3
+    0x00786DB2, 0x00786E9F, 0x00786F7B,
+    0x00787057, 0x00787133, 0x0078720F,
+    0x007872EB, 0x007873C7, 0x007874A3
 };
 static const DWORD RVA_OFFICE_PRIORITY_PERCENT_CALLS[9] = {
-    0x0074F144, 0x0074F229, 0x0074F305,
-    0x0074F3E1, 0x0074F4BD, 0x0074F599,
-    0x0074F675, 0x0074F751, 0x0074F82D
+    0x00786E14, 0x00786EF9, 0x00786FD5,
+    0x007870B1, 0x0078718D, 0x00787269,
+    0x00787345, 0x00787421, 0x007874FD
 };
 static const DWORD RVA_OFFICE_PRIORITY_CURSOR_STORES[9] = {
-    0x0074F17F, 0x0074F25B, 0x0074F337,
-    0x0074F413, 0x0074F4EF, 0x0074F5CB,
-    0x0074F6A7, 0x0074F783, 0x0074F8DA
+    0x00786E4F, 0x00786F2B, 0x00787007,
+    0x007870E3, 0x007871BF, 0x0078729B,
+    0x00787377, 0x00787453, 0x007875AA
 };
 
 // Values used by the verified native Technical Services storage call.
-static const DWORD RVA_DPI           = 0x00992088;
-static const DWORD RVA_STORAGE_ARG13 = 0x0090A970;
-static const DWORD RVA_STORAGE_ARG14 = 0x0090A938;
-static const DWORD RVA_TECH_WARNING_MEASURE_PADDING = 0x0090A8DC;
+static const DWORD RVA_DPI           = 0x009DC08C;
+static const DWORD RVA_STORAGE_ARG13 = 0x00951F4C;
+static const DWORD RVA_STORAGE_ARG14 = 0x00951F14;
+static const DWORD RVA_TECH_WARNING_MEASURE_PADDING = 0x00951EB4;
 // The single-resource branch in the native renderer first advances its local
-// row phase by 23 logical pixels (exe+0x70811F), then draws the title 45
-// logical pixels above that phase (exe+0x708666). Reading both verified game
+// row phase by 23 logical pixels (exe+0x73DDD5), then draws the title 45
+// logical pixels above that phase (exe+0x73E316). Reading both verified game
 // constants keeps the plugin title control coupled to the same layout math as
 // the native title instead of guessing from the renderer's final cursor.
-static const DWORD RVA_STORAGE_TITLE_PHASE_ADVANCE = 0x0090A96C;
-static const DWORD RVA_STORAGE_TITLE_LEAD          = 0x0090AA1C;
+static const DWORD RVA_STORAGE_TITLE_PHASE_ADVANCE = 0x00951F48;
+static const DWORD RVA_STORAGE_TITLE_LEAD          = 0x00951FF8;
 
-static const DWORD EXPECTED_TIMESTAMP = 0x6A8D4087;
-static const size_t EXPECTED_IMAGE_SIZE = 0xA9D000;
+static const DWORD EXPECTED_TIMESTAMP = 0x6B05A574;
+static const size_t EXPECTED_IMAGE_SIZE = 0xAE9000;
 
 static const BYTE EXPECT_TECH_PANEL[] = {
     0x48,0x8B,0xC4,
@@ -190,21 +194,21 @@ static const BYTE EXPECT_POST_STORAGE_SECTION[] = {
 };
 
 static const BYTE EXPECT_VEHICLE_UI_EMPTY_WEIGHT_READ[] = {
-    0xF3,0x44,0x0F,0x10,0x86,0x7C,0x86,0x00,0x00
+    0xF3,0x44,0x0F,0x10,0x86,0xCC,0x86,0x00,0x00
 };
 
 static const BYTE EXPECT_VEHICLE_UI_ENGINE_POWER_READ[] = {
-    0xF3,0x0F,0x10,0xBE,0x78,0x86,0x00,0x00
+    0xF3,0x0F,0x10,0xBE,0xC8,0x86,0x00,0x00
 };
 
 static const BYTE EXPECT_ACTIVE_VEHICLE_ENGINE_LABEL_DRAW_CALL[] = {
-    0xFF,0x15,0xD3,0x07,0x09,0x00
+    0xFF,0x15,0x2F,0x64,0x09,0x00
 };
 
 static const BYTE EXPECT_TECH_WARNING_APPEND_TRANSITION[] = {
     0x41,0x0F,0x28,0xF0,
-    0xF3,0x44,0x0F,0x10,0x0D,0x32,0xCC,0x1B,0x00,
-    0xF3,0x44,0x0F,0x10,0x15,0x85,0xCC,0x1B,0x00
+    0xF3,0x44,0x0F,0x10,0x0D,0x3A,0xC5,0x1C,0x00,
+    0xF3,0x44,0x0F,0x10,0x15,0x91,0xC5,0x1C,0x00
 };
 static_assert(
     sizeof(EXPECT_TECH_WARNING_APPEND_TRANSITION) ==
@@ -213,7 +217,7 @@ static_assert(
 
 static const BYTE EXPECT_STORAGE_DISCARD_VISIBILITY_GATE[] = {
     0x80,0x7D,0xC0,0x00,
-    0x0F,0x84,0x66,0x03,0x00,0x00
+    0x0F,0x84,0x60,0x03,0x00,0x00
 };
 static_assert(
     sizeof(EXPECT_STORAGE_DISCARD_VISIBILITY_GATE) ==
@@ -222,7 +226,7 @@ static_assert(
 
 // C3DDLL64.dll export
 // C3D_BITMAP_FONT::CalcRectLeftUnicodeNoArg(float,float,wchar_t const*)
-// from the game-bundled engine used by WRSR 1.1.1.9. Its 16-byte C3DRECT
+// from the game-bundled engine. Its 16-byte C3DRECT
 // result is returned through the hidden second argument on Windows x64.
 static const char* const C3D_CALC_RECT_LEFT_UNICODE_NO_ARG =
     "?CalcRectLeftUnicodeNoArg@C3D_BITMAP_FONT@@UEAA?AUC3DRECT@@MMPEB_W@Z";
@@ -236,7 +240,7 @@ static const BYTE EXPECT_C3D_CALC_RECT_LEFT_UNICODE_NO_ARG[] = {
 };
 
 static const BYTE EXPECT_OFFICE_PRIORITY_LABEL_DRAW_CALL[] = {
-    0xFF,0x15,0x07,0x93,0x5F,0x00
+    0xFF,0x15,0x07,0x30,0x62,0x00
 };
 
 static const BYTE EXPECT_OFFICE_PRIORITY_CURSOR_STORE[] = {
@@ -256,7 +260,7 @@ static const size_t B_NATIVE_ARG10  = 0x09E8;
 static const size_t B_VEHICLE_BEGIN = 0x0C70;
 static const size_t B_VEHICLE_END   = 0x0C78;
 
-static const size_t TD_TYPE = 0x0360;
+static const size_t TD_TYPE = 0x0368;
 static const int BUILDING_GARBAGE_OFFICE = 0x31;
 
 static const size_t STORAGE_SIZE       = 0x00E0;
@@ -271,9 +275,9 @@ static const size_t SLOT_AMOUNT   = 0x0008;
 
 static const size_t RESOURCE_NAME = 0x0000;
 static const size_t RESOURCE_TEXT_ID = 0x0040;
-static const DWORD RVA_RESOURCE_VECTOR = 0x009E11C0;
-static const size_t RESOURCE_RECORD_SIZE = 0x0340;
-static const size_t MIN_RESOURCE_RECORDS = 57;
+static const DWORD RVA_RESOURCE_VECTOR = 0x00A2B270;
+static const size_t RESOURCE_RECORD_SIZE = 0x0380;
+static const size_t MIN_RESOURCE_RECORDS = 61;
 static const size_t MAX_RESOURCE_RECORDS = 512;
 
 // RESOURCE_TRANSPORT_* follows the game's enum order.
@@ -1189,7 +1193,7 @@ static float OfficePriorityWrappedRowExtra(int lineCount, float dpi)
 {
     if (lineCount <= 1) return 0.0f;
     // The verified native priority-row step is 35 logical pixels
-    // (exe+0x90A9DC). Two wrapped baselines use the configured distance and
+    // (exe+0x951F00). Two wrapped baselines use the configured distance and
     // two logical pixels of padding above and below.
     float nativeRowHeight = 35.0f * dpi;
     float wrappedRowHeight =
@@ -1920,7 +1924,7 @@ static bool BuildMatches()
     {
         Report("FATAL", "SOVIET64.exe", "unsupported-build",
             "Image size 0x%llX does not match expected 0x%llX. "
-            "Action: use the supported WRSR 1.1.1.13 build",
+            "Action: use the supported WRSR 1.2.0.9 build",
             (unsigned long long)g_exeSize,
             (unsigned long long)EXPECTED_IMAGE_SIZE);
         return false;
@@ -1931,7 +1935,7 @@ static bool BuildMatches()
     {
         Report("FATAL", "SOVIET64.exe", "unsupported-build",
             "Timestamp 0x%08X does not match expected 0x%08X. "
-            "Action: use the supported WRSR 1.1.1.13 build",
+            "Action: use the supported WRSR 1.2.0.9 build",
             timestamp, EXPECTED_TIMESTAMP);
         return false;
     }
@@ -2013,7 +2017,7 @@ static bool BuildMatches()
     Info("Verified Office Priority label draw call: exe+0x%X -> IAT exe+0x%X",
          RVA_OFFICE_PRIORITY_LABEL_DRAW_CALL,
          RVA_OFFICE_PRIORITY_DRAW_TEXT_IAT);
-    Info("Verified vehicle UI field readers: empty_weight=exe+0x%X type+0x867C tonnes (text ID 1950), engine_power=exe+0x%X type+0x8678 kW (text ID 1951)",
+    Info("Verified vehicle UI field readers: empty_weight=exe+0x%X type+0x86CC tonnes (text ID 1950), engine_power=exe+0x%X type+0x86C8 kW (text ID 1951)",
          RVA_VEHICLE_UI_EMPTY_WEIGHT_READ,
          RVA_VEHICLE_UI_ENGINE_POWER_READ);
     return true;
@@ -2489,7 +2493,7 @@ static BYTE __fastcall HookTechnicalServicesNativeWarnings(
     __try
     {
         wchar_t* nativeBuffer =
-            (wchar_t*)((BYTE*)panelFrame + 0x250);
+            (wchar_t*)((BYTE*)panelFrame + TECH_WARNING_BUFFER_FRAME_OFFSET);
         if (ReadablePtr(
                 nativeBuffer,
                 TECH_WARNING_BUFFER_CAPACITY * sizeof(wchar_t)))
@@ -2775,7 +2779,7 @@ static bool InstallDepotMaterialWarningUi()
     InterlockedExchange(&g_depotMaterialWarningUiActive, 1);
     Report("INFO", "Technical Services",
         "material-status-warnings",
-        "active=1 transition=exe+0x%X states=enabled_empty_or_OFF one_line_per_material fuel_selectable=0 localization=plugin resource_name=game native_utf16_buffer=rbp+0x250 buffer_capacity=%llu native_pre_measurement_append=1 native_font_wrapping_spacing_and_layout=1",
+        "active=1 transition=exe+0x%X states=enabled_empty_or_OFF one_line_per_material fuel_selectable=0 localization=plugin resource_name=game native_utf16_buffer=rbp+0x2A0 buffer_capacity=%llu native_pre_measurement_append=1 native_font_wrapping_spacing_and_layout=1",
         RVA_TECH_WARNING_APPEND_TRANSITION,
         (unsigned long long)TECH_WARNING_BUFFER_CAPACITY);
     return true;
@@ -3617,8 +3621,8 @@ static void MarkStorageResources(BYTE* storage)
 
 static NativeTemplate BuildFallbackTemplate(BYTE* building)
 {
-    // This fallback starts from the verified Technical Services call in
-    // WRSR 1.1.1.9.  The stock call uses the compact arg11=9 path, which exits
+    // This fallback starts from the verified Technical Services call
+    // (exe+0x7876F0).  The stock call uses the compact arg11=9 path, which exits
     // before the native per-resource controls are constructed.  The plugin uses
     // the normal arg11=-1 resource-row path, but keeps arg15 disabled: arg15
     // adds the separate storage-wide clear control, which is wrong for the
@@ -4373,7 +4377,7 @@ int TsmPluginStart(void)
                  "save-folder-sidecar" : "session-only",
          g_depotMaterialDividerEnabled,
          g_depotMaterialDividerHeight);
-    Info("Depot material status warnings: %s (resource_localization_id=%d empty_localization_id=%d off_localization_id=%d one_line_per_present_configured_material=1 priority_OFF_precedes_empty=1 fuel_excluded=1 native_utf16_buffer=rbp+0x250 pre_measurement_append=1 native_font_wrapping_spacing_and_layout=1)",
+    Info("Depot material status warnings: %s (resource_localization_id=%d empty_localization_id=%d off_localization_id=%d one_line_per_present_configured_material=1 priority_OFF_precedes_empty=1 fuel_excluded=1 native_utf16_buffer=rbp+0x2A0 pre_measurement_append=1 native_font_wrapping_spacing_and_layout=1)",
          depotMaterialWarningUiActive ? "active" :
          (g_depotMaterialWarningsEnabled ? "unavailable" : "disabled"),
          g_depotWarningResourceTextId,

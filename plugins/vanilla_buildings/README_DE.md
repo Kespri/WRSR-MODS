@@ -1,8 +1,8 @@
-# 🏗️ Vanilla Buildings 0.4.5
+# 🏗️ Vanilla Buildings 0.4.7
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
-Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: Soviet Republic* 1.1.1.13 an, ohne eine Originaldatei zu verändern: Bei jedem Spielstart entstehen temporäre Kopien mit den gewünschten Zeilen, und nur die Leseaufrufe des Spiels werden dorthin umgeleitet. Typischer Einsatz: neuen Materialien wie Streusalz, Kies oder Sand ein Lager in den Technischen Diensten geben, damit sie geliefert und angenommen werden.
+Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: Soviet Republic* 1.2.0.9 an, ohne eine Originaldatei zu verändern: Bei jedem Spielstart entstehen temporäre Kopien mit den gewünschten Zeilen, und nur die Leseaufrufe des Spiels werden dorthin umgeleitet. Typischer Einsatz: neuen Materialien wie Streusalz, Kies oder Sand ein Lager in den Technischen Diensten geben, damit sie geliefert und angenommen werden.
 
 ---
 
@@ -26,8 +26,8 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13 (Referenzversion; nach einem Spielupdate können sich Originalzeilen ändern, nicht mehr passende Regeln werden dann sicher abgewiesen)
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9 (Referenzversion; nach einem Spielupdate können sich Originalzeilen ändern, nicht mehr passende Regeln werden dann sicher abgewiesen)
+- TesmioLoader ab b0.4.5 (API 4)
 - Localization (ab 0.4.0): Das Plugin selbst braucht es nur für übersetzte Gebäudenamen (`name` mit einem Übersetzungsschlüssel) und läuft sonst auch ohne.
 - Ressourcen, auf die eine Regel verweist (etwa `road_salt`), müssen im Spiel existieren, zum Beispiel über Resources Plus oder Resources.
 
@@ -66,7 +66,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -249,6 +249,8 @@ Das Plugin ändert Gebäudedefinitionen, keine gespeicherten Gebäude. Neue Lage
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials kannst du mit diesem Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken ergänzen; die mitgelieferte INI enthält dafür keinen fertigen Regelsatz.
 
 ### Versionskompatibilität
+- **0.4.7:** Texte für WRSR 1.2.0.9; das Plugin nutzt keine Spieladresse und ist sonst unverändert.
+- **0.4.6:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
 - **0.4.5:** Aus dem Workshop geladen, liest das Plugin jetzt auch die fertige INI, die Republic Mod Manager nach `tesmioloader\plugins\vanilla_buildings.ini` schreibt; vorher blieb es dann bei der INI im Paket
 - **0.4.4:** neuer Schlüssel `name` je Regelsatz: ersetzt die vorhandene `$NAME`- oder `$NAME_STR`-Zeile jeder Zieldatei, ohne dass du die alte kennen musst; mit Punkten darin ein Übersetzungsschlüssel über das Plugin Localization
 - **0.4.3:** einpunktige Anschlüsse wie `$CONNECTION_ROAD_DEAD` lassen sich mit `add_connection`, `replace_connection` und `remove_connection` bearbeiten (Token | Punkt)
@@ -349,5 +351,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 0.4.5  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.7  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

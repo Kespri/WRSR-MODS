@@ -1,14 +1,53 @@
 # Resources Plus – build notes
 
 Fork of the `resources` plugin from the TesmioLoader by MaxLegend (Tesmio), GPL v3,
-https://github.com/MaxLegend/TesmioLoader. Target: WRSR 1.1.1.13 (SOVIET64.exe PE stamp
-0x6A8D4087, SHA-256 `4DF5FBECC75300E3B843AE4E6426761C84AE2E989321C011C6F560BE79122125`),
+https://github.com/MaxLegend/TesmioLoader. Target: WRSR 1.2.0.9 (SOVIET64.exe PE stamp
+0x6B05A574, SHA-256 `3EB4649C01C6A4E01F86ACE3BD8135D6359EC3774CF93E17AB69C0F1B65E6D28`),
 TesmioLoader API 4.
 Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles
 `resources_plus.cpp`; there are no other sources. Exports: `TsmPluginApiVersion`, `TsmPluginInit`.
 Service name `resources`, the caption id base and the record layout deliberately stay identical
 to the original so saves, content packages and consumers such as Deposits Plus keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
+
+## 0.1.7 (2026-11-25)
+
+- Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, same image size), the hotfix that followed the DLC
+  build on the same day. `ResourceGet` 0x2C6230 -> 0x2C6380, price pass 0x2C4D40 -> 0x2C4E90,
+  customhouse tick 0x19E300 -> 0x19E190, slot `push_back` 0x0C9150 -> 0x0C8FE0. All prologues are
+  unchanged.
+- The hotfix inserted an 8-byte field into the static game object at 0xA1EF20: every field from
+  +0xBCB8 on lies 8 higher. The resource vector is one of them, 0xA2B268 -> 0xA2B270
+  (0xA1EF20 + 0xC350). The record layout (896 bytes, 61 base records) did not change.
+- A kept INI may still name `resource_vector_rva = 0xA2B268`; that value is recognised like the
+  older 0x9E11C0 and the built-in address is used. The shipped INI carries the new four addresses.
+- Method: both executables are on disk, so the addresses were carried by an instruction-by-instruction
+  comparison (`my_plugins\tests\asmpairs.pl`, `rebase.pl`) and the expected bytes by `arraycheck.pl`.
+
+## 0.1.6 (2026-11-25)
+
+- Ported to WRSR 1.2.0.8. The record grew from 832 to 896 bytes: two transport classes were added
+  behind WASTE (CRYO 18, HYPERGOLIC 19), which moves the material family to +0x34C, the tail float
+  to +0x350 and the five cargo meshes to +0x358..+0x378. The engine fills 61 records now; the four
+  new ones (`kerosene`, `udmh`, `n2o4`, `lox`) sit at indices 29..32.
+- Addresses: `ResourceGet` 0x2AA7B0 -> 0x2C6230, the price pass 0x2A92C0 -> 0x2C4D40, the
+  customhouse tick 0x185500 -> 0x19E300, `std::vector<Slot>::push_back` 0x0B14E0 -> 0x0C9150, the
+  resource vector 0x9E11C0 -> 0xA2B268 (game object 0xA1EF20 + 0xC348), `C3D_MIDDLEPOINT` 0x9EACD0
+  -> 0xA34D90. The cache of 57 record pointers still follows the vector.
+- How it was verified: each of the four functions was found again from its 1.1.1.9 bytes
+  (`my_plugins\tests\portmap.pl` with `portlists\resources_plus.map`, 125 of 128 to 483 of 516
+  bytes equal, the differences being call targets and the offsets above); the price pass shows the
+  vector at +0xC348/+0xC350 and the stride 0x380; MaxLegend's own port (TesmioLoader 0.4.5) carries
+  the same six addresses. Transport classes of the new resources read from the DLC buildings:
+  kerosene OIL, lox CRYO, udmh and n2o4 HYPERGOLIC.
+- New guard: the order of the base records is compared with `kResourceOrder` as they land. A
+  template is taken by its position in that table, so one name out of place means another game
+  build and nothing is published (one log line).
+- New: `resource_vector_rva = 0x9E11C0` from an INI of the previous build is recognised and the
+  built-in address used. The three code addresses were already covered by `PickRva`.
+- `[custom:]` takes `transport = cryo` and `transport = hypergolic`; a raw `field = <offset>` at or
+  behind 0x30C has to be moved by 0x40 by whoever wrote it.
+- Not run in the game yet.
 
 ## 0.1.5 (2026-11-18)
 
@@ -161,7 +200,7 @@ User documentation: README_DE.md / README_EN.md. History newest first, technical
 
 ## Technical notes
 
-- Every address is for SOVIET64.exe v1.1.1.13 and is verified against expected bytes before a hook
+- Every address is for SOVIET64.exe v1.2.0.9 and is verified against expected bytes before a hook
   installs; a game update makes the hooks refuse rather than corrupt the process. See the header
   of `resources_plus.cpp` and `docs/04-adding-resources.md` for the engine facts.
 - The relocation of the array happens once per process on the very first lookup, ahead of the

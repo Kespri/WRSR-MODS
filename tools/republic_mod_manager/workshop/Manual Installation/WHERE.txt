@@ -1,11 +1,11 @@
 Republic Mod Manager - manual installation
 ==========================================
 
-Requirement: the TesmioLoader by MaxLegend (b0.3.7 or newer) is installed, so
+Requirement: the TesmioLoader by MaxLegend (b0.4.5 or newer) is installed, so
 the game folder already has the folder tesmioloader with tesmioloader.dll,
 tesmiolauncher.exe and tesmioloader.ini. Nothing works without it. The
-tesmioloader.dll in this folder is a corrected build of his b0.3.7
-(b0.3.7-rmm.2, same API) and replaces the one you have - keep a copy of the
+tesmioloader.dll in this folder is a corrected build of his b0.4.5
+(b0.4.5-rmm.2, same API) and replaces the one you have - keep a copy of the
 old one if you want a way back.
 
 1. Close the game, the TesmioLauncher and Republic Mod Manager.
@@ -17,7 +17,7 @@ old one if you want a way back.
    an rmm.ini of your own should be saved first.
 
    Afterwards you have:
-      tesmioloader\tesmioloader.dll              the loader (corrected build b0.3.7-rmm.2)
+      tesmioloader\tesmioloader.dll              the loader (corrected build b0.4.5-rmm.2)
       tesmioloader\rmm.exe                       the manager
       tesmioloader\rmm.ini                       its base settings
       tesmioloader\rmm.README_DE.md / _EN.md     guide (German / English)

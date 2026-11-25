@@ -1,8 +1,8 @@
-# 📦 Resources Plus 0.1.5
+# 📦 Resources Plus 0.1.7
 
 **Erweiterung des TesmioLoader-Plugins resources**
 
-Eigene Ressourcen für *Workers & Resources: Soviet Republic* 1.1.1.13: neue Güter mit Symbol, Frachtmodellen, Preis und Handel im Zollhaus, ganz aus einer INI heraus.
+Eigene Ressourcen für *Workers & Resources: Soviet Republic* 1.2.0.9: neue Güter mit Symbol, Frachtmodellen, Preis und Handel im Zollhaus, ganz aus einer INI heraus.
 
 ---
 
@@ -26,8 +26,8 @@ Eigene Ressourcen für *Workers & Resources: Soviet Republic* 1.1.1.13: neue Gü
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader ab b0.4.5 (API 4)
 
 ### In drei Schritten
 1. **Abonnieren:** Resources Plus steckt im Workshop-Objekt Republic Mod Manager. Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
@@ -82,7 +82,7 @@ Hast du auch das Plugin resources von MaxLegend (abonniert oder in `tesmioloader
 ```
 1. Das Workshop-Objekt Republic Mod Manager abonnieren – Resources Plus
    liegt darin im Ordner plugins\resources_plus
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Beim ersten Start legt das Plugin deine Liste an:
    <Spiel>\tesmioloader\plugins\resources_plus.ini
@@ -179,6 +179,8 @@ Unverändert gegenüber dem Original: Die Anzahl der Ressourcen ist Teil des Spi
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Ressourcen selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Resources Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.7: Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert.
+- 0.1.6: Für WRSR 1.2.0.8 mit dem Raketen-DLC. Das Plugin kennt die vier neuen Ressourcen des Spiels (`kerosene`, `lox`, `udmh`, `n2o4`) und die zwei neuen Transportklassen `cryo` und `hypergolic`. Alte Adress-Zeilen in Deiner `resources_plus.ini` stören nicht, das Plugin nimmt dann seine eigenen.
 - 0.1.5: Die erste Liste entsteht jetzt auch aus der `resources.ini` des Originals, wenn das Original nur im Workshop-Ordner liegt. Vorher sah das Plugin nur im Loader-Ordner nach und nahm sonst die mitgelieferte Liste
 - 0.1.4: Namen in der Spielsprache: neue Abschnitte `[names:<Sprache>]` in der Liste; die mitgelieferte Liste bringt deutsche Namen mit. Ohne solche Abschnitte ändert sich nichts
 - 0.1.3: Für WRSR 1.1.1.13. Das Plugin erkennt das Original resources jetzt auch, wenn es aus dem Workshop-Ordner geladen wird, und bleibt dann untätig. Steht in deiner `resources_plus.ini` noch eine Spieladresse der vorigen Spielversion (`resource_rva`, `price_pass_rva`, `customhouse_tick_rva`), übergeht das Plugin sie mit einer Zeile im Protokoll und nimmt die eingebaute
@@ -202,7 +204,7 @@ Unverändert gegenüber dem Original: Die Anzahl der Ressourcen ist Teil des Spi
 | Kein Symbol | PNG fehlt | `media_soviet\resources\<name>.png`, 48×48 RGBA |
 
 ### Logging
-- Zusammenfassung in `tesmioloader.log`: die Zeile des Loaders mit `resources_plus` und der Version `0.1.5`, beim ersten Start `created plugins\resources_plus.ini from …`, dann je Ressource `published as index …`; mit `price_report = 1` dazu die Preistabelle, mit `custom_report = 1` die Datensätze
+- Zusammenfassung in `tesmioloader.log`: die Zeile des Loaders mit `resources_plus` und der Version `0.1.7`, beim ersten Start `created plugins\resources_plus.ini from …`, dann je Ressource `published as index …`; mit `price_report = 1` dazu die Preistabelle, mit `custom_report = 1` die Datensätze
 - Details in `logs\tesmioloader.resources_plus.log`: jeder Ressourcenname, den das Spiel abgefragt hat
 
 ---
@@ -258,5 +260,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Resources Plus eingesc
 
 ---
 
-**Letzte Aktualisierung:** Resources Plus 0.1.5  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Resources Plus 0.1.7  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

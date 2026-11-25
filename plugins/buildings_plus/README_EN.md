@@ -1,8 +1,8 @@
-# 🏭 Buildings Plus 0.1.11
+# 🏭 Buildings Plus 0.2.0
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
-Adds new buildings to *Workers & Resources: Soviet Republic* 1.1.1.13 without modelling or copying anything by hand: you name a donor building of the game (say, the bauxite mine) and the building.ini lines that should differ (say, `$PRODUCTION raw_salt 1.0`). At every game start the plugin writes a complete Workshop item into `media_soviet\workshop_wip` from that, with model, textures, collision data, icon and the adjusted building.ini. Typical use: a salt mine and a salt refinery for new resources, without touching the game's coal mine.
+Adds new buildings to *Workers & Resources: Soviet Republic* 1.2.0.9 without modelling or copying anything by hand: you name a donor building of the game (say, the bauxite mine) and say with commands what is to be different in its building.ini (say: replace `$PRODUCTION rawbauxite 0.50` by `$PRODUCTION raw_salt 1.0`). At every game start the plugin writes a complete Workshop item into `media_soviet\workshop_wip` from that, with model, textures, collision data, icon and the adjusted building.ini. Typical use: a salt mine and a salt refinery for new resources, without touching the game's coal mine.
 
 ---
 
@@ -26,8 +26,8 @@ Adds new buildings to *Workers & Resources: Soviet Republic* 1.1.1.13 without mo
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13 (the plugin reads no game address, a game update can at most make a building.ini line invalid)
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9 (the plugin reads no game address, a game update can at most make a building.ini line invalid)
+- TesmioLoader b0.4.5 or newer (API 4)
 - Resources a building consumes or produces must exist in the game, for example through Resources Plus or the resources plugin.
 
 ### In three steps
@@ -40,9 +40,9 @@ Adds new buildings to *Workers & Resources: Soviet Republic* 1.1.1.13 without mo
 ## ✨ Features
 
 ### 🎯 Core function
-- ✅ One section per building: donor, changed lines, done
+- ✅ One section per building: the donor and commands for what is to be different (append, replace, remove, insert)
 - ✅ A complete Workshop item at game start: model, material (texture paths rewritten), the donor's emissive material, collision box, fire points, icon, workshopconfig.ini, renderconfig.ini, building.ini
-- ✅ The donor's geometry survives whole (connections, construction phases, particles, vehicle stations); only what you declare is replaced
+- ✅ Every command touches exactly one place; everything else of the donor stays (connections, construction phases, particles, vehicle stations, the other storages)
 - ✅ Folders are rewritten only when the section, the plugin or a donor file changed
 - ✅ A folder without the plugin's stamp is never touched; real Workshop subscriptions are safe
 - ✅ `prune` removes the folders of disabled or deleted sections again
@@ -61,7 +61,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 ```
 1. Subscribe to the Workshop item Republic Mod Manager – Buildings Plus
    sits in its folder plugins\buildings_plus
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. Declare buildings (Republic Mod Manager or INI), restart the game completely
 4. Steam updates apply from the next game start
@@ -86,10 +86,10 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-Republic Mod Manager (version 0.6.3 and later) brings the settings page itself. It shows Buildings Plus in three tabs, German and English:
+Republic Mod Manager (version 0.7.0 and later) brings the settings page itself. It shows Buildings Plus in three tabs, German and English:
 
 - **General:** notes, the card "Generated folders" with the switches Fill in the owner id and Clean up folders (prune), plus the card "Troubleshooting" with Always rewrite (always) and Detailed log
-- **Buildings:** one row per building with its switch, name, number, donor, state and the buttons Change, Open and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (object name, Workshop id, donor, name in the game, description, life) and **Lines** (the donor's building.ini beside your own lines, showing which donor lines each of yours removes)
+- **Buildings:** one row per building with its switch, name, number, donor, state and the buttons Change, Open and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (object name, Workshop id, donor, name in the game, description, life) and **Lines** (the donor's building.ini on the left, your commands on the right; you click a line, type the new one below it and choose Append, Replace, Before or After - the "Result" view shows the file that comes out of it)
 - **Generated buildings:** what has already been generated under `media_soviet\workshop_wip`, with the "Fill in the owner" button that fills in a missing owner id
 
 Republic Mod Manager does not offer the `object` key - there the object name is always the section name. Written by hand, `object` still counts.
@@ -135,34 +135,56 @@ enabled = 1
 ; id = 9300000001
 ; donor: a name under media_soviet\buildings_types without .ini
 donor = bauxite_mine
-; object name (folder and $OBJECT_BUILDING), default = section name
+; object name (folder and OBJECT_BUILDING), default = section name
 object = SaltMine
 ; name in the build menu and in the Workshop entry, no quotes
 name = Salt Mine
 ; description, one desc line per line
 desc = Mines raw salt from a salt deposit.
-; building.ini lines, in this order in front of the donor lines
-line = $PRODUCTION raw_salt 1.0
-line = $STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 20 raw_salt
-; donor lines dropped without replacement
-strip = $WORKERS_NEEDED
+; commands: what is to be different in the donor's building.ini
+replace = $PRODUCTION rawbauxite 0.50 | $PRODUCTION raw_salt 1.0
+replace = $STORAGE_EXPORT RESOURCE_TRANSPORT_GRAVEL 15.00 | $STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 20 raw_salt
+remove = $RESOURCE_VISUALIZATION 0
 ```
 
-**Entries that span several lines.** Some building.ini tokens carry their values in the lines below them — a connection its points, a goods display its placement. A `line` without a `$TOKEN` belongs to the line above it, exactly as in the game's own file:
+**The four commands.** Each one touches exactly one place of the donor's file. Everything else stays as the donor has it.
+
+| Command | Written as | What happens |
+|---|---|---|
+| Append | `add = new line` | The new line goes to the end of the file, right in front of the closing `end` |
+| Replace | `replace = old line \| new line` | The old line goes, the new one takes its place |
+| Remove | `remove = old line` | The old line goes |
+| Insert | `insert = 0 \| anchor \| new line` | The new line goes **in front of** the anchor |
+| Insert | `insert = 1 \| anchor \| new line` | The new line goes **behind** the anchor |
+
+The old line and the anchor are lines of the donor, written exactly as they stand there (spaces at both ends do not count). Each must stand in the donor **exactly once**. The anchor `end` is the end of the file. All four commands may be written as often as you like.
+
+An example: an extra storage for sand right behind the donor's fuel storage.
 
 ```ini
-line = $CONNECTION_WATERPIPE_INPUT
-line = -92.5 -3.2 5.0
-line = -91.5 -3.2 5.0
-line = $RESOURCE_VISUALIZATION 0
-line = position 15.2912 0.0 -51.6213
-line = rotation 0.0
-line = scale 1 1 1
-line = numstepx 3.0 12
-line = numstept 4.0 3
+insert = 1 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand
 ```
 
-The first `line` of a section has to carry a `$TOKEN` — otherwise it would have nothing to belong to, and a typo there would quietly turn into a data line.
+**Entries that span several lines.** Some building.ini tokens carry their values in the lines below them — a connection its points, a goods display its placement. Such lines are one block. You write it into one command, with `|` between its lines:
+
+```ini
+add = $CONNECTION_WATERPIPE_INPUT | -92.5 -3.2 5.0 | -91.5 -3.2 5.0
+replace = $RESOURCE_VISUALIZATION 1 | $RESOURCE_VISUALIZATION 0 | position 15.2912 0.0 -51.6213 | rotation 0.0 | scale 1 1 1 | numstepx 3.0 12 | numstept 4.0 3
+```
+
+Removing or replacing the token line takes its data lines with it. When the same token line stands twice in the donor, add its first data line as a second field — that says which one is meant:
+
+```ini
+remove = $RESOURCE_VISUALIZATION 2 | position -78.7332 0.0 -15.8727
+```
+
+**What else you need to know.**
+- Storages count from 0 in the order they stand in the finished file, and a goods display (`$RESOURCE_VISUALIZATION`) names the number of its storage. So put a new storage where it belongs with Insert. Water and sewage storages go last.
+- An insert may also hang on a line that an earlier command of the same section writes.
+- The plugin takes the commands in the order add, replace, remove, insert, whatever their order in the file.
+- A section is all or nothing: one command that does not fit the donor and the building is not written. The log names every command that failed.
+
+**The older way** with `line` and `strip` still works; a section may use it instead of the commands. How it works is described under "Replacement rules". Republic Mod Manager always writes new buildings as commands.
 
 The donor sets the shape: a mine wants a mine as donor (conveyor, animation), a factory a factory, a shop a shop. `life` (default 3000) is the LIFE value in renderconfig.ini.
 
@@ -196,7 +218,7 @@ Without Localization, or with a key it does not know, Buildings Plus uses the pa
 
 ## 🛠️ Replacement rules
 
-The donor's building.ini is taken over line by line. A donor line is dropped only when one of your lines replaces it or `strip` names it.
+This section is about the older way with `line` and `strip` only. There your lines stand in front of the donor's, and the donor's building.ini is taken over line by line. A donor line is dropped only when one of your lines replaces it or `strip` names it. Entries that span several lines are written there as several `line` rows one below the other; a `line` without a `$TOKEN` belongs to the line above it.
 
 | Your line starts with | Dropped from the donor |
 |---|---|
@@ -224,6 +246,7 @@ The donor's building.ini is taken over line by line. A donor line is dropped onl
 | `life` | 1 to 1000000 |
 | `line` per section | at most 512, each at most 4096 characters; the first one needs a `$TOKEN` |
 | `strip` | exactly one `$TOKEN` per line, at most 64 lines |
+| `add`, `replace`, `remove`, `insert` per section | at most 512 each, each at most 4096 characters; the new line begins with a `$TOKEN` |
 | text file read | at most 4 MiB |
 
 A section with an error is skipped and named in the log; the other sections continue.
@@ -259,6 +282,8 @@ A Workshop item without a DLL of its own can bring buildings along (`[content] b
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game, Resources Plus or Resources). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.2.0:** buildings are now described with commands - add, replace, remove, insert. Each touches exactly one place of the donor file and leaves everything else alone, so a single storage can be put behind an existing one. The older way with `line` and `strip` still works. For WRSR 1.2.0.9.
+- **0.1.12:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
 - **0.1.11:** loaded from the Workshop, the plugin now reads `tesmioloader\plugins\buildings_plus.ini` when it exists (that is where Republic Mod Manager writes), otherwise the INI next to its DLL. The assigned numbers (`buildings_plus.ids.ini`) always live in `tesmioloader\plugins` and never in the Workshop folder, which Steam overwrites with every update
 - **0.1.10:** safety round: a folder stamped by another generator is no longer taken over; a section the check refuses keeps its folder even with `prune = 1` (a typo never deletes a building); a rebuild from a Workshop donor keeps the stamp, so a failed write no longer locks the folder for good; leading zeros in `id` are dropped; control characters in a `line` are refused while quotes stay allowed; at most 512 `line` and 64 `strip` keys, 4096 files and 16 folder levels per Workshop donor, 256 MB per file; a missing reference is always reported; every write error names the Windows error code
 - **0.1.9:** if Soviet Mod Loader has already numbered a building with the same section name (`soviet_mod_loader\catalog.ini`, `[building_ids]`), the plugin adopts that number and writes the same folder — both load paths then generate the same building, a save finds it under either, and the build menu lists it once. An explicit `id` inside SML's range is accepted when SML's catalogue gives exactly that number to the section. An older folder of our own stays (`prune = 1` removes it).
@@ -373,5 +398,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.1.11  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Buildings Plus 0.2.0  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

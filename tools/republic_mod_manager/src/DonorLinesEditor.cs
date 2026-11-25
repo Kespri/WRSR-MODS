@@ -18,10 +18,17 @@ namespace TesmioAutoload
     {
         readonly Language language;
         readonly ListBox left = new ListBox(), mineList = new ListBox();
-        readonly TextBox search = new TextBox(), edit = new TextBox();
+        readonly TextBox search = new TextBox(), edit = new TextBox(), picked = new TextBox();
         readonly Panel effect = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
-        readonly Label count = new Label(), readOnly = new Label();
+        readonly Label count = new Label(), readOnly = new Label(), hint = new Label();
         readonly Button donorView, resultView;
+        // The bottom part, built like the one of the rule-set editor: the picked line (read only),
+        // the new line, and buttons that are grey while what they need is missing, with a hint
+        // line that says what that is.
+        Button addButton, replaceButton, stripButton;
+        TableLayoutPanel foot;
+        bool editable;
+        const int FootBase = 240, PickedOne = 40, PickedLine = 16;
         readonly List<string> donor;
         readonly List<string> mine = new List<string>();
         readonly List<string> strip = new List<string>();
@@ -48,7 +55,7 @@ namespace TesmioAutoload
             ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52)); ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
             // Row 1 carries the "read only" line of the result view and is 0 high in the donor view.
             RowStyles.Add(new RowStyle(SizeType.Absolute, 40)); RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
-            RowStyles.Add(new RowStyle(SizeType.Percent, 100)); RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
+            RowStyles.Add(new RowStyle(SizeType.Percent, 100)); RowStyles.Add(new RowStyle(SizeType.Absolute, FootBase));
 
             var head = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             donorView = Chip(language.T("donor_view_donor"), () => { showResult = false; Refill(); });
@@ -114,15 +121,32 @@ namespace TesmioAutoload
             box.Controls.Add(effect); rightSplit.Controls.Add(box, 0, 2);
             Controls.Add(rightSplit, 1, 2);
 
-            var foot = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = new Padding(0, 8, 0, 0) };
-            foot.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); foot.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+            // Rows: caption, picked line + "drop the line", caption, new line, Add / Replace, hint.
+            foot = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Margin = new Padding(0, 8, 0, 0) };
+            foot.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); foot.RowStyles.Add(new RowStyle(SizeType.Absolute, PickedOne));
+            foot.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); foot.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            foot.RowStyles.Add(new RowStyle(SizeType.Absolute, 50)); foot.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            foot.Controls.Add(Caption(language.T("donor_picked_caption")), 0, 0);
+            var pickedRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+            pickedRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pickedRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            picked.Font = new Font("Consolas", 10); picked.Dock = DockStyle.Fill; picked.Multiline = true; picked.WordWrap = false; picked.ReadOnly = true;
+            picked.TabStop = false; picked.BackColor = Theme.Pale; picked.BorderStyle = BorderStyle.FixedSingle; picked.Margin = new Padding(0, 0, 8, 6);
+            picked.AccessibleName = "donor:picked";
+            pickedRow.Controls.Add(picked, 0, 0);
+            stripButton = Wide(language.T("donor_strip"), StripToken, "donor:strip"); stripButton.Margin = new Padding(0, 0, 0, 3);
+            pickedRow.Controls.Add(stripButton, 1, 0);
+            foot.Controls.Add(pickedRow, 0, 1);
+            foot.Controls.Add(Caption(language.T("donor_new_caption")), 0, 2);
             edit.Multiline = true; edit.Font = new Font("Consolas", 10); edit.Dock = DockStyle.Fill; edit.ScrollBars = ScrollBars.Vertical; edit.AccessibleName = "donor:edit";
-            foot.Controls.Add(edit, 0, 0);
+            edit.TextChanged += (s, e) => UpdateActions();
+            foot.Controls.Add(edit, 0, 3);
             var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0, 6, 0, 0) };
-            actions.Controls.Add(Wide(language.T("donor_add"), Add, "donor:add"));
-            actions.Controls.Add(Wide(language.T("donor_replace"), Replace, "donor:replace"));
-            actions.Controls.Add(Wide(language.T("donor_strip"), StripToken, "donor:strip"));
-            foot.Controls.Add(actions, 0, 1);
+            actions.Controls.Add(addButton = Wide(language.T("donor_add"), Add, "donor:add"));
+            actions.Controls.Add(replaceButton = Wide(language.T("donor_replace"), Replace, "donor:replace"));
+            foot.Controls.Add(actions, 0, 4);
+            hint.AutoSize = false; hint.Dock = DockStyle.Fill; hint.Font = new Font("Segoe UI", 9); hint.ForeColor = Theme.Muted; hint.UseMnemonic = false;
+            hint.Margin = new Padding(2, 0, 0, 0); hint.AccessibleName = "donor:hint";
+            foot.Controls.Add(hint, 0, 5);
             SetColumnSpan(foot, 2); Controls.Add(foot, 0, 3);
 
             Recompute(); ready = true;
@@ -159,16 +183,81 @@ namespace TesmioAutoload
         Button Wide(string text, Action action, string name)
         {
             var button = Theme.Button(text, action, false);
-            button.MinimumSize = new Size(0, Fields.Height); button.Margin = new Padding(0, 0, 8, 0); button.AccessibleName = name;
+            button.MinimumSize = new Size(0, Fields.Height); button.Margin = new Padding(0, 0, 8, 0); button.AccessibleName = name; Theme.DimWhenOff(button);
             editButtons.Add(button); return button;
         }
         // The result view only shows what will be written. Everything that would change something
         // is switched off there - a disabled button cannot report a wrong reason.
         void SetEditable(bool on)
         {
+            editable = on;
             foreach (Button button in editButtons) button.Enabled = on;
             edit.ReadOnly = !on; edit.BackColor = on ? Color.White : Theme.Pale;
             readOnly.Visible = !on; RowStyles[1].Height = on ? 0 : 26;
+        }
+        static Label Caption(string text)
+        {
+            var label = Theme.Label(text, 9, true); label.Margin = new Padding(2, 2, 0, 0); label.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+            return label;
+        }
+
+        // ---- what is picked, what is typed, and what that allows ----
+        // 1 = a donor line, 2 = one of your lines, 3 = one of your "drop this token" entries.
+        int PickedKind
+        {
+            get
+            {
+                if (showResult) return 0;
+                if (left.SelectedIndex >= 0 && left.SelectedIndex < shown.Count) return 1;
+                if (mineList.SelectedIndex >= 0 && mineList.SelectedIndex < mine.Count) return 2;
+                if (mineList.SelectedIndex >= mine.Count && mineList.SelectedIndex - mine.Count < strip.Count) return 3;
+                return 0;
+            }
+        }
+        string PickedText
+        {
+            get
+            {
+                switch (PickedKind)
+                {
+                    case 1: return BlockAt(outcome.Donor.Select(x => x.Text).ToList(), outcome.Donor.IndexOf(shown[left.SelectedIndex]));
+                    case 2: return BlockAt(mine, mineList.SelectedIndex);
+                    case 3: return strip[mineList.SelectedIndex - mine.Count];
+                    default: return "";
+                }
+            }
+        }
+        static string Flat(string text)
+        { return String.Join("\n", (text ?? "").Replace("\r\n", "\n").Split('\n').Select(x => x.TrimEnd()).Where(x => x.Trim().Length > 0)); }
+        // The picked box shows up to three lines of a block; a longer block scrolls.
+        void ShowPicked()
+        {
+            string text = PickedText;
+            bool none = text.Trim().Length == 0;
+            picked.Text = none ? (editable ? language.T("donor_picked_none") : "") : text;
+            picked.ForeColor = none ? Theme.Muted : Theme.Ink;
+            int rows = none ? 1 : Math.Max(1, Flat(text).Split('\n').Length);
+            picked.ScrollBars = rows > 3 ? ScrollBars.Vertical : ScrollBars.None;
+            int extra = (Math.Min(rows, 3) - 1) * PickedLine;
+            if (foot != null && (int)foot.RowStyles[1].Height != PickedOne + extra)
+            { foot.RowStyles[1].Height = PickedOne + extra; RowStyles[3].Height = FootBase + extra; }
+        }
+        void UpdateActions()
+        {
+            if (addButton == null || outcome == null) return;
+            int kind = PickedKind;
+            bool typed = Typed.Any(), same = kind != 0 && Flat(edit.Text) == Flat(PickedText);
+            addButton.Enabled = editable && typed && !(same && kind != 1);
+            replaceButton.Enabled = editable && kind >= 2 && typed && !same;
+            // "Drop the line" takes the token of the picked donor line. Without the donor on this
+            // machine there is nothing to pick - then the typed token has to do.
+            stripButton.Enabled = editable && (kind == 1 ? DonorPlan.FirstToken(Flat(PickedText).Split('\n')[0]).Length > 0
+                : donor.Count == 0 && typed && DonorPlan.FirstToken(Typed.First()).Length > 0);
+            hint.Text = !editable ? "" : language.T(
+                kind == 1 ? (same || !typed ? "donor_hint_donor" : "donor_hint_typed")
+                : kind == 2 ? (same || !typed ? "donor_hint_mine" : "donor_hint_mine_changed")
+                : kind == 3 ? "donor_hint_strip"
+                : typed ? "donor_hint_typed" : "donor_hint_start");
         }
 
         // ---- the block a line belongs to ----
@@ -222,6 +311,8 @@ namespace TesmioAutoload
             left.BeginUpdate(); left.Items.Clear();
             foreach (DonorLine line in shown) left.Items.Add(Label(line));
             left.EndUpdate(); Extent(left, shown.Select(Label));
+            // Refilling the list drops its selection without an event.
+            ShowPicked(); UpdateActions();
         }
         string Label(DonorLine line)
         {
@@ -235,17 +326,20 @@ namespace TesmioAutoload
             foreach (string line in mine) mineList.Items.Add(DonorPlan.FirstToken(line).Length == 0 ? "    " + line : line);
             foreach (string token in strip) mineList.Items.Add("- " + token);
             mineList.EndUpdate(); Extent(mineList, mineList.Items.Cast<object>().Select(x => x.ToString()));
+            ShowPicked(); UpdateActions();
         }
         void ShowLeft()
         {
-            if (left.SelectedIndex < 0 || left.SelectedIndex >= shown.Count) return;
+            if (left.SelectedIndex < 0 || left.SelectedIndex >= shown.Count) { ShowPicked(); UpdateActions(); return; }
             mineList.ClearSelected();
             DonorLine line = shown[left.SelectedIndex];
             // The result view only shows what the file will look like. Nothing is taken out of it:
             // a line there is either one of yours already or a donor line that survives anyway.
-            if (showResult) { ShowEffect(null); return; }
+            if (showResult) { ShowEffect(null); ShowPicked(); UpdateActions(); return; }
             var list = outcome.Donor.Select(x => x.Text).ToList();
+            // The new-line box starts as a copy of the picked block, ready to be changed.
             edit.Text = BlockAt(list, outcome.Donor.IndexOf(line));
+            ShowPicked(); UpdateActions();
             ShowEffect(line.Dropped ? line.DroppedBy : null);
         }
         // Double-click on a donor line takes it over. If one of your own lines already replaces
@@ -305,10 +399,11 @@ namespace TesmioAutoload
         }
         void ShowMine()
         {
-            if (mineList.SelectedIndex < 0) return;
+            if (mineList.SelectedIndex < 0) { ShowPicked(); UpdateActions(); return; }
             left.ClearSelected();
-            if (mineList.SelectedIndex >= mine.Count) { edit.Text = strip[mineList.SelectedIndex - mine.Count]; ShowEffect("strip:" + (mineList.SelectedIndex - mine.Count)); return; }
+            if (mineList.SelectedIndex >= mine.Count) { edit.Text = strip[mineList.SelectedIndex - mine.Count]; ShowPicked(); UpdateActions(); ShowEffect("strip:" + (mineList.SelectedIndex - mine.Count)); return; }
             edit.Text = BlockAt(mine, mineList.SelectedIndex);
+            ShowPicked(); UpdateActions();
             ShowEffect("line:" + BlockStart(mine, mineList.SelectedIndex));
         }
 
@@ -404,7 +499,9 @@ namespace TesmioAutoload
         }
         void StripToken()
         {
-            string token = DonorPlan.FirstToken(edit.Text.Replace("\r\n", "\n").Split('\n').FirstOrDefault() ?? "");
+            // The token of the picked donor line; with nothing picked there, the typed one.
+            string source = PickedKind == 1 ? PickedText : edit.Text;
+            string token = DonorPlan.FirstToken(source.Replace("\r\n", "\n").Split('\n').FirstOrDefault() ?? "");
             if (token.Length == 0) { ShowError(language.T("donor_needs_token")); return; }
             if (!strip.Contains(token)) strip.Add(token);
             Recompute();
@@ -458,7 +555,12 @@ namespace TesmioAutoload
         internal void TestSelectDonor(int index) { left.SelectedIndex = index; }
         internal void TestTake() { Take(); }
         internal void TestView(bool result) { showResult = result; Refill(); }
-        internal bool TestEditable { get { return editButtons.All(x => x.Enabled) && !edit.ReadOnly && !readOnly.Visible; } }
+        internal bool TestEditable { get { return editable && !edit.ReadOnly && !readOnly.Visible; } }
+        internal string TestPicked { get { return PickedKind == 0 ? "" : picked.Text; } }
+        internal string TestHint { get { return hint.Text; } }
+        // Which of the three buttons are on: add, replace, strip - "1" or "0" each.
+        internal string TestButtons
+        { get { return String.Concat(new[] { addButton, replaceButton, stripButton }.Select(x => x.Enabled ? "1" : "0")); } }
         static IEnumerable<Control> Children(Control root)
         { foreach (Control child in root.Controls) { yield return child; foreach (Control deeper in Children(child)) yield return deeper; } }
     }

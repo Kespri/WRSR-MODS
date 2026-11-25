@@ -28,16 +28,16 @@ static const size_t SAND_BUILDING_LIFECYCLE_CHUNKS =
     SAND_BUILDING_LIFECYCLE_SNAPSHOT_BYTES /
     SAND_BUILDING_LIFECYCLE_CHUNK_BYTES;
 
-// Verified WRSR 1.1.1.9 vehicle skill layout. The game uses the same vector in
-// its native skill lookup at RVA 0x3E2320. Each record is 0x10 bytes and starts
+// Verified WRSR 1.2.0.9 vehicle layout. The game uses the skill vector in
+// its native skill lookup at RVA 0x401680. Each record is 0x10 bytes and starts
 // with a VEHICLESKILL id; VEHICLESKILL_SNOWPLOW is 35.
 static const size_t SAND_VEHICLE_CURRENT_BUILDING = 0x04F0;
 static const size_t SAND_VEHICLE_HOME_BUILDING = 0x04F8;
 static const size_t SAND_VEHICLE_TARGET_BUILDING = 0x0528;
 static const size_t SAND_VEHICLE_FUEL_BUILDING = 0x05E8;
 static const size_t SAND_VEHICLE_CURRENT_FUEL = 0x05F0;
-static const size_t SAND_VEHICLE_CURRENT_SPEED_KMH = 0x0D24;
-static const size_t SAND_VEHICLE_TYPE_DESCRIPTION = 0x1708;
+static const size_t SAND_VEHICLE_CURRENT_SPEED_KMH = 0x0D44;
+static const size_t SAND_VEHICLE_TYPE_DESCRIPTION = 0x1748;
 static const size_t SAND_VEHICLE_RETURN_ROUTE_STATE = 0x07A0;
 static const size_t SAND_VEHICLE_ROUTE_BEGIN = 0x06A0;
 static const size_t SAND_VEHICLE_ROUTE_END = 0x06A8;
@@ -51,19 +51,19 @@ static const size_t SAND_VEHICLE_ASSIGNMENT_BEGIN = 0x0680;
 static const size_t SAND_VEHICLE_ASSIGNMENT_END = 0x0688;
 static const size_t SAND_VEHICLE_ASSIGNMENT_INDEX = 0x0698;
 static const size_t SAND_VEHICLE_CURRENT_TARGET = 0x0C80;
-static const size_t SAND_TYPE_SKILL_BEGIN = 0x85E0;
-static const size_t SAND_TYPE_SKILL_END = 0x85E8;
-// Verified from the WRSR 1.1.1.9 vehicle-information renderer. The native UI
-// reads +0x867C for localization ID 1950 (Empty weight) and +0x8678 for ID 1951
+static const size_t SAND_TYPE_SKILL_BEGIN = 0x8630;
+static const size_t SAND_TYPE_SKILL_END = 0x8638;
+// Verified from the vehicle-information renderer. The native UI
+// reads +0x86CC for localization ID 1950 (Empty weight) and +0x86C8 for ID 1951
 // (Engine power). Engine power is already stored in kW and empty weight is
 // already stored in metric tonnes.
-static const size_t SAND_TYPE_ENGINE_POWER_KW = 0x8678;
-static const size_t SAND_TYPE_EMPTY_WEIGHT_T = 0x867C;
-static const size_t SAND_TYPE_FUEL_CAPACITY = 0x8684;
+static const size_t SAND_TYPE_ENGINE_POWER_KW = 0x86C8;
+static const size_t SAND_TYPE_EMPTY_WEIGHT_T = 0x86CC;
+static const size_t SAND_TYPE_FUEL_CAPACITY = 0x86D4;
 static const size_t SAND_SKILL_RECORD_SIZE = 0x10;
 static const int SAND_SKILL_SNOWPLOW = 35;
-static const size_t SAND_GAME_BUILDING_BEGIN = 0x11B08;
-static const size_t SAND_GAME_BUILDING_END = 0x11B10;
+static const size_t SAND_GAME_BUILDING_BEGIN = 0x11BB8;
+static const size_t SAND_GAME_BUILDING_END = 0x11BC0;
 
 // Building lifecycle fields already used by the bundled accumulator and cities
 // plugins on the same verified game build. C3D_NODE::GetPosition is a trivial
@@ -86,47 +86,47 @@ static const BYTE EXPECT_SAND_C3D_NODE_GET_POSITION[] = {
     0x89,0x42,0x08
 };
 
-// WRSR 1.1.1.13 global world/registry access. The simulation game object is a
+// WRSR 1.2.0.9 global world/registry access. The simulation game object is a
 // static object, not a pointer. The LEA at RVA_SAND_STATIC_GAME_LEA is verified
 // before the background observer reads its building vector. The separate world
 // pointer changes on every load and is used only as a generation token.
-static const DWORD RVA_SAND_STATIC_GAME = 0x009D4F10;
-static const DWORD RVA_SAND_GLOBAL_WORLD_POINTER = 0x009941F0;
-static const DWORD RVA_SAND_STATIC_GAME_LEA = 0x0043969A;
+static const DWORD RVA_SAND_STATIC_GAME = 0x00A1EF20;
+static const DWORD RVA_SAND_GLOBAL_WORLD_POINTER = 0x009DDC88;
+static const DWORD RVA_SAND_STATIC_GAME_LEA = 0x0045DD8A;
 
-static const DWORD RVA_SAND_SKILL_CHECK = 0x003E2260;
-static const DWORD RVA_SAND_CLEAR_ENTRY = 0x006BC3B0;
-static const DWORD RVA_SAND_CLEAR_CALL_1 = 0x0069CEA8;
-static const DWORD RVA_SAND_CLEAR_CALL_2 = 0x0069D241;
-static const DWORD RVA_SAND_NATURAL_HOME_CALL = 0x0069D287;
-static const DWORD RVA_SAND_PLAN_ROUTE_HOME = 0x006BC740;
-static const DWORD RVA_SAND_CLEAN_ROUTE_LINKS = 0x006A68C0;
-static const DWORD RVA_SAND_VANILLA_REFUEL_ORDER = 0x006B4F80;
-static const DWORD RVA_SAND_TASK_FUEL_ELIGIBILITY = 0x006B3C50;
-static const DWORD RVA_SAND_TASK_FUEL_MODE = 0x009D54C0;
-static const DWORD RVA_SAND_NATIVE_LOW_FUEL_COMPARE = 0x006CFCC2;
-static const DWORD RVA_SAND_NATIVE_FUEL_BUILDING_WRITE = 0x006CFCEE;
-static const DWORD RVA_SAND_NATIVE_FUEL_CAPACITY_LOAD = 0x006CFCB2;
-// After loading the skill-35 float at exe+0x6A2775, vanilla folds it into its
-// target speed and compares that value directly with vehicle+0xD24 here. This
-// proves that +0xD24 and the snowplow skill parameter use the same km/h scale.
-static const DWORD RVA_SAND_NATIVE_SPEED_COMPARE = 0x006A2AF1;
+static const DWORD RVA_SAND_SKILL_CHECK = 0x00401680;
+static const DWORD RVA_SAND_CLEAR_ENTRY = 0x006F0260;
+static const DWORD RVA_SAND_CLEAR_CALL_1 = 0x006D069E;
+static const DWORD RVA_SAND_CLEAR_CALL_2 = 0x006D0A2A;
+static const DWORD RVA_SAND_NATURAL_HOME_CALL = 0x006D0A70;
+static const DWORD RVA_SAND_PLAN_ROUTE_HOME = 0x006F05F0;
+static const DWORD RVA_SAND_CLEAN_ROUTE_LINKS = 0x006DA1C0;
+static const DWORD RVA_SAND_VANILLA_REFUEL_ORDER = 0x006E8E30;
+static const DWORD RVA_SAND_TASK_FUEL_ELIGIBILITY = 0x006E7B00;
+static const DWORD RVA_SAND_TASK_FUEL_MODE = 0x00A1F4F8;
+static const DWORD RVA_SAND_NATIVE_LOW_FUEL_COMPARE = 0x00704EF1;
+static const DWORD RVA_SAND_NATIVE_FUEL_BUILDING_WRITE = 0x00704F1D;
+static const DWORD RVA_SAND_NATIVE_FUEL_CAPACITY_LOAD = 0x00704EE1;
+// After loading the skill-35 float earlier in the same function, vanilla folds it into its
+// target speed and compares that value directly with vehicle+0xD44 here. This
+// proves that +0xD44 and the snowplow skill parameter use the same km/h scale.
+static const DWORD RVA_SAND_NATIVE_SPEED_COMPARE = 0x006D63D7;
 
 static const BYTE EXPECT_SAND_SKILL_CHECK[] = {
     0x45,0x8B,0xD0,0x48,0x85,0xD2,0x74,0x4B,
-    0x48,0x8B,0x82,0xE8,0x85,0x00,0x00
+    0x48,0x8B,0x82,0x38,0x86,0x00,0x00
 };
 static const BYTE EXPECT_SAND_CLEAR_ENTRY[] = {
     0x48,0x85,0xD2,0x0F,0x84,0x80,0x03,0x00,0x00
 };
 static const BYTE EXPECT_SAND_CLEAR_CALL_1[] = {
-    0xE8,0x03,0xF5,0x01,0x00
+    0xE8,0xBD,0xFB,0x01,0x00
 };
 static const BYTE EXPECT_SAND_CLEAR_CALL_2[] = {
-    0xE8,0x6A,0xF1,0x01,0x00
+    0xE8,0x31,0xF8,0x01,0x00
 };
 static const BYTE EXPECT_SAND_NATURAL_HOME_CALL[] = {
-    0xE8,0xB4,0xF4,0x01,0x00
+    0xE8,0x7B,0xFB,0x01,0x00
 };
 static const BYTE EXPECT_SAND_PLAN_ROUTE_HOME[] = {
     0x48,0x8B,0xC4,0x55,0x56,0x57,0x41,0x54,
@@ -135,22 +135,22 @@ static const BYTE EXPECT_SAND_PLAN_ROUTE_HOME[] = {
 };
 static const BYTE EXPECT_SAND_CLEAN_ROUTE_LINKS[] = {
     0x40,0x53,0x41,0x57,0x48,0x83,0xEC,0x28,
-    0x48,0x8B,0x81,0x08,0x17,0x00,0x00,0x44,
+    0x48,0x8B,0x81,0x48,0x17,0x00,0x00,0x44,
     0x0F,0xB6,0xFA,0x48,0x8B,0xD9
 };
 static const BYTE EXPECT_SAND_VANILLA_REFUEL_ORDER[] = {
     0x48,0x89,0x5C,0x24,0x10,0x56,0x48,0x83,
-    0xEC,0x30,0x4C,0x8B,0x81,0x08,0x17,0x00,
+    0xEC,0x30,0x4C,0x8B,0x81,0x48,0x17,0x00,
     0x00
 };
-// Complete instructions through mov rax,[rcx+0x1708]. The stock loader's
+// Complete instructions through mov rax,[rcx+0x1748]. The stock loader's
 // generic inline trampoline cannot relocate the leading RIP-relative compare
 // or its short conditional jump, so a hook here needs a dedicated trampoline
 // which reproduces both control-flow paths before continuing at +0x10.
 static const BYTE EXPECT_SAND_TASK_FUEL_ELIGIBILITY[] = {
-    0x83,0x3D,0x69,0x18,0x32,0x00,0x02,
+    0x83,0x3D,0xF1,0x79,0x33,0x00,0x02,
     0x75,0x50,
-    0x48,0x8B,0x81,0x08,0x17,0x00,0x00
+    0x48,0x8B,0x81,0x48,0x17,0x00,0x00
 };
 static const size_t SAND_TASK_FUEL_ELIGIBILITY_STOLEN =
     sizeof(EXPECT_SAND_TASK_FUEL_ELIGIBILITY);
@@ -166,10 +166,10 @@ static const BYTE EXPECT_SAND_NATIVE_FUEL_BUILDING_WRITE[] = {
     0x49,0x89,0x9F,0xE8,0x05,0x00,0x00
 };
 static const BYTE EXPECT_SAND_NATIVE_FUEL_CAPACITY_LOAD[] = {
-    0xF3,0x0F,0x10,0x80,0x84,0x86,0x00,0x00
+    0xF3,0x0F,0x10,0x80,0xD4,0x86,0x00,0x00
 };
 static const BYTE EXPECT_SAND_NATIVE_SPEED_COMPARE[] = {
-    0x45,0x0F,0x2F,0xAF,0x24,0x0D,0x00,0x00
+    0x45,0x0F,0x2F,0xB7,0x44,0x0D,0x00,0x00
 };
 
 struct SandSkillView
@@ -1003,8 +1003,8 @@ static const char SPREADER_TANK_FILE_MAGIC[8] = {
     'T','S','M','T','A','N','K','1'
 };
 static const DWORD SPREADER_TANK_FILE_VERSION = 1;
-static const DWORD RVA_SPREADER_WORLD_SAVE = 0x00007C20;
-static const DWORD RVA_SPREADER_WORLD_SAVE_CALL = 0x0042CD3E;
+static const DWORD RVA_SPREADER_WORLD_SAVE = 0x00008140;
+static const DWORD RVA_SPREADER_WORLD_SAVE_CALL = 0x0045108E;
 static const char SPREADER_CREATE_MANAGED_TEXTURE_SYMBOL[] =
     "?CreateManagedTexture@C3D_MIDDLEPOINT@@QEAAPEAVC3DAPI_TEXTURE@@PEBD@Z";
 
@@ -2058,10 +2058,10 @@ static bool SpreaderPatchWorldSaveCall()
     BYTE* site = g_exeBase + RVA_SPREADER_WORLD_SAVE_CALL;
     if (!ReadablePtr(site - 3, 8) ||
         site[-3] != 0x49 || site[-2] != 0x8B ||
-        site[-1] != 0xD7 || site[0] != 0xE8)
+        site[-1] != 0xD4 || site[0] != 0xE8)
     {
         Report("WARN", "Priority persistence", "save-hook",
-            "The verified world-save call no longer has mov rdx,r15 followed by call; persistence is disabled safely");
+            "The verified world-save call no longer has mov rdx,r12 followed by call; persistence is disabled safely");
         return false;
     }
 
@@ -4942,7 +4942,7 @@ static bool SandVehicleRefillReturnActive(void* vehicle)
 // snow-clear call sites, therefore the write happens on the owning simulation
 // thread. The normal snowplow update clears +0x5E8 during some target changes
 // before it reaches those calls; reasserting the home pointer here leaves it
-// present for the later route-completion branch at exe+0x69D34D/+0x69DC4E.
+// present for the later route-completion branch of the same function.
 static bool SandLatchNativeFuelBuildingToHome(void* vehicle,
                                               const char* source)
 {

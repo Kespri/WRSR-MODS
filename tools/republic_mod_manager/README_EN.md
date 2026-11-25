@@ -32,8 +32,8 @@ Republic Mod Manager (RMM for short) is one window for all your TesmioLoader plu
 
 ## 🚀 Requirements
 
-- *Workers & Resources: Soviet Republic* 1.1.1.13
-- TesmioLoader by MaxLegend, b0.3.7 or newer, in the game folder (folder `tesmioloader` with `tesmioloader.dll`, `tesmiolauncher.exe` and `tesmioloader.ini`). RMM brings a corrected build of `tesmioloader.dll` (b0.3.7-rmm.2, same API). With it your personal values also apply to plugins by other authors; with another build RMM warns you
+- *Workers & Resources: Soviet Republic* 1.2.0.9
+- TesmioLoader by MaxLegend, b0.4.5 or newer, in the game folder (folder `tesmioloader` with `tesmioloader.dll`, `tesmiolauncher.exe` and `tesmioloader.ini`). RMM brings a corrected build of `tesmioloader.dll` (b0.4.5-rmm.1, same API). With it your personal values also apply to plugins by other authors; with another build RMM warns you
 - Windows 10 or 11
 
 You do not need other loaders such as Soviet Mod Loader or the Workshop Bridge; RMM works with the TesmioLoader alone.
@@ -196,6 +196,7 @@ The clipboard icon in the sidebar opens a page that sums up what the next game s
 - **Overview:** how many plugins will load, how many are switched off, how many packages carry an unsaved update, when the game last ran and how many saved games were found.
 - **What stands in the way:** missing or switched-off dependencies, refused packages, waiting updates, a plugin and its replacement that are both switched on, DLLs that exist more than once — and dependencies that load **too late**. A click on a row closes the window and shows the entry it belongs to.
 - **Building lines without a resource:** a `$STORAGE`, `$PRODUCTION` or `$CONSUMPTION` line in Vanilla Buildings or Buildings Plus that names a resource no plugin publishes. The building folders in `media_soviet\workshop_wip` are checked as well, because the game loads every one of them. The game crashes while reading the buildings with it; RMM names plugin, section and resource here and asks once more on "Save + Start".
+- **Rule sets that do not work everywhere:** a switched-on rule set of Vanilla Buildings with a command that does not fit every target file. It changes nothing for those buildings; the game starts all the same. RMM names the rule set, the number of buildings and the first file it misses.
 - **Load order:** the list in the order the loader works through it: by the name of the DLL, whether it lies in `plugins\` or in the Workshop folder. Every entry says where it comes from. That matters when one plugin needs a service of another: the service only exists once its provider has loaded.
 
 ---
@@ -282,7 +283,9 @@ Some plugins manage lists instead of single values. RMM shows them as a list on 
 
 The "Buildings" tab is a list with one row per building: switch, name, number, object folder and donor, on the right the state and the buttons **Change...**, **Open** and the bin. The state says what happens at the next game start - whether the building is in the game, is still to be written, will be rebuilt, or whether something is in the way: a donor that is not on your machine, or a number that already belongs to somebody else's folder. Either of those otherwise stops the plugin at game start and is only mentioned in the log.
 
-Behind "Change..." are the details (number, donor, object name, name in the game, description, life) and a second tab for the lines. There the donor's `building.ini` is on the left - **struck through where your declaration removes something**. Because a single `$STORAGE` line of yours removes *every* storage of the donor, and a `$PRODUCTION` line the whole recipe including its consumption. What you want to keep comes back with one button: **"Keep these N lines"**. The view switches to **Result** - the file that will really be written at the next start, with the number of every storage for `$RESOURCE_VISUALIZATION` and a warning when water or sewage sits in front of a shown storage.
+Behind "Change..." are the details (number, donor, object name, name in the game, description, life) and a second tab for the lines. There the donor's `building.ini` is on the left and the list of your **commands** on the right. A command touches exactly one place: you click a line on the left, type the new line below and choose **Append** (to the end of the file), **Replace**, **Before** or **After**; **Remove line** beside the selected line takes it out. The list then shows the command as, for example, `Insert 1 | $STORAGE_FUEL ... | $STORAGE_IMPORT_SPECIAL ...`. Everything you do not touch stays as the donor has it - a new storage does not throw the others out. Lines that belong together (a connection with its points, a goods display with its placement) are picked and typed as one block. The view switches to **Result** - the file that will really be written at the next start, with the number of every storage for `$RESOURCE_VISUALIZATION` and a warning when water or sewage sits in front of a shown storage. While a command is red the plugin does not write the building. A building that is still written the older way with `line` rows opens the earlier window: there your lines stand beside the donor's, struck through where they remove something from the donor.
+
+Below the two lists you see what a command is made of. **Selected line** shows the line you clicked above - read only; it is the anchor. **New line / lines** is where you type what is to stand there. You can write several lines below each other (separate them with Enter): each becomes a command of its own. **Append** adds them to the end in order; **Before**, **After** and **Replace** put the first one at the picked place and the others right below it. In Buildings Plus, lines that do not start with `$` (points, position) belong to the line above. A double-click copies the clicked line down when you only want to change a value. The buttons sit below. A button is pale while something it needs is missing, and the line underneath tells you what that is. The lines window of a Vanilla Buildings rule set is built the same way and has the same buttons; there you also have several target files, and connections have commands of their own. If a command does not fit every target file, a red line above the lists says so, and the files concerned are marked red with an `x` in the choice at the top – the rule set changes nothing in the game for them. The list of rule sets then says beside the name, for example, "Only works for 1 of 20 buildings".
 
 **Package editors** bring their own tabs, lists and help texts. Some have buttons that open the package's guides, picker windows for buildings, research entries or game texts, picture previews or a tab for translations.
 
@@ -317,7 +320,7 @@ If you changed the file **by hand**, outside RMM, it notices (the file is not th
 
 ## 🎮 Game version and rmm.ini
 
-On start RMM reads the build stamp of `SOVIET64.exe`. If it belongs to no game version the plugins are made for, a warning appears and "Save + Start" asks before starting. Known is 1.1.1.13. A new stamp goes into `settings_schemas\game_versions.ini` under `[supported]`.
+On start RMM reads the build stamp of `SOVIET64.exe`. If it belongs to no game version the plugins are made for, a warning appears and "Save + Start" asks before starting. Known is 1.2.0.9. A new stamp goes into `settings_schemas\game_versions.ini` under `[supported]`.
 
 `rmm.ini` next to `rmm.exe` has a few switches, all explained in the file:
 

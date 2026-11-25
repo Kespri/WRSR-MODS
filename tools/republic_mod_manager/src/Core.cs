@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.6.13: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.7.2: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -1331,8 +1331,8 @@ namespace TesmioAutoload
     public static class GameVersion
     {
         public static bool CheckEnabled = true;
-        static readonly Dictionary<uint, string> supported = new Dictionary<uint, string> { { 0x6A8D4087u, "1.1.1.13" } };
-        static readonly Dictionary<uint, string> retired = new Dictionary<uint, string> { { 0x6A3EB6ADu, "1.1.1.9" }, { 0x69C4098Cu, "1.1.1.7" } };
+        static readonly Dictionary<uint, string> supported = new Dictionary<uint, string> { { 0x6B05A574u, "1.2.0.9" } };
+        static readonly Dictionary<uint, string> retired = new Dictionary<uint, string> { { 0x6B0097B2u, "1.2.0.8" }, { 0x6A8D4087u, "1.1.1.13" }, { 0x6A3EB6ADu, "1.1.1.9" }, { 0x69C4098Cu, "1.1.1.7" } };
         // settings_schemas\game_versions.ini: [supported] 6A3EB6AD = 1.1.1.9
         public static void LoadTable(string schemaRoot)
         {

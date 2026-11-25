@@ -1,8 +1,8 @@
-# 🚛 Technical Service Storage 0.3.5
+# 🚛 Technical Service Storage 0.3.7
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
-Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.13 das Fenster des Technischen Service um zusätzliche Einzellager, anklickbare Materialprioritäten und Warnungen. Schneepflüge erhalten einen plugineigenen Streuguttank, dessen Verbrauch, Nachfüllung und Rückkehr zum Heimatdepot das Plugin verwaltet. Zusammen mit Weather Roads entscheidet das geladene Material, wie viel neuen Schnee eine geräumte Straße fernhält.
+Erweitert in *Workers & Resources: Soviet Republic* 1.2.0.9 das Fenster des Technischen Service um zusätzliche Einzellager, anklickbare Materialprioritäten und Warnungen. Schneepflüge erhalten einen plugineigenen Streuguttank, dessen Verbrauch, Nachfüllung und Rückkehr zum Heimatdepot das Plugin verwaltet. Zusammen mit Weather Roads entscheidet das geladene Material, wie viel neuen Schnee eine geräumte Straße fernhält.
 
 ---
 
@@ -29,8 +29,8 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.1.1.13 das Fenster des Tec
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader ab b0.4.5 (API 4)
 - Technische Services mit `$TYPE_GARBAGE_OFFICE` (intern Gebäudetyp 49) und Schneepflüge mit der Fähigkeit 35
 - Für den Streubetrieb: registrierte Streugut-Ressourcen und passende Einzellager im Depot (siehe [Gebäudelager und Migration](#-gebäudelager-und-migration))
 - **Empfohlen:** das Localization-Plugin mit dem Textpaket `technical_service_storage` für übersetzte Beschriftungen; ohne es gelten eingebaute Ersatztexte
@@ -80,7 +80,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -308,6 +308,8 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - Ressourcen-Plugins (Resources Plus oder Resources) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
+- **0.3.7:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
+- **0.3.6:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.3.5:** Im Spiel ändert sich nichts; nur die Texte im Protokoll wurden aufgeräumt
 - **0.3.4:** Für WRSR 1.1.1.13; sonst unverändert
 - **0.3.3:** Reserveschwelle in Prozent (alter Schlüssel bleibt lesbar), Fahrzeugtabelle 1024 (Standard 512), Standardliste ohne `road_salt`, Texte; Speicherformate unverändert
@@ -412,5 +414,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.5  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Technical Service Storage 0.3.7  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

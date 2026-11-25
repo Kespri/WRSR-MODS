@@ -1,8 +1,21 @@
 # Vanilla Buildings – build notes
 
-Target: WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address), TesmioLoader API 4. Build:
+Target: WRSR 1.2.0.9 (the plugin uses no game address), TesmioLoader API 4. Build:
 the standard line (`cl /O2 /MT /W3 /EHsc /LD ... /link kernel32.lib`); exports
 TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History newest first.
+
+## 0.4.7 (2026-11-25)
+
+- Texts only: README, INI head and package name WRSR 1.2.0.9 (the hotfix that followed 1.2.0.8 on
+  the same day). The plugin uses no game address; the code is unchanged and was rebuilt only for
+  the new version number.
+
+## 0.4.6 (2026-11-25)
+
+
+- Rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5 with `/DTSM_RELEASE_VERSION=0.4.5`
+  (`TsmPluginTargetVersion` export). No change to the code. The update changed 22 of the game's
+  489 building type files; a rule that names a line of one of them may have to be adjusted.
 
 ## 0.4.5 (2026-11-18)
 

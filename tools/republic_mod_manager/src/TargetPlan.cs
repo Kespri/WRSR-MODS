@@ -32,6 +32,8 @@ namespace TesmioAutoload
         public bool One;              // connection commands: the one-point form
         public bool FromOwn;          // insert: the anchor is a line an earlier command produces
         public string Problem = "";   // "" = fine, otherwise a language key with arguments
+        // Clone commands (Buildings Plus, ClonePlan): the anchor and the new block line by line.
+        public List<string> AnchorLines, FreshLines;
         public string Text
         {
             get
@@ -54,6 +56,17 @@ namespace TesmioAutoload
         public readonly List<TargetCommand> Commands = new List<TargetCommand>();
         public readonly List<TargetLineMark> Lines = new List<TargetLineMark>();
         public bool Any { get { return Commands.Any(x => x.Problem.Length > 0); } }
+    }
+
+    // How a whole rule set does across its target files. A target the plugin cannot give every
+    // command to gets none of them, so a rule set "fits" a target only when all commands fit.
+    // Found counts the target files that exist here; a missing file is not a fault of the rule.
+    public sealed class RuleSpread
+    {
+        public string Plugin = "", Section = "";
+        public int Found, Fit;
+        public readonly List<string> Bad = new List<string>();
+        public bool Trouble { get { return Fit < Found; } }
     }
 
     // One line of the file the game will read. Command is the command that produced it, -1 for a
@@ -147,6 +160,28 @@ namespace TesmioAutoload
         // The commands in the order the plugin sees them: the effective INI writes the fields in
         // schema order, so add comes before replace, remove and insert - and only an EARLIER
         // command can produce the anchor of an insert.
+        // The commands of one rule set against every target file it names. One implementation for
+        // the lines window, the row of the rule set in the list and the start check, so the three
+        // can never tell different numbers.
+        public static RuleSpread Spread(IEnumerable<string> targets, Func<string, List<string>> read, IEnumerable<string> adds,
+            IEnumerable<string> replaces, IEnumerable<string> removes, IEnumerable<string> inserts,
+            IEnumerable<string> addLinks, IEnumerable<string> replaceLinks, IEnumerable<string> removeLinks)
+        {
+            var spread = new RuleSpread();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string raw in targets ?? Enumerable.Empty<string>())
+            {
+                string file = (raw ?? "").Trim();
+                if (file.Length == 0 || !seen.Add(file)) continue;
+                List<string> lines = null;
+                try { if (read != null) lines = read(file); } catch (Exception) { }
+                if (lines == null) continue;
+                spread.Found++;
+                if (Check(lines, adds, replaces, removes, inserts, addLinks, replaceLinks, removeLinks).Any) spread.Bad.Add(file);
+                else spread.Fit++;
+            }
+            return spread;
+        }
         public static TargetOutcome Check(IEnumerable<string> target, IEnumerable<string> adds,
             IEnumerable<string> replaces, IEnumerable<string> removes, IEnumerable<string> inserts)
         { return Check(target, adds, replaces, removes, inserts, null, null, null); }

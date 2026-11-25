@@ -13,20 +13,20 @@
 // original resources.dll or Soviet Mod Loader is active, so nothing is ever
 // registered twice.
 //
-// The engine keeps its resources in one global std::vector of 832-byte records
+// The engine keeps its resources in one global std::vector of 896-byte records
 // and resolves every name in every .ini through a single function. That makes
 // the whole subsystem reachable from two places:
 //
-//   rva 0x2AA7B0  ResourceGet(self, name, ...)  the choke point. Hooked inline;
+//   rva 0x2C6380  ResourceGet(self, name, ...)  the choke point. Hooked inline;
 //                 a name resources_plus.ini claims is answered with a record of our
 //                 own, everything else falls through to the real lookup.
-//   rva 0x9E11C0  the vector object - begin, end, capacity. Publishing a record
-//                 is writing `end`; the engine allocates 63 and fills 57, so
-//                 six mod resources fit without moving anything.
-//   rva 0x2A92C0  the price pass. Walks the vector and writes every record's
+//   rva 0xA2B270  the vector object - begin, end, capacity. Publishing a record
+//                 is writing `end`; the engine fills 61 records of its own and
+//                 the array is moved when [list] needs more room.
+//   rva 0x2C4E90  the price pass. Walks the vector and writes every record's
 //                 price from the production chains. Bracketed, so [base_price]
 //                 lands before it and [price] after it.
-//   rva 0x185500  the customhouse's own tick, building type 20. Post-hooked so
+//   rva 0x19E190  the customhouse's own tick, building type 20. Post-hooked so
 //                 an already-standing customhouse picks up a resource this
 //                 plugin declared after it was built - see CUSTOMS below.
 //
@@ -46,7 +46,7 @@
 // that same walk against the live vector once per customhouse.
 //
 // The four code addresses the plugin uses (ResourceGet, the price pass, the
-// customhouse tick and the slot push_back) are those of SOVIET64.exe v1.1.1.13,
+// customhouse tick and the slot push_back) are those of SOVIET64.exe v1.2.0.9,
 // each checked against its bytes before use. Every other address named in a
 // comment further down is a note taken on v1.1.1.9 and has not been looked up
 // again. See docs/04-adding-resources.md.
@@ -54,7 +54,7 @@
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "resources_plus"
-#define PLUGIN_VERSION "0.1.5"
+#define PLUGIN_VERSION "0.1.7"
 
 // The DLL's own folder (Workshop package or a local copy), resolved in
 // DllMain, and the INI actually read: plugins\resources_plus.ini.
@@ -309,13 +309,13 @@ static bool IniStr(const char* section, const char* key, char* out, DWORD size)
 #define SYM_FILE_EXISTS "?C3DHelp_CheckIfFileExist@@YA_NPEBD_N1@Z"
 
 // C3D_MIDDLEPOINT, the object every managed asset is created through.
-#define P_MIDDLEPOINT   0x9EACD0
+#define P_MIDDLEPOINT   0xA34D90   // v1.2.0.8; was 0x9EACD0
 
-// SOVIET64.exe v1.1.1.13. Verified against the prologue below before hooking, so
+// SOVIET64.exe v1.2.0.9. Verified against the prologue below before hooking, so
 // a game update makes the hook refuse to install rather than corrupt the process.
-// Was 0x2AA830 in v1.1.1.9 and 0x2AA7C0 in v1.1.1.7; the first 400 bytes of the
-// function are the same in 1.1.1.9 and 1.1.1.13 apart from seven call targets.
-#define DEFAULT_RESOURCEGET_RVA 0x2AA7B0
+// Was 0x2AA7B0 in v1.1.1.13 and 0x2AA830 in v1.1.1.9; in the first 400 bytes of the
+// function only the call targets and four game-object offsets differ from 1.1.1.9.
+#define DEFAULT_RESOURCEGET_RVA 0x2C6380
 
 static const BYTE kResourceGetPrologue[] = {
     0x40, 0x55,                                     // push rbp
@@ -341,20 +341,20 @@ static void WriteTo(HANDLE h, const char* s, int len) { TsmWrite(h, s, len); }
 // ResourceGet returns a pointer into a contiguous array of fixed-size records,
 // and the record index is exactly the field position in the Resources struct
 // documented in media_soviet/scripts/SOVIETInstructions.txt.
-#define RES_STRIDE 832
-#define RES_COUNT  63
-// Indices 0..56 are the records the engine actually stores in the vector.
-// waste_mixed (57) and service_material (58) appear in the script-facing struct
+#define RES_STRIDE 896   // v1.2.0.8; was 832
+// Indices 0..60 are the records the engine actually stores in the vector.
+// waste_mixed and service_material appear in the script-facing struct
 // but are kept as standalone objects, so they must never be used to work out
 // where the array starts - doing so yields a bogus base.
-#define RES_KNOWN  57
+#define RES_KNOWN  61    // v1.2.0.8; was 57
 
 static const char* kResourceOrder[RES_KNOWN] = {
     "workers", "eletric", "vehicles", "trains", "heat", "gravel", "rawgravel",
     "plants", "steel", "aluminium", "prefabpanels", "bricks", "wood", "oil",
     "chemicals", "coal", "rawcoal", "iron", "rawiron", "bauxite", "rawbauxite",
     "bitumen", "boards", "uranium", "yellowcake", "uf6", "nuclearfuel",
-    "nuclearfuelburned", "fuel", "fabric", "alcohol", "cement", "alumina",
+    "nuclearfuelburned", "fuel", "kerosene", "udmh", "n2o4", "lox",
+    "fabric", "alcohol", "cement", "alumina",
     "food", "clothes", "meat", "livestock", "asphalt", "concrete",
     "ecomponents", "mcomponents", "plastics", "eletronics", "explosives",
     "water", "usagewater", "fertiliser_liquid", "waste_gravel", "waste_steel",
@@ -369,34 +369,38 @@ static int CanonicalIndex(const char* name)
     return -1;
 }
 
+static bool  g_orderChecked;   // every base record sits where kResourceOrder says
+static bool  g_orderBad;       // one did not: another game build
+
 static BYTE* g_resBase;        // descriptor of index 0, once corroborated
 static int   g_baseVotes;      // independent names that agreed on it
 static BYTE* g_baseCandidate;
 static int   g_nameOff = -1;   // offset of the inline name buffer inside a record
 static bool  g_layoutDone;
 
-// The global std::vector holding the resource records, found at SOVIET64+0x9E11C0
+// The global std::vector holding the resource records, found at SOVIET64+0xA2B270
 // by scanning for a begin/end pair pointing at the array.
 struct ResVector { BYTE* begin; BYTE* end; BYTE* cap; };
-static DWORD g_vecRva = 0x9E11C0;
+#define DEFAULT_RESOURCE_VECTOR_RVA 0xA2B270   // v1.2.0.9; was 0x9E11C0
+static DWORD g_vecRva = DEFAULT_RESOURCE_VECTOR_RVA;
 
 // The engine's own cache of hand-picked records, and the reason relocation used
 // to look unsafe.
 //
-// ResourceGet is `(gameObject, name)` and reads its array out of `self+0xC2B0`
-// - which *is* this vector. The game object is the static at rva 0x9D4F10 and
-// 0x9D4F10 + 0xC2B0 == 0x9E11C0, so the vector object is a field of it and
+// ResourceGet is `(gameObject, name)` and reads its array out of `self+0xC348`
+// - which *is* this vector. The game object is the static at rva 0xA1EF20 and
+// 0xA1EF20 + 0xC350 == 0xA2B270, so the vector object is a field of it and
 // everything else here is expressed relative to the vector rather than to a
 // second hard-coded address.
 //
-// Immediately behind those three pointers, at `self+0xC2C8`..`+0xC488`, sit 57
-// qwords the engine fills at rva 0x2A82B0 with one ResourceGet per name - the
+// Immediately behind those three pointers, at `self+0xC360`..`+0xC520`, sit 57
+// qwords the engine fills with one ResourceGet per name - the
 // records it wants by hand instead of by lookup. Fifty-three of them point into
 // the array; the first is `workers`, index 0, so it is bit-for-bit equal to
 // `begin`. **That is the "second structure holding the array base"
 // 07-pitfalls.md warned about** - not a container, a cached record that a
 // memory scan cannot tell from the base pointer. The other four -
-// `self+0xC3B8`, `+0xC3C0`, `+0xC418`, `+0xC420` - are the standalone records
+// `self+0xC450`, `+0xC458`, `+0xC4B0`, `+0xC4B8` - are the standalone records
 // ResourceGet compares against before it scans anything, and never point into
 // the array at all.
 //
@@ -409,7 +413,7 @@ static DWORD g_vecRva = 0x9E11C0;
 
 // Floor on how many records the array should have room for, from
 // `resource_capacity`. 0 means "whatever [list] needs" - the plugin sizes the
-// array itself and relocates when the engine's own 63 are not enough. A
+// array itself and relocates when the engine's own allocation is not enough. A
 // negative value pins the array to the engine's allocation and refuses to move
 // it, which is the behaviour every version before this one had.
 static int g_wantCapacity = 0;
@@ -471,18 +475,20 @@ static bool g_warnedCapacity;
 
 // ---------------------------------------------------------------- the rest of the record
 //
-// **The whole 832-byte record, and not one byte of it guessed.** The engine's
-// resource table at 0x2A1D60 builds each record in one stack buffer whose rbp is
+// **The whole 896-byte record.** The notes below were taken on v1.1.1.9, where
+// the record had 832 bytes; v1.2.0.8 inserts two transport classes, which moves
+// everything behind them by 0x40 (the defines below carry the new offsets). The
+// resource table (0x2A1D60 then) builds each record in one stack buffer whose rbp is
 // `record + 0xC0` and commits it with `add qword ptr [rbx+8],0x340` (records
 // 0..34) or `call 0x449350(vector, record)` (35..56). Reading that code back and
-// replaying every write through rbp gives the exact contents of all 57 base-game
+// replaying every write through rbp gives the exact contents of all base-game
 // records, which is how the map below was made rather than by diffing live
 // memory - see tools/pe/restable.py, which prints it.
 //
-// Only 30 of the 832 bytes are ever written per resource. Everything else is
+// Only 30 bytes are ever written per resource. Everything else is
 // zero at push time and filled at runtime: the icon at +0x48, the previous
 // price at +0x70/+0x74, the previous base at +0x80/+0x84 and the five mesh
-// pointers from +0x318. **That is what makes a record with no template
+// pointers from +0x358. **That is what makes a record with no template
 // possible** - a from-scratch record is a zeroed one plus this list.
 //
 //   +0x00  name, inline, 32 bytes         +0x40  caption id     +0x44  price kind
@@ -491,8 +497,8 @@ static bool g_warnedCapacity;
 //   +0x58/+0x5C  price RUB/USD            +0x78/+0x7C  base price RUB/USD
 //   +0x88 and +0xA8  two identical 0x20-byte market blocks, below
 //   +0xC8  one byte, below
-//   +0xCC  eighteen 0x20-byte transport-class blocks, below
-//   +0x30C the material family, below     +0x310 0.3 everywhere but workers
+//   +0xCC  twenty 0x20-byte transport-class blocks, below
+//   +0x34C the material family, below     +0x350 0.3 everywhere but workers
 //                                                and eletric, which are 1.0
 //
 // **Two market blocks, byte-identical in shape**, at +0x88 and +0xA8:
@@ -531,11 +537,11 @@ static bool g_warnedCapacity;
 // byte has not been established.
 #define RES_PACKED_OFF    0xC8
 
-// Eighteen transport-class blocks, one per RESOURCE_TRANSPORT_* in
-// media_soviet/scripts/SOVIETInstructions.txt (COVERED 0 .. WASTE 17,
-// RESOURCE_TRANSPORT_NUM 18), 0x20 bytes each, +0xCC..+0x30C.
+// Twenty transport-class blocks, one per RESOURCE_TRANSPORT_* in
+// media_soviet/scripts/SOVIETInstructions.txt (COVERED 0 .. WASTE 17) plus
+// CRYO 18 and HYPERGOLIC 19 of v1.2.0.8, 0x20 bytes each, +0xCC..+0x34C.
 //
-// The count is not inferred from the enum: the table's own prologue zeroes the
+// On v1.1.1.9 the count was read from the code: the table's own prologue zeroes the
 // array with `mov ecx,0x12` - eighteen - and 0x2A1B80, which every resource
 // block calls before writing its classes, clears exactly eighteen blocks of
 // [+0x00,+0x14) plus the flag at +0x1C. A resource declares one class, sometimes
@@ -558,7 +564,7 @@ static bool g_warnedCapacity;
 //          which is the one behaviour that depends on it.
 #define RES_CLASS_BASE    0xCC
 #define RES_CLASS_STRIDE  0x20
-#define RES_CLASS_COUNT   18
+#define RES_CLASS_COUNT   20   // v1.2.0.8; was 18
 #define RES_CLASS_FACTOR  0xCC   // == RES_CLASS_BASE + 0x00, the name the customs code uses
 #define RES_CLASS_F1      0x04
 #define RES_CLASS_F2      0x08
@@ -579,22 +585,22 @@ static bool g_warnedCapacity;
 // the sorted-waste mapping is the obvious thing it would be for, but what reads
 // it has not been established - hence -1, a value five base records carry, as
 // the default.
-#define RES_FAMILY_OFF    0x30C
+#define RES_FAMILY_OFF    0x34C   // v1.2.0.8; was 0x30C
 #define RES_FAMILY_FIRST  10
 
 // 1.0 on workers and eletric, 0.3 on the other 55, including heat and water.
 // Unidentified.
-#define RES_TAIL_OFF      0x310
+#define RES_TAIL_OFF      0x350   // v1.2.0.8; was 0x310
 
 // C3D_GAME::RecomputeResourcePrices(game). Loops the whole resource vector and
 // writes +0x58 and +0x5C for every record, skipping kind -1 and pinning kind
 // -5 to 1.0. Called from world init at 0x28ED78 and from the economy module at
 // 0x2FBB95, each time followed by 0x2A9F40.
-// v1.1.1.13; was 0x2A9340 in v1.1.1.9 and 0x2A92D0 before. Confirmed by what it
-// reads rather than by the shift: the first 400 bytes are identical in 1.1.1.9
-// and 1.1.1.13, and the function still walks the resource vector through
-// self+0xC2B0/+0xC2B8.
-#define DEFAULT_PRICEPASS_RVA 0x2A92C0
+// v1.2.0.8; was 0x2A92C0 in v1.1.1.13 and 0x2A9340 in v1.1.1.9. Confirmed by what it
+// reads rather than by the shift: the first 400 bytes differ from 1.1.1.9
+// only in the vector offset and the stride, and the function walks the vector through
+// self+0xC348/+0xC350.
+#define DEFAULT_PRICEPASS_RVA 0x2C4E90
 
 static const BYTE kPricePassPrologue[] = {
     0x48, 0x89, 0x6C, 0x24, 0x18,   // mov  [rsp+18h], rbp
@@ -607,9 +613,9 @@ static const BYTE kPricePassPrologue[] = {
 static DWORD g_priceRva = DEFAULT_PRICEPASS_RVA;
 
 // The record's last five qwords are its cargo meshes, and they are exactly the
-// tail of the 832-byte record - 0x338 + 8 == 0x340.
+// tail of the 896-byte record - 0x378 + 8 == 0x380.
 //
-// Found in the resource table at rva 0x2A1D60, which builds each record in one
+// Found in the resource table (rva 0x2A1D60 on v1.1.1.9), which builds each record in one
 // stack buffer at rsp+0x40 and pushes it. Its prologue is
 // `lea rbp,[rsp-0x290]` before `sub rsp,0x390`, so **rbp == record + 0xC0**,
 // and every block in it writes its meshes to rbp+0x258..0x278. Per resource:
@@ -617,16 +623,16 @@ static DWORD g_priceRva = DEFAULT_PRICEPASS_RVA;
 //     mesh = middlepoint->CreateManagedMesh("resources/steel.nmf");
 //     mesh->LoadFromFile("resources/steel.nmf", middlepoint, true);
 //     mesh->LoadMaterial("resources/steel.mtl", 0);
-//     record[+0x318] = mesh;
+//     record[+0x358] = mesh;
 //
 // **The paths are literals in .rdata, not built from the name.** Only the icon
 // is looked up by name, through "resources/%s.png" at 0x899C48. So a record
 // cloned from a template inherits the *template's* mesh objects and a mod
 // resource is drawn as steel or aluminium however its own files are named -
 // which is what AttachResourceMeshes exists to fix.
-#define RES_MESH_VEHICLE 0x318   // load carried on a vehicle; the only mesh an
+#define RES_MESH_VEHICLE 0x358   // load carried on a vehicle; the only mesh an
                                  // open-transport resource has
-#define RES_MESH_STAGE1  0x320   // pile stages 1..4, bulk resources only
+#define RES_MESH_STAGE1  0x360   // pile stages 1..4, bulk resources only
 #define RES_MESH_STAGES  4
 
 // Ids we hand out for mod resources. Anything at or above this is answered
@@ -741,7 +747,7 @@ static bool ParseMoneyPair(char* v, float* rub, float* usd)
 // section may appear anywhere in the file, before or after the entry it
 // configures.
 
-// The eighteen transport classes and, per class, the numbers the base game uses
+// The twenty transport classes and, per class, the numbers the base game uses
 // for them. Every figure here was read out of the resource table rather than
 // invented: where the base game disagrees with itself the commonest value wins,
 // and the comment says how wide the spread was.
@@ -779,6 +785,8 @@ static const TransportClass kTransportClasses[RES_CLASS_COUNT] = {
     { "water",     1.00f, 5.00f,  5.00f, RES_LIQUID_F, RES_LIQUID_F },  // water, usagewater
     { "sewage",    1.00f, 5.00f,  5.00f, RES_LIQUID_F, RES_LIQUID_F },  // water, usagewater
     { "waste",     1.00f, 2.50f,  2.50f, 0.0f, 0.0f },  // 6 of 10 users exactly this
+    { "cryo",      1.00f, 5.00f,  5.00f, RES_LIQUID_F, RES_LIQUID_F },  // lox
+    { "hypergolic",1.00f, 5.00f,  5.00f, RES_LIQUID_F, RES_LIQUID_F },  // udmh, n2o4
 };
 
 // A class by name, by the game's own $STORAGE token, or by number. Accepting the
@@ -1077,7 +1085,7 @@ static void ParseCustomLine(CustomEntry* c, char* key, char* value)
 //
 // The figures are the base game's commonest: the two market blocks of twelve
 // resources including every waste, a family of -1 (workers, eletric, heat,
-// water, usagewater), and the 0.3 at +0x310 that 55 of 57 records carry.
+// water, usagewater), and the 0.3 at +0x350 that all but two records carry.
 static void WriteDefaultRecord(BYTE* rec)
 {
     memset(rec, 0, RES_STRIDE);
@@ -2005,7 +2013,7 @@ static void AttachResourceMeshes(BYTE* rec, const char* name, int shape)
 // never again. Working from `live + still to do` instead would grow the answer
 // as records land and relocate on every pass.
 //
-// `live` only ever raises it, for the day a game update ships more than 57
+// `live` only ever raises it, for the day a game update ships more
 // records of its own and the constant below stops being the whole base game.
 static int NeededCapacity(int live)
 {
@@ -2082,12 +2090,39 @@ static void EnsureArmed()
         if (g_nameOff < 0) return;
     }
 
+    // The template of a cloned record is taken by its position in
+    // kResourceOrder, so that table has to be the engine's own order. It is
+    // compared with the names in the array as they land; one name out of place
+    // means another game build, and nothing is published into such an array.
+    if (g_orderBad) return;
+    if (!g_orderChecked)
+    {
+        int upTo = live < RES_KNOWN ? live : RES_KNOWN;
+        for (int i = 0; i < upTo; i++)
+        {
+            const char* have = (const char*)(base + (size_t)i * RES_STRIDE + g_nameOff);
+            if (Readable(have, 32) && strncmp(have, kResourceOrder[i], 32) == 0) continue;
+
+            char got[33] = "?";
+            if (Readable(have, 32)) { memcpy(got, have, 32); got[32] = 0; }
+            g_orderBad = true;
+            Logf("resource  WARN  record %d is \"%s\" where this build expects \"%s\" - another game "
+                 "build, no mod resources are published", i, got, kResourceOrder[i]);
+            return;
+        }
+        if (live >= RES_KNOWN)
+        {
+            g_orderChecked = true;
+            Logf("resource  the %d base records are in the order this build knows", RES_KNOWN);
+        }
+    }
+
     // Armed is a claim about the array in front of us, not a fact about this
     // session, so it is re-checked rather than trusted.
     //
     // A world load rebuilds the vector, and the allocator hands back the same
     // block often enough that `begin` is unchanged - so the base test above sees
-    // nothing while `end` has gone back to 57 and our record has been
+    // nothing while `end` has gone back to the base count and our record has been
     // overwritten by the engine's own init. Left latched, the entry is never
     // republished: every building.ini naming it resolves to -1, and the icon at
     // +0x48 still points at a texture that was released with the previous world,
@@ -2112,7 +2147,7 @@ static void EnsureArmed()
              e.name, e.resolved);
     }
 
-    // Room for the whole of [list], past the 63 records the engine allocates.
+    // Room for the whole of [list], past the records the engine allocates.
     //
     // Done before anything is published, so that everything downstream -
     // including the engine's own init loop, which resolves forty records by name
@@ -2653,7 +2688,7 @@ static void h_LanguageInit(void* self, char* file, char* fallback)
 //                 second, shared function afterwards; neither matters here -
 //                 a post-hook only needs it called once per customhouse per
 //                 tick, which the dispatcher already guarantees.
-#define P_CUSTOMHOUSE_TICK_RVA 0x185500   // v1.1.1.13; was 0x1854E0 in v1.1.1.9, 0x185470 before
+#define P_CUSTOMHOUSE_TICK_RVA 0x19E190   // v1.2.0.9; was 0x185500 in v1.1.1.13, 0x1854E0 in v1.1.1.9
 
 static const BYTE kCustomsTickPrologue[] = {
     0x48, 0x8B, 0xC4,                            // mov  rax,rsp
@@ -2662,7 +2697,7 @@ static const BYTE kCustomsTickPrologue[] = {
     0x48, 0x81, 0xEC, 0x90, 0x00, 0x00, 0x00     // sub  rsp,0x90
 };
 
-#define P_CUSTOMS_SLOT_PUSH_RVA 0x0B14E0   // std::vector<Slot>::push_back, 16-byte value
+#define P_CUSTOMS_SLOT_PUSH_RVA 0x0C8FE0   // v1.2.0.9; was 0x0B14E0. std::vector<Slot>::push_back, 16-byte value
 
 #define B_STORAGES         0x970      // building -> vector<Storage>, stride 0xE0
 #define STORAGE_STRIDE     0xE0
@@ -2973,9 +3008,15 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
     if (IniStr("resources", "resource_vector_rva", v, sizeof(v)))
     {
         // A data pointer, not a hook: no prologue can vouch for it, so the least
-        // it has to do is lie inside the image and be readable.
+        // it has to do is lie inside the image and be readable. The address
+        // every earlier game build had is recognised and dropped: the INI is
+        // created once and kept, so after a game update it still names the
+        // vector of the previous build, where something else lives now.
         DWORD want = (DWORD)strtoul(v, NULL, 0);
-        if (want == 0 || want + sizeof(ResVector) > g_exeSize ||
+        if (want == 0x9E11C0 || want == 0xA2B268)
+            Logf("resource  resource_vector_rva = %s in resources_plus.ini is for another game build - using the built-in 0x%X",
+                 v, g_vecRva);
+        else if (want == 0 || want + sizeof(ResVector) > g_exeSize ||
             !ReadablePtr(g_exeBase + want, sizeof(ResVector)))
             Logf("resource  WARN  resource_vector_rva = %s is outside the image or unreadable - keeping 0x%X", v, g_vecRva);
         else g_vecRva = want;
@@ -3096,7 +3137,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         if (!ReadablePtr(pushSite, sizeof(kSlotPushPrologue)) ||
             memcmp(pushSite, kSlotPushPrologue, sizeof(kSlotPushPrologue)) != 0)
         {
-            Logf("customs   push_back at rva 0x%X does not look like v1.1.1.13 - customhouse "
+            Logf("customs   push_back at rva 0x%X does not look like v1.2.0.9 - customhouse "
                  "sync disabled; standing customhouses keep their old trade list",
                  (unsigned)P_CUSTOMS_SLOT_PUSH_RVA);
             g_customsHook = 0;

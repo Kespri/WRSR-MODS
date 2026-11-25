@@ -62,6 +62,11 @@ namespace TesmioAutoload
             // 0.5.13: a building line naming a resource nothing publishes ends the game at start.
             foreach(MissingResource missing in Startup.MissingResources(build,steps))
             { Line(trouble,language.Format(missing.Folder?"startcheck_missing_resource_folder":"startcheck_missing_resource",missing.Plugin,missing.Section,missing.Resource),Theme.Danger,""); any=true; }
+            // 0.7.1: a rule set of Vanilla Buildings that does not fit every target. The game starts
+            // all the same - the rule set just changes nothing there - so this is amber, not red.
+            CatalogEntry rules=list.FirstOrDefault(e=>e.Key.Length>0&&PluginScan.SameKey(e.Key,"vanilla_buildings"));
+            foreach(RuleSpread spread in Startup.RuleSpreads(build,steps,""))
+            { Line(trouble,language.Format("startcheck_rule_spread",spread.Plugin,spread.Section,spread.Fit,spread.Found,spread.Bad[0]),Theme.Amber,rules==null?"":rules.Root); any=true; }
             foreach(CatalogEntry entry in list.Where(e=>e.Updated).OrderBy(e=>e.Name,StringComparer.CurrentCultureIgnoreCase))
             { Line(trouble,language.Format("startcheck_update_row",entry.Name,entry.PreviousVersion,entry.Version),Theme.Amber,entry.Root); any=true; }
             if(!any)Line(trouble,language.T("startcheck_clean"),Color.FromArgb(26,132,61),null);

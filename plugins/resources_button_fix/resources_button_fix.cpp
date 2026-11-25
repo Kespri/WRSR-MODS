@@ -13,7 +13,7 @@
 // immediately after that same panel.  Every
 // other caller passes through byte-for-byte unchanged.
 //
-// Addresses and layout constants are for SOVIET64.exe v1.1.1.13.  Both the PE
+// Addresses and layout constants are for SOVIET64.exe v1.2.0.9.  Both the PE
 // identity and the hooked prologue are checked before anything is changed.
 
 #include "../../src/tesmio_plugin.h"
@@ -32,53 +32,53 @@
 #include <string>
 
 #define PLUGIN_INI "plugins\\resources_button_fix.ini"
-#define PLUGIN_VERSION "0.4.3"
+#define PLUGIN_VERSION "0.4.5"
 #define PLUGIN_LOG_NAME "tesmioloader.resources_button_fix.log"
 
 static const size_t MAX_INI_BYTES = 16u * 1024u * 1024u;
 static const size_t MAX_CONFIG_VALUE = 63u;
 
-// SOVIET64.exe v1.1.1.13 (v1.1.1.9 had 0x6A3EB6AD)
-#define EXPECTED_TIMESTAMP  0x6A8D4087u
-#define EXPECTED_IMAGE_SIZE 0x00A9D000u
+// SOVIET64.exe v1.2.0.9 (v1.2.0.8 had 0x6B0097B2)
+#define EXPECTED_TIMESTAMP  0x6B05A574u
+#define EXPECTED_IMAGE_SIZE 0x00AE9000u
 
 // Draws one editor tool button. It handles drawing, hover and click detection,
 // so changing these arguments moves the visible button and its hitbox together.
-#define P_ED_DRAW_BUTTON 0x3826A0
+#define P_ED_DRAW_BUTTON 0x3A15A0
 
 // The Resources panel calculates the round "delete all resources" button's X
 // and Y immediately before drawing it. These two RIP-relative float reads are
 // repointed to plugin-owned values; the resulting coordinates are then reused
 // by the game for the visible control and its hitbox.
-#define P_ED_CANCEL_X_MUL 0x2335B3
-#define P_ED_CANCEL_Y_MUL 0x2335D0
+#define P_ED_CANCEL_X_MUL 0x24E6F3
+#define P_ED_CANCEL_Y_MUL 0x24E710
 
 // Panel-local transitions from the tool grid to the controls below it.  They
 // are repointed instead of changing the shared constants, so Trees and every
 // other editor window retain the game's original layout.
-#define P_ED_RESOURCES_BRUSH_GAP_RELOAD 0x233752
-#define P_ED_ROCKS_BRUSH_Y_MUL          0x22F0F1
+#define P_ED_RESOURCES_BRUSH_GAP_RELOAD 0x24E892
+#define P_ED_ROCKS_BRUSH_Y_MUL          0x24A1DD
 
 // Exact function ranges from the executable's .pdata table. Return addresses
 // inside these ranges identify the two supported vanilla panels unambiguously.
-#define P_ED_ROCKS_PANEL_BEGIN     0x22EE20
-#define P_ED_ROCKS_PANEL_END       0x2304F7
-#define P_ED_RESOURCES_PANEL_BEGIN 0x233100
-#define P_ED_RESOURCES_PANEL_END   0x233807
+#define P_ED_ROCKS_PANEL_BEGIN     0x249F00
+#define P_ED_ROCKS_PANEL_END       0x24B632
+#define P_ED_RESOURCES_PANEL_BEGIN 0x24E240
+#define P_ED_RESOURCES_PANEL_END   0x24E947
 
 // Shared grid constants.
-#define G_DPI          0x992088
-#define G_ED_X_A       0x90AA38   // 50
-#define G_ED_X_B       0x90AB24   // 85
-#define G_ED_Y_BASE    0x90ADC8   // 250
-#define G_ED_Y_CAPTION 0x90AB0C   // 80
-#define G_ED_BUTTON    0x909EDC   // 0.85
-#define G_ED_ROW_STEP  0x90AB3C   // 90
-#define G_ED_RES_STEP  0x90AB94   // 105
-#define G_ED_CANCEL_X  0x90AA0C   // 42: original cancel X base
-#define G_ED_CANCEL_Y  0x90AC94   // 170: grid top -> original cancel button
-#define G_ED_BRUSH_GAP 0x90AA88   // 60: original cancel -> brush controls
-#define G_ED_ROCKS_BRUSH_Y 0x90AAEC // 75: Rocks grid top -> brush controls
+#define G_DPI          0x9DC08C
+#define G_ED_X_A       0x952014   // 50
+#define G_ED_X_B       0x952104   // 85
+#define G_ED_Y_BASE    0x9523A8   // 250
+#define G_ED_Y_CAPTION 0x9520EC   // 80
+#define G_ED_BUTTON    0x951474   // 0.85
+#define G_ED_ROW_STEP  0x95211C   // 90
+#define G_ED_RES_STEP  0x952174   // 105
+#define G_ED_CANCEL_X  0x951FE8   // 42: original cancel X base
+#define G_ED_CANCEL_Y  0x952274   // 170: grid top -> original cancel button
+#define G_ED_BRUSH_GAP 0x952064   // 60: original cancel -> brush controls
+#define G_ED_ROCKS_BRUSH_Y 0x9520CC // 75: Rocks grid top -> brush controls
 
 // Rocks uses the same 85 constant for its initial X offset and column step.
 #define G_ED_ROCK_STEP G_ED_X_B
@@ -925,7 +925,7 @@ static bool SupportedGameBuild()
     if (timestamp == EXPECTED_TIMESTAMP && imageSize == EXPECTED_IMAGE_SIZE)
     {
         // The layout constants are read by address, and the game's float pool
-        // moves between builds (by 8 and 16 bytes from 1.1.1.9 to 1.1.1.13)
+        // moves between builds (by no single distance from 1.1.1.13 to 1.2.0.8)
         // while the time stamp is not a proof of an unchanged binary. Each
         // address therefore has to hold the value the layout was derived from;
         // a neighbour in the pool would otherwise move every button silently.
@@ -962,7 +962,7 @@ static bool SupportedGameBuild()
 
     Report("FATAL", "SOVIET64.exe", "unsupported-build",
         "Unsupported game build: timestamp=0x%08lX, image=0x%08lX; expected "
-        "v1.1.1.13 (0x%08X, 0x%08X). Action: use the supported game version",
+        "v1.2.0.9 (0x%08X, 0x%08X). Action: use the supported game version",
         (unsigned long)timestamp, (unsigned long)imageSize,
         EXPECTED_TIMESTAMP, EXPECTED_IMAGE_SIZE);
     return false;
@@ -1574,7 +1574,7 @@ static const BYTE kMulssXmm2[] = { 0xF3, 0x0F, 0x59, 0x15 };
 
 static const BYTE kDrawButtonPrologue[] = {
     0x48, 0x8B, 0xC4,                   // mov rax,rsp
-    0x48, 0x89, 0x58, 0x10,             // mov [rax+0x10],rbx
+    0x48, 0x89, 0x58, 0x18,             // mov [rax+0x18],rbx (+0x10 before v1.2.0.8)
     0x55,                               // push rbp
     0x56,                               // push rsi
     0x57,                               // push rdi

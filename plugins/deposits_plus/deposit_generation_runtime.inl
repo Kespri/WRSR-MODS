@@ -32,14 +32,18 @@ static GenBool genNoWater;
 static GenInt genHeightWidth,genHeightHeight;
 static GenFloat genBoundaryXMin,genBoundaryZMin,genBoundaryXMax,genBoundaryZMax;
 static bool genBorderLayoutReady=false;
-// WRSR 1.1.1.9: C3D_TERRAIN owns vector<Vec3> at +8A0. Both the engine's
-// $BORDER_POLYGON parser and the game's polygon cache use this exact array.
+// C3D_TERRAIN owns vector<Vec3> at +8A0. Both the engine's $BORDER_POLYGON
+// parser and the game's polygon cache use this exact array.
 // Guard the layout via the exported constructor's three vector initializers.
+// WRSR 1.2.0.9 engine: the constructor builds the quadtree first, so the
+// initializers start at +0x1F, and an XORPS sits between the first and the
+// other two (they were one block at +0x17 before).
 static bool GenerationBorderSignature(const BYTE* ctor) {
-    static const BYTE init[]={0x48,0x89,0x83,0xa0,0x08,0x00,0x00,
-                              0x48,0x89,0x83,0xa8,0x08,0x00,0x00,
+    static const BYTE first[]={0x48,0x89,0x83,0xa0,0x08,0x00,0x00};
+    static const BYTE rest[]={0x48,0x89,0x83,0xa8,0x08,0x00,0x00,
                               0x48,0x89,0x83,0xb0,0x08,0x00,0x00};
-    return ReadablePtr(ctor,sizeof init+0x17) && !memcmp(ctor+0x17,init,sizeof init);
+    return ReadablePtr(ctor,0x29+sizeof rest) && !memcmp(ctor+0x1f,first,sizeof first) &&
+           !memcmp(ctor+0x29,rest,sizeof rest);
 }
 static bool GenerationBorderRead(const void* from,void* to,size_t bytes) {
     __try { if(!ReadablePtr(from,bytes)) return false; memcpy(to,from,bytes); return true; }

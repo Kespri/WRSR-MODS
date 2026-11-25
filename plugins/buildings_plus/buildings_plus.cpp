@@ -89,12 +89,12 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.1.11"
+#define PLUGIN_VERSION    "0.2.0"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
 #define STAMP_MARK        "buildings_plus generated this folder"
-#define GENERATOR_VERSION 5
+#define GENERATOR_VERSION 6
 // A Workshop donor is looked for here first, then in media_soviet\workshop_wip.
 #define WRSR_APP_ID       L"784150"
 #define MAX_DECLS         256
@@ -102,6 +102,7 @@ typedef struct TsmLocalizationApi
 #define MAX_LINE_LEN      4096
 #define MAX_TEXT_FILE     (4u * 1024 * 1024)
 #define MAX_STRIPS        64
+#define MAX_COMMANDS      512           // per kind and section
 #define MAX_COPY_FILES    4096          // files copied from one Workshop item
 #define MAX_COPY_DEPTH    16            // folder depth walked inside an item
 #define MAX_ASSET_FILE    (256ull * 1024 * 1024)
@@ -137,6 +138,8 @@ struct Decl
     bool valid = true;
     std::vector<std::string> lines;    // building.ini lines to put in
     std::vector<std::string> strips;   // extra tokens to take out
+    // Commands against the donor's file, see "commands" below.
+    std::vector<std::string> adds, replaces, removes, inserts;
     size_t configLine = 0;
 };
 
@@ -878,6 +881,264 @@ static bool RewriteMaterial(const std::wstring& src, const std::wstring& dst, in
 // The donor's building.ini with the declared block in front and every line the
 // block replaces taken out. In front, because a few base files end in a bare
 // `end` and nothing is known about whether the parser stops there.
+// ---------------------------------------------------------------- commands
+//
+// The second way to say what is different, and the one Republic Mod Manager
+// writes: commands against the donor's building.ini, the same four Vanilla
+// Buildings knows. Each touches one place and leaves everything else alone:
+//
+//   add     = <block>                       in front of the closing "end"
+//   replace = <old> | <block>               the old block goes, the new one takes its place
+//   remove  = <old>                         the old block goes
+//   insert  = 0|1 | <anchor> | <block>      in front of (0) or behind (1) the anchor
+//
+// Fields are separated by "|". A block is a token line and the lines that
+// belong to it - the points of a $CONNECTION, the placement of a
+// $RESOURCE_VISUALIZATION - one field per line. <old> and <anchor> name a line
+// of the donor by its text; further fields that do not begin with "$" are the
+// data lines that must follow it, which tells two "$RESOURCE_VISUALIZATION 2"
+// apart. The new block starts at the first later field that begins with "$".
+// The anchor "end" is the closing line of the file.
+//
+// Every command is judged against the UNCHANGED donor file, and a section is
+// all or nothing: one command that does not fit and the building is not
+// written, with the reason in the log. An insert may also hang on a line that
+// an earlier command of the same section produces. The commands are taken in
+// the order add, replace, remove, insert, whatever the order of the rows.
+//
+// Republic Mod Manager carries a second implementation of this rule
+// (ClonePlan.cs) so its editor can show the outcome before the game does. The
+// same cases are checked in the self-test below and in its CoreTests - change
+// both or neither.
+
+enum { OP_ADD, OP_REPLACE, OP_REMOVE, OP_INSERT };
+static const char* const kOpName[] = { "add", "replace", "remove", "insert" };
+
+struct CloneOp
+{
+    int kind = OP_ADD;
+    bool after = false;
+    std::vector<std::string> anchor;   // the line to look for and the data lines that must follow it
+    std::vector<std::string> fresh;    // the block it writes
+    int at = -1, end = -1;             // the block of the donor it acts on
+    int insertAt = -1;                 // where a new block goes in the donor's line numbering
+    int anchorOp = -1;                 // insert: the earlier command whose block is the anchor
+    std::string problem;               // empty = fits
+    std::string text;                  // the command as written
+};
+
+static bool HasOps(const Decl& d)
+{ return !d.adds.empty() || !d.replaces.empty() || !d.removes.empty() || !d.inserts.empty(); }
+
+static std::vector<std::string> SplitFields(const std::string& value)
+{
+    std::vector<std::string> out;
+    size_t start = 0;
+    for (;;)
+    {
+        size_t bar = value.find('|', start);
+        out.push_back(TrimCopy(value.substr(start, bar == std::string::npos ? std::string::npos : bar - start)));
+        if (bar == std::string::npos) break;
+        start = bar + 1;
+    }
+    return out;
+}
+
+static bool BeginsToken(const std::string& s) { return s.size() > 1 && s[0] == '$'; }
+
+static void ParseOp(int kind, const std::string& value, CloneOp* op)
+{
+    op->kind = kind; op->text = value;
+    std::vector<std::string> f = SplitFields(value);
+    for (size_t i = 0; i < f.size(); i++) if (f[i].empty()) { op->problem = "an empty field - every | needs a line on both sides"; return; }
+    size_t i = 0;
+    if (kind == OP_INSERT)
+    {
+        if (f.size() < 3 || (f[0] != "0" && f[0] != "1")) { op->problem = "insert is written 0 or 1 | anchor | new line"; return; }
+        op->after = f[0] == "1"; i = 1;
+    }
+    if (kind == OP_ADD) op->fresh = f;
+    else
+    {
+        op->anchor.push_back(f[i++]);
+        while (i < f.size() && !BeginsToken(f[i])) op->anchor.push_back(f[i++]);
+        for (; i < f.size(); i++) op->fresh.push_back(f[i]);
+        bool closing = kind == OP_INSERT && op->anchor.size() == 1 && op->anchor[0] == "end";
+        if (!closing && !BeginsToken(op->anchor[0])) { op->problem = "the line to look for must begin with a $TOKEN"; return; }
+    }
+    if (kind == OP_REMOVE)
+    {
+        if (!op->fresh.empty()) op->problem = "remove takes one block - a second field that begins with $ would be a second one";
+        return;
+    }
+    if (op->fresh.empty()) op->problem = kind == OP_REPLACE ? "replace is written old line | new line, the new one beginning with a $TOKEN" : "the new line is missing";
+    else if (!BeginsToken(op->fresh[0])) op->problem = "the new line must begin with a $TOKEN";
+}
+
+// The last line of the block that starts at `at`: lines without a token of
+// their own belong to the token above them until a blank line, a separator, a
+// comment or the closing "end".
+static int BlockEndOf(const std::vector<std::string>& lines, int at)
+{
+    int end = at;
+    while (end + 1 < (int)lines.size() && FirstToken(lines[end + 1]).empty())
+    {
+        std::string bare = TrimCopy(lines[end + 1]);
+        if (bare.empty() || bare[0] == '-' || bare[0] == ';' || bare == "end") break;
+        end++;
+    }
+    return end;
+}
+
+// How often the block stands in the file: its first line, directly followed by
+// its other lines. Lines are compared trimmed and case sensitive.
+static int CountBlock(const std::vector<std::string>& lines, const std::vector<std::string>& want, int* at)
+{
+    int count = 0; *at = -1;
+    if (want.empty()) return 0;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (TrimCopy(lines[i]) != want[0]) continue;
+        bool all = true;
+        for (size_t k = 1; k < want.size() && all; k++)
+            all = i + k < lines.size() && TrimCopy(lines[i + k]) == want[k];
+        if (all) { count++; *at = (int)i; }
+    }
+    return count;
+}
+
+// Judges every command of a section against the donor's lines. False when one
+// of them does not fit; each op then says why.
+static bool PlanOps(const Decl& d, const std::vector<std::string>& lines, std::vector<CloneOp>* ops)
+{
+    ops->clear();
+    const std::vector<std::string>* fields[4] = { &d.adds, &d.replaces, &d.removes, &d.inserts };
+    for (int kind = 0; kind < 4; kind++)
+        for (size_t i = 0; i < fields[kind]->size(); i++) { ops->push_back(CloneOp()); ParseOp(kind, (*fields[kind])[i], &ops->back()); }
+    int n = (int)lines.size(), lastEnd = -1;
+    for (int i = 0; i < n; i++) if (TrimCopy(lines[i]) == "end") lastEnd = i;
+    int tail = lastEnd >= 0 ? lastEnd : n;
+    bool good = true;
+    char buf[160];
+    for (size_t oi = 0; oi < ops->size(); oi++)
+    {
+        CloneOp& op = (*ops)[oi];
+        if (!op.problem.empty()) { good = false; continue; }
+        int where = -1;
+        if (op.kind == OP_ADD)
+        {
+            if (CountBlock(lines, op.fresh, &where) != 0) op.problem = "this line is already in the donor";
+            else op.insertAt = tail;
+        }
+        else if (op.kind == OP_INSERT && op.anchor.size() == 1 && op.anchor[0] == "end")
+        {
+            if (op.after) op.problem = "nothing can stand behind end - use 0";
+            else op.insertAt = tail;
+        }
+        else
+        {
+            int count = CountBlock(lines, op.anchor, &where);
+            if (count == 1)
+            {
+                op.at = where;
+                op.end = (std::max)(BlockEndOf(lines, where), where + (int)op.anchor.size() - 1);
+                if (op.kind == OP_INSERT) op.insertAt = op.after ? op.end + 1 : op.at;
+                else if (op.kind == OP_REPLACE)
+                {
+                    bool same = (int)op.fresh.size() == op.end - op.at + 1;
+                    for (size_t k = 0; k < op.fresh.size() && same; k++) same = TrimCopy(lines[op.at + k]) == op.fresh[k];
+                    if (same) op.problem = "old and new are the same";
+                }
+            }
+            else if (count > 1)
+            {
+                _snprintf_s(buf, sizeof(buf), _TRUNCATE, "the line stands %d times in the donor - add its data lines as further fields to tell them apart", count);
+                op.problem = buf;
+            }
+            else
+            {
+                // Not in the donor: an earlier add, replace or insert of this section may produce it.
+                if (op.kind == OP_INSERT)
+                    for (size_t i = 0; i < oi && op.anchorOp < 0; i++)
+                    {
+                        const CloneOp& other = (*ops)[i];
+                        if (other.problem.empty() && !other.fresh.empty() && other.fresh[0] == op.anchor[0]) op.anchorOp = (int)i;
+                    }
+                if (op.anchorOp < 0) op.problem = "the line is not in the donor";
+            }
+        }
+        if (!op.problem.empty()) good = false;
+    }
+    return good;
+}
+
+// Writes the outcome of the commands over `lines`. Only called when PlanOps
+// said that every command fits.
+static void ApplyOps(const std::vector<CloneOp>& ops, std::vector<std::string>* lines)
+{
+    struct Made { std::string text; int op; };
+    std::vector<Made> made;
+    const std::vector<std::string> src = *lines;
+    int n = (int)src.size();
+    for (int i = 0; i < n; )
+    {
+        // Blocks that follow an anchor come first, so they stay next to it when
+        // several commands share one slot.
+        for (int pass = 0; pass < 2; pass++)
+            for (size_t oi = 0; oi < ops.size(); oi++)
+            {
+                const CloneOp& op = ops[oi];
+                if (op.insertAt != i || op.anchorOp >= 0) continue;
+                if ((op.kind == OP_INSERT && op.after) != (pass == 0)) continue;
+                for (size_t k = 0; k < op.fresh.size(); k++) { Made m = { op.fresh[k], (int)oi }; made.push_back(m); }
+            }
+        int action = -1;
+        for (size_t oi = 0; oi < ops.size() && action < 0; oi++)
+            if (ops[oi].at == i && (ops[oi].kind == OP_REPLACE || ops[oi].kind == OP_REMOVE)) action = (int)oi;
+        if (action < 0) { Made m = { src[i], -1 }; made.push_back(m); i++; continue; }
+        if (ops[action].kind == OP_REPLACE)
+            for (size_t k = 0; k < ops[action].fresh.size(); k++) { Made m = { ops[action].fresh[k], action }; made.push_back(m); }
+        i = ops[action].end + 1;
+    }
+    for (size_t oi = 0; oi < ops.size(); oi++)
+        if (ops[oi].insertAt >= n && ops[oi].anchorOp < 0)
+            for (size_t k = 0; k < ops[oi].fresh.size(); k++) { Made m = { ops[oi].fresh[k], (int)oi }; made.push_back(m); }
+    // Inserts that hang on a block an earlier command produced, in command order so a chain works.
+    for (size_t oi = 0; oi < ops.size(); oi++)
+    {
+        const CloneOp& op = ops[oi];
+        if (op.kind != OP_INSERT || op.anchorOp < 0) continue;
+        size_t first = 0;
+        while (first < made.size() && made[first].op != op.anchorOp) first++;
+        if (first >= made.size()) continue;
+        size_t last = first;
+        while (last + 1 < made.size() && made[last + 1].op == op.anchorOp) last++;
+        size_t pos = op.after ? last + 1 : first;
+        for (size_t k = 0; k < op.fresh.size(); k++) { Made m = { op.fresh[k], (int)oi }; made.insert(made.begin() + pos + k, m); }
+    }
+    lines->clear();
+    for (size_t i = 0; i < made.size(); i++) lines->push_back(made[i].text);
+}
+
+// Reports every command that does not fit. One line per command, so the log
+// names all of them at once and not one per game start.
+static void ReportOps(const Decl& d, const std::vector<CloneOp>& ops)
+{
+    for (size_t i = 0; i < ops.size(); i++)
+        if (!ops[i].problem.empty())
+            Error("[%s] %s = %.200s  -  %s", d.section.c_str(), kOpName[ops[i].kind], ops[i].text.c_str(), ops[i].problem.c_str());
+    Error("[%s] not written: one command that does not fit the donor stops the whole section", d.section.c_str());
+}
+
+// ", N command(s) applied" for the line that reports a written building, "" without commands.
+static std::string CommandNote(const Decl& d)
+{
+    size_t n = d.adds.size() + d.replaces.size() + d.removes.size() + d.inserts.size();
+    char buf[48]; buf[0] = 0;
+    if (n) _snprintf_s(buf, sizeof(buf), _TRUNCATE, ", %u command(s) applied", (unsigned)n);
+    return buf;
+}
+
 static bool WriteBuildingIni(const Decl& d, const std::wstring& donorIni, const std::wstring& dst, int* dropped)
 {
     *dropped = 0;
@@ -897,6 +1158,12 @@ static bool WriteBuildingIni(const Decl& d, const std::wstring& donorIni, const 
     for (size_t i = 0; i < d.lines.size(); i++) out += d.lines[i] + "\r\n";
     out += "\r\n";
     std::vector<std::string> lines = SplitLines(text);
+    if (HasOps(d))
+    {
+        std::vector<CloneOp> ops;
+        if (!PlanOps(d, lines, &ops)) { ReportOps(d, ops); return false; }
+        ApplyOps(ops, &lines);
+    }
     bool dropping = false;
     for (size_t i = 0; i < lines.size(); i++)
     {
@@ -1089,6 +1356,9 @@ static unsigned long long DeclHash(const Decl& d)
     h = HashBytes(h, &d.life, sizeof(d.life));
     for (size_t i = 0; i < d.lines.size(); i++) h = HashStr(h, d.lines[i]);
     for (size_t i = 0; i < d.strips.size(); i++) h = HashStr(h, d.strips[i]);
+    const std::vector<std::string>* commands[4] = { &d.adds, &d.replaces, &d.removes, &d.inserts };
+    for (int kind = 0; kind < 4; kind++)
+        for (size_t i = 0; i < commands[kind]->size(); i++) { h = HashBytes(h, &kind, sizeof(kind)); h = HashStr(h, (*commands[kind])[i]); }
     // The donor's own files, so a game patch or an updated Workshop item
     // regenerates too. Name, size and write time of every file that will be
     // copied - reading several MB of meshes at every game start would cost far
@@ -1185,6 +1455,16 @@ static GenResult GenerateCore(const Decl& d)
     std::wstring obj = item + L"\\" + Wide(d.object);
     unsigned long long want = DeclHash(d);
 
+    // Commands are judged before anything on disk is touched: a section that
+    // does not fit its donor must leave the folder of the last good run alone.
+    if (HasOps(d))
+    {
+        std::string donorText;
+        if (!ReadTextFile(donorIni, &donorText)) { Error("[%s] could not read donor %s", d.section.c_str(), Narrow(donorIni).c_str()); return GEN_FAILED; }
+        std::vector<CloneOp> ops;
+        if (!PlanOps(d, SplitLines(donorText), &ops)) { ReportOps(d, ops); return GEN_FAILED; }
+    }
+
     // An id collision with a real Workshop item would otherwise overwrite
     // somebody's subscription. A folder we did not write has no stamp.
     if (DirExists(item))
@@ -1277,9 +1557,9 @@ static GenResult GenerateCore(const Decl& d)
         char extra[64];
         extra[0] = 0;
         if (rescued) _snprintf_s(extra, sizeof(extra), _TRUNCATE, ", %d fetched by reference", rescued);
-        Note("[%s] -> %s\\%s from \"%s\": %d file(s) copied%s, %d line(s) in, %d donor line(s) out%s",
+        Note("[%s] -> %s\\%s from \"%s\": %d file(s) copied%s, %d line(s) in, %d donor line(s) out%s%s",
              d.section.c_str(), d.id.c_str(), d.object.c_str(), d.donor.c_str(), copied, extra,
-             (int)d.lines.size() + (d.name.empty() ? 0 : 1), dropped,
+             (int)d.lines.size() + (d.name.empty() ? 0 : 1), dropped, CommandNote(d).c_str(),
              missing ? " - SOME REFERENCED FILES ARE MISSING, see the warnings" : "");
         return GEN_GENERATED;
     }
@@ -1312,10 +1592,10 @@ static GenResult GenerateCore(const Decl& d)
 
     if (!WriteStamp(d, item, want)) return GEN_FAILED;
 
-    Note("[%s] -> %s\\%s from \"%s\": %d line(s) in, %d donor line(s) out, %d texture path(s) rewritten%s",
+    Note("[%s] -> %s\\%s from \"%s\": %d line(s) in, %d donor line(s) out, %d texture path(s) rewritten%s%s",
          d.section.c_str(), d.id.c_str(), d.object.c_str(), d.donor.c_str(),
          (int)d.lines.size() + (d.name.empty() ? 0 : 1), dropped, rewrote + rewroteE,
-         emissive ? ", emissive material" : "");
+         emissive ? ", emissive material" : "", CommandNote(d).c_str());
     return GEN_GENERATED;
 }
 
@@ -1541,6 +1821,20 @@ static bool ValidateDecl(const Decl& d, std::string* why)
     }
     for (size_t i = 0; i < d.strips.size(); i++)
         if (!ValidToken(d.strips[i])) { _snprintf_s(buf, sizeof(buf), _TRUNCATE, "strip must be a single $TOKEN: %.60s", d.strips[i].c_str()); *why = buf; return false; }
+    // Commands: only what can be said without the donor. Whether a command fits
+    // is judged against the donor's file when the building is written.
+    const std::vector<std::string>* commands[4] = { &d.adds, &d.replaces, &d.removes, &d.inserts };
+    static const char* const names[4] = { "add", "replace", "remove", "insert" };
+    for (int kind = 0; kind < 4; kind++)
+    {
+        if (commands[kind]->size() > MAX_COMMANDS) { _snprintf_s(buf, sizeof(buf), _TRUNCATE, "too many %s keys", names[kind]); *why = buf; return false; }
+        for (size_t i = 0; i < commands[kind]->size(); i++)
+        {
+            const std::string& value = (*commands[kind])[i];
+            if (value.size() > MAX_LINE_LEN) { _snprintf_s(buf, sizeof(buf), _TRUNCATE, "%s %u is too long", names[kind], (unsigned)(i + 1)); *why = buf; return false; }
+            if (HasControlChars(value)) { _snprintf_s(buf, sizeof(buf), _TRUNCATE, "%s %u contains control characters", names[kind], (unsigned)(i + 1)); *why = buf; return false; }
+        }
+    }
     return true;
 }
 
@@ -1623,6 +1917,19 @@ static void LoadRegistry(const std::string& text)
             if (val.empty()) continue;
             if (d->strips.size() >= MAX_STRIPS) { if (d->strips.size() == MAX_STRIPS) Warn("line %u: [%s] has more than %d strip keys - the rest is ignored", (unsigned)no, d->section.c_str(), MAX_STRIPS); d->strips.push_back(""); continue; }
             d->strips.push_back(val);
+        }
+        else if (_stricmp(key.c_str(), "add") == 0 || _stricmp(key.c_str(), "replace") == 0 ||
+                 _stricmp(key.c_str(), "remove") == 0 || _stricmp(key.c_str(), "insert") == 0)
+        {
+            if (val.empty()) continue;
+            std::vector<std::string>& list = _stricmp(key.c_str(), "add") == 0 ? d->adds : _stricmp(key.c_str(), "replace") == 0 ? d->replaces
+                                           : _stricmp(key.c_str(), "remove") == 0 ? d->removes : d->inserts;
+            if (list.size() >= MAX_COMMANDS)
+            {
+                if (list.size() == MAX_COMMANDS) { Warn("line %u: [%s] has more than %d %s keys - section skipped", (unsigned)no, d->section.c_str(), MAX_COMMANDS, key.c_str()); list.push_back(""); }
+                continue;
+            }
+            list.push_back(val);
         }
         else Warn("line %u: [%s] unknown key \"%s\" - ignored", (unsigned)no, d->section.c_str(), key.c_str());
     }
@@ -2074,6 +2381,85 @@ static int RunConfig(const std::wstring& ini, const std::wstring& game, const st
     return g_errors ? 1 : 0;
 }
 
+// The commands, judged and applied without any file. The same donor and the
+// same cases stand in Republic Mod Manager's CoreTests (ClonePlan) - the two
+// implementations of the rule must give the same answers.
+static const char* const kCommandDonor =
+    "$NAME 2020\n$TYPE_SHOP\n$WORKERS_NEEDED 20\n$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40\n"
+    "$RESOURCE_VISUALIZATION 2\nposition 1 0 1\nrotation 0.0\n\n$RESOURCE_VISUALIZATION 2\nposition 2 0 2\nrotation 0.0\n\n"
+    "$CONNECTION_ROAD\n19 0 38\n19 0 26\n$PARTICLE smoke 1 2 3 1 1\nend\n";
+struct CommandRun { bool fits; std::string problem; std::string text; int lines; };
+static CommandRun RunCommands(const char* add, const char* replace, const char* remove, const char* insert, const char* insert2 = NULL, const char* add2 = NULL)
+{
+    Decl d;
+    if (add) d.adds.push_back(add);
+    if (add2) d.adds.push_back(add2);
+    if (replace) d.replaces.push_back(replace);
+    if (remove) d.removes.push_back(remove);
+    if (insert) d.inserts.push_back(insert);
+    if (insert2) d.inserts.push_back(insert2);
+    std::vector<std::string> lines = SplitLines(kCommandDonor);
+    std::vector<CloneOp> ops;
+    CommandRun run;
+    run.fits = PlanOps(d, lines, &ops);
+    for (size_t i = 0; i < ops.size(); i++) if (!ops[i].problem.empty() && run.problem.empty()) run.problem = ops[i].problem;
+    if (run.fits) ApplyOps(ops, &lines);
+    run.lines = (int)lines.size();
+    for (size_t i = 0; i < lines.size(); i++) run.text += lines[i] + "\n";
+    return run;
+}
+static void TestCommands()
+{
+    const int n = (int)SplitLines(kCommandDonor).size();
+    CommandRun r = RunCommands(NULL, NULL, NULL, "1 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand");
+    Check(r.fits && r.lines == n + 1 && Has(r.text, "$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\n$RESOURCE_VISUALIZATION 2\n")
+          && Has(r.text, "$STORAGE RESOURCE_TRANSPORT_COVERED 40\n"),
+          "commands: insert 1 puts one new storage behind its anchor and leaves every other line alone");
+    r = RunCommands(NULL, NULL, NULL, "0 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand");
+    Check(r.fits && Has(r.text, "$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand\n$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40\n"),
+          "commands: insert 0 puts it in front of the anchor");
+    r = RunCommands(NULL, "$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30", NULL, NULL);
+    Check(r.fits && r.lines == n && Has(r.text, "$TYPE_SHOP\n$WORKERS_NEEDED 30\n$STORAGE ") && !Has(r.text, "$WORKERS_NEEDED 20"),
+          "commands: replace swaps one line in place");
+    r = RunCommands(NULL, NULL, "$RESOURCE_VISUALIZATION 2", NULL);
+    Check(!r.fits && Has(r.problem, "stands 2 times") && r.lines == n, "commands: a line that stands twice is no anchor, and nothing is written");
+    r = RunCommands(NULL, NULL, "$RESOURCE_VISUALIZATION 2 | position 2 0 2", NULL);
+    Check(r.fits && r.lines == n - 3 && Has(r.text, "position 1 0 1\nrotation 0.0\n\n\n$CONNECTION_ROAD") && !Has(r.text, "position 2 0 2"),
+          "commands: a data line as second field tells two equal token lines apart, and remove takes the whole block");
+    r = RunCommands("$RESOURCE_VISUALIZATION 0 | position 5 0 5 | rotation 0.0", NULL, NULL, NULL);
+    Check(r.fits && r.lines == n + 3 && Has(r.text, "$PARTICLE smoke 1 2 3 1 1\n$RESOURCE_VISUALIZATION 0\nposition 5 0 5\nrotation 0.0\nend\n"),
+          "commands: add writes a block of several lines in front of the closing end");
+    r = RunCommands(NULL, NULL, NULL, "0 | end | $POLLUTION_SMALL");
+    Check(r.fits && Has(r.text, "$PARTICLE smoke 1 2 3 1 1\n$POLLUTION_SMALL\nend\n"), "commands: the anchor end is the closing line");
+    r = RunCommands(NULL, NULL, NULL, "1 | end | $POLLUTION_SMALL");
+    Check(!r.fits && Has(r.problem, "behind end"), "commands: nothing can be inserted behind end");
+    r = RunCommands(NULL, "$CONNECTION_ROAD | $CONNECTION_ROAD_DEAD | 1 0 1", NULL, NULL);
+    Check(r.fits && r.lines == n - 1 && Has(r.text, "\n$CONNECTION_ROAD_DEAD\n1 0 1\n$PARTICLE") && !Has(r.text, "19 0 38"),
+          "commands: replacing a connection replaces its points with it");
+    r = RunCommands("$AAA 1", NULL, NULL, "1 | $AAA 1 | $BBB 2");
+    Check(r.fits && Has(r.text, "$AAA 1\n$BBB 2\nend\n"), "commands: an insert can hang on a line an earlier command adds");
+    r = RunCommands(NULL, NULL, NULL, "1 | $RESOURCE_VISUALIZATION 2 | position 1 0 1 | $XXX 1");
+    Check(r.fits && Has(r.text, "position 1 0 1\nrotation 0.0\n$XXX 1\n\n$RESOURCE_VISUALIZATION 2\nposition 2 0 2"),
+          "commands: behind a block means behind its last data line");
+    r = RunCommands("$TYPE_SHOP", NULL, NULL, NULL);
+    Check(!r.fits && Has(r.problem, "already in the donor"), "commands: add refuses a line the donor already has");
+    r = RunCommands(NULL, "$WORKERS_NEEDED 20 | $WORKERS_NEEDED 20", NULL, NULL);
+    Check(!r.fits && Has(r.problem, "the same"), "commands: replace by the same line is refused");
+    r = RunCommands(NULL, "$WORKERS_NEEDED 20", NULL, NULL);
+    Check(!r.fits && Has(r.problem, "old line | new line"), "commands: replace without a new line is refused");
+    r = RunCommands(NULL, NULL, NULL, "1 | $TYPE_SHOP | position 1");
+    Check(!r.fits && Has(r.problem, "new line is missing"), "commands: a new line has to begin with a token");
+    r = RunCommands(NULL, NULL, "$NOT_THERE 1", NULL);
+    Check(!r.fits && Has(r.problem, "not in the donor"), "commands: an anchor the donor does not have is refused");
+    r = RunCommands(NULL, NULL, "$PARTICLE smoke 1 2 3 1 1", NULL);
+    Check(r.fits && r.lines == n - 1 && Has(r.text, "19 0 26\nend\n"), "commands: a block never swallows the closing end");
+    r = RunCommands("$AAA 1", NULL, "$NOT_THERE 1", NULL);
+    Check(!r.fits && !Has(r.text, "$AAA 1"), "commands: one command that does not fit stops all of them");
+    r = RunCommands("$AAA 1", "$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30", "$TYPE_SHOP", "0 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $CCC 3", "1 | $CCC 3 | $DDD 4", "$BBB 2");
+    Check(r.fits && !Has(r.text, "$TYPE_SHOP") && Has(r.text, "$NAME 2020\n$WORKERS_NEEDED 30\n$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$CCC 3\n$DDD 4\n$STORAGE_FUEL")
+          && Has(r.text, "$AAA 1\n$BBB 2\nend\n"), "commands: all four kinds together, adds in their order");
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     if (argc == 5 && wcscmp(argv[1], L"--run") == 0) return RunConfig(argv[2], argv[3], argv[4]);
@@ -2439,6 +2825,8 @@ int wmain(int argc, wchar_t** argv)
     Run(ini12, "test");
     Check(g_warnings == 1 && DirExists(out + L"\\9400000070\\Lonely"),
           "a reference the donor item does not have is reported even when nothing else could be fetched");
+
+    TestCommands();
 
     printf(g_failed ? "RESULT %d check(s) FAILED\n" : "RESULT all buildings_plus self-tests passed\n", g_failed);
     return g_failed ? 1 : 0;

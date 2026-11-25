@@ -1,8 +1,8 @@
-# 🏭 Buildings Plus 0.1.11
+# 🏭 Buildings Plus 0.2.0
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
-Legt in *Workers & Resources: Soviet Republic* 1.1.1.13 neue Gebäude an, ohne dass du Modelle bauen oder Dateien kopieren musst: Du nennst ein Spendergebäude des Spiels (etwa die Bauxitmine) und die Zeilen der building.ini, die anders sein sollen (etwa `$PRODUCTION raw_salt 1.0`). Bei jedem Spielstart schreibt das Plugin daraus ein vollständiges Workshop-Objekt nach `media_soviet\workshop_wip`, mit Modell, Texturen, Kollisionsdaten, Icon und der angepassten building.ini. Typischer Einsatz: die Salzmine und die Salzraffinerie für neue Ressourcen, ohne die Kohlemine des Spiels anzufassen.
+Legt in *Workers & Resources: Soviet Republic* 1.2.0.9 neue Gebäude an, ohne dass du Modelle bauen oder Dateien kopieren musst: Du nennst ein Spendergebäude des Spiels (etwa die Bauxitmine) und sagst mit Befehlen, was an seiner building.ini anders sein soll (etwa: ersetze `$PRODUCTION rawbauxite 0.50` durch `$PRODUCTION raw_salt 1.0`). Bei jedem Spielstart schreibt das Plugin daraus ein vollständiges Workshop-Objekt nach `media_soviet\workshop_wip`, mit Modell, Texturen, Kollisionsdaten, Icon und der angepassten building.ini. Typischer Einsatz: die Salzmine und die Salzraffinerie für neue Ressourcen, ohne die Kohlemine des Spiels anzufassen.
 
 ---
 
@@ -26,8 +26,8 @@ Legt in *Workers & Resources: Soviet Republic* 1.1.1.13 neue Gebäude an, ohne d
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13 (das Plugin liest keine Spieladresse, ein Spielupdate kann höchstens eine building.ini-Zeile ungültig machen)
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9 (das Plugin liest keine Spieladresse, ein Spielupdate kann höchstens eine building.ini-Zeile ungültig machen)
+- TesmioLoader ab b0.4.5 (API 4)
 - Ressourcen, die ein Gebäude verbraucht oder herstellt, müssen im Spiel existieren, zum Beispiel über Resources Plus oder das Plugin resources.
 
 ### In drei Schritten
@@ -40,9 +40,9 @@ Legt in *Workers & Resources: Soviet Republic* 1.1.1.13 neue Gebäude an, ohne d
 ## ✨ Features
 
 ### 🎯 Grundfunktion
-- ✅ Ein Abschnitt je Gebäude: Spender, geänderte Zeilen, fertig
+- ✅ Ein Abschnitt je Gebäude: Spender und Befehle für das, was anders sein soll (Anhängen, Ersetzen, Entfernen, Einfügen)
 - ✅ Vollständiges Workshop-Objekt beim Spielstart: Modell, Material (Texturpfade umgeschrieben), Leuchtmaterial des Spenders, Kollisionsbox, Feuerpunkte, Icon, workshopconfig.ini, renderconfig.ini, building.ini
-- ✅ Die Geometrie des Spenders bleibt vollständig (Anschlüsse, Bauphasen, Partikel, Fahrzeugplätze); ersetzt wird nur, was du erklärst
+- ✅ Jeder Befehl fasst genau eine Stelle an; alles andere des Spenders bleibt (Anschlüsse, Bauphasen, Partikel, Fahrzeugplätze, die übrigen Lager)
 - ✅ Ordner werden nur neu geschrieben, wenn sich Abschnitt, Plugin oder Spenderdateien geändert haben
 - ✅ Ein Ordner ohne den Stempel des Plugins wird nie angefasst; echte Workshop-Abos sind sicher
 - ✅ `prune` räumt Ordner ausgeschalteter oder gelöschter Abschnitte wieder weg
@@ -61,7 +61,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 ```
 1. Das Workshop-Objekt Republic Mod Manager abonnieren – Buildings Plus
    liegt darin im Ordner plugins\buildings_plus
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Gebäude anlegen (Republic Mod Manager oder INI), Spiel vollständig neu starten
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -86,10 +86,10 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Die Einstellungsseite bringt Republic Mod Manager (ab Version 0.6.3) selbst mit. Er zeigt Buildings Plus in drei Reitern, deutsch und englisch:
+Die Einstellungsseite bringt Republic Mod Manager (ab Version 0.7.0) selbst mit. Er zeigt Buildings Plus in drei Reitern, deutsch und englisch:
 
 - **Allgemein:** Hinweise, die Karte „Erzeugte Ordner“ mit den Schaltern Besitzer-ID nachtragen und Ordner aufräumen (prune), dazu die Karte „Fehlersuche“ mit Immer neu schreiben (always) und Ausführliches Protokoll
-- **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (die building.ini des Spenders neben deinen Zeilen, samt Anzeige, welche Spenderzeilen jede deiner Zeilen wegnimmt)
+- **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (links die building.ini des Spenders, rechts deine Befehle; du klickst eine Zeile an, schreibst die neue darunter und wählst Anhängen, Ersetzen, Davor oder Danach – die Ansicht „Ergebnis“ zeigt die Datei, die daraus entsteht)
 - **Erzeugte Gebäude:** was unter `media_soviet\workshop_wip` schon erzeugt wurde, mit dem Knopf „Besitzer eintragen“, der eine fehlende Besitzer-ID nachträgt
 
 Den Schlüssel `object` bietet Republic Mod Manager nicht an — dort ist der Objektname immer der Abschnittsname. Von Hand geschrieben gilt `object` weiterhin.
@@ -135,34 +135,56 @@ enabled = 1
 ; id = 9300000001
 ; Spender: Name unter media_soviet\buildings_types ohne .ini
 donor = bauxite_mine
-; Objektname (Ordner und $OBJECT_BUILDING), Standard = Abschnittsname
+; Objektname (Ordner und OBJECT_BUILDING), Standard = Abschnittsname
 object = SaltMine
 ; Name im Baumenü und im Workshop-Eintrag, ohne Anführungszeichen
 name = Salt Mine
 ; Beschreibung, je Zeile eine desc-Zeile
 desc = Mines raw salt from a salt deposit.
-; Zeilen der building.ini, in dieser Reihenfolge vor den Spenderzeilen
-line = $PRODUCTION raw_salt 1.0
-line = $STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 20 raw_salt
-; Spenderzeilen, die ersatzlos wegfallen
-strip = $WORKERS_NEEDED
+; Befehle: was an der building.ini des Spenders anders sein soll
+replace = $PRODUCTION rawbauxite 0.50 | $PRODUCTION raw_salt 1.0
+replace = $STORAGE_EXPORT RESOURCE_TRANSPORT_GRAVEL 15.00 | $STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 20 raw_salt
+remove = $RESOURCE_VISUALIZATION 0
 ```
 
-**Mehrzeilige Angaben.** Manche Token der building.ini tragen ihre Werte in den Zeilen darunter — ein Anschluss seine Punkte, eine Warenanzeige ihre Lage. Eine `line` ohne `$TOKEN` gehört zu der Zeile darüber, genau wie in der Datei des Spiels:
+**Die vier Befehle.** Jeder fasst genau eine Stelle der Spenderdatei an. Alles andere bleibt, wie es beim Spender steht.
+
+| Befehl | Schreibweise | Was passiert |
+|---|---|---|
+| Anhängen | `add = neue Zeile` | Die neue Zeile kommt ans Ende der Datei, direkt vor das abschließende `end` |
+| Ersetzen | `replace = alte Zeile \| neue Zeile` | Die alte Zeile verschwindet, die neue steht an ihrer Stelle |
+| Entfernen | `remove = alte Zeile` | Die alte Zeile verschwindet |
+| Einfügen | `insert = 0 \| Anker \| neue Zeile` | Die neue Zeile kommt **vor** den Anker |
+| Einfügen | `insert = 1 \| Anker \| neue Zeile` | Die neue Zeile kommt **hinter** den Anker |
+
+Die alte Zeile und der Anker sind Zeilen des Spenders, genau so geschrieben, wie sie dort stehen (Leerzeichen am Anfang und Ende zählen nicht). Jede muss beim Spender **genau einmal** vorkommen. Der Anker `end` meint das Ende der Datei. Alle vier Befehle darfst du beliebig oft schreiben.
+
+Ein Beispiel: ein zusätzliches Lager für Sand direkt hinter dem Treibstofflager des Spenders.
 
 ```ini
-line = $CONNECTION_WATERPIPE_INPUT
-line = -92.5 -3.2 5.0
-line = -91.5 -3.2 5.0
-line = $RESOURCE_VISUALIZATION 0
-line = position 15.2912 0.0 -51.6213
-line = rotation 0.0
-line = scale 1 1 1
-line = numstepx 3.0 12
-line = numstept 4.0 3
+insert = 1 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand
 ```
 
-Die erste `line` eines Abschnitts muss ein `$TOKEN` tragen — sonst hätte sie nichts, wozu sie gehören könnte, und ein Tippfehler würde stillschweigend zur Datenzeile.
+**Mehrzeilige Angaben.** Manche Token der building.ini tragen ihre Werte in den Zeilen darunter — ein Anschluss seine Punkte, eine Warenanzeige ihre Lage. Solche Zeilen sind ein Block. Du schreibst ihn in einen Befehl, mit `|` zwischen seinen Zeilen:
+
+```ini
+add = $CONNECTION_WATERPIPE_INPUT | -92.5 -3.2 5.0 | -91.5 -3.2 5.0
+replace = $RESOURCE_VISUALIZATION 1 | $RESOURCE_VISUALIZATION 0 | position 15.2912 0.0 -51.6213 | rotation 0.0 | scale 1 1 1 | numstepx 3.0 12 | numstept 4.0 3
+```
+
+Entfernst oder ersetzt du die Token-Zeile, gehen ihre Datenzeilen mit. Steht dieselbe Token-Zeile beim Spender zweimal, hängst du ihre erste Datenzeile als zweites Feld an — dann ist klar, welche gemeint ist:
+
+```ini
+remove = $RESOURCE_VISUALIZATION 2 | position -78.7332 0.0 -15.8727
+```
+
+**Was du noch wissen musst.**
+- Lager zählen ab 0, in der Reihenfolge, in der sie in der fertigen Datei stehen, und eine Warenanzeige (`$RESOURCE_VISUALIZATION`) nennt die Nummer ihres Lagers. Setz ein neues Lager deshalb mit Einfügen dorthin, wo es hingehört. Wasser- und Abwasserlager gehören ans Ende.
+- Ein Einfügen darf sich auch an eine Zeile hängen, die ein früherer Befehl desselben Abschnitts schreibt.
+- Das Plugin nimmt die Befehle in der Reihenfolge Anhängen, Ersetzen, Entfernen, Einfügen, egal wie sie in der Datei stehen.
+- Ein Abschnitt gilt ganz oder gar nicht: Passt ein einziger Befehl nicht zum Spender, wird das Gebäude nicht geschrieben. Das Protokoll nennt jeden Befehl, der nicht passt.
+
+**Die ältere Schreibweise** mit `line` und `strip` gilt weiter; ein Abschnitt darf sie statt der Befehle benutzen. Wie sie arbeitet, steht unter „Ersetzungsregeln“. Republic Mod Manager schreibt neue Gebäude immer mit Befehlen.
 
 Der Spender gibt die Form vor: Eine Mine will eine Mine als Spender (Förderband, Animation), eine Fabrik eine Fabrik, ein Laden einen Laden. `life` (Standard 3000) ist die Lebensdauer in der renderconfig.ini.
 
@@ -196,7 +218,7 @@ Fehlt Localization oder kennt es den Schlüssel nicht, nimmt Buildings Plus den 
 
 ## 🛠️ Ersetzungsregeln
 
-Die building.ini des Spenders wird Zeile für Zeile übernommen. Eine Spenderzeile fällt nur weg, wenn eine deiner Zeilen sie ersetzt oder `strip` sie nennt.
+Dieser Abschnitt gilt nur für die ältere Schreibweise mit `line` und `strip`. Dort stehen deine Zeilen vor denen des Spenders, und die building.ini des Spenders wird Zeile für Zeile übernommen. Eine Spenderzeile fällt nur weg, wenn eine deiner Zeilen sie ersetzt oder `strip` sie nennt. Mehrzeilige Angaben schreibst du dort als mehrere `line`-Zeilen untereinander; eine `line` ohne `$TOKEN` gehört zu der Zeile darüber.
 
 | Deine Zeile beginnt mit | Beim Spender fällt weg |
 |---|---|
@@ -224,6 +246,7 @@ Die building.ini des Spenders wird Zeile für Zeile übernommen. Eine Spenderzei
 | `life` | 1 bis 1000000 |
 | `line` je Abschnitt | höchstens 512, je höchstens 4096 Zeichen; die erste braucht ein `$TOKEN` |
 | `strip` | genau ein `$TOKEN` je Zeile, höchstens 64 Zeilen |
+| `add`, `replace`, `remove`, `insert` je Abschnitt | je höchstens 512, je höchstens 4096 Zeichen; die neue Zeile beginnt mit einem `$TOKEN` |
 | gelesene Textdatei | höchstens 4 MiB |
 
 Ein Abschnitt mit einem Fehler wird übersprungen und im Log genannt; die anderen Abschnitte laufen weiter.
@@ -259,6 +282,8 @@ Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildin
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel, Resources Plus oder Resources). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.2.0:** Gebäude beschreibst du jetzt mit Befehlen – Anhängen, Ersetzen, Entfernen, Einfügen. Jeder fasst genau eine Stelle der Spenderdatei an und lässt alles andere stehen; so setzt du zum Beispiel ein einzelnes Lager hinter ein vorhandenes. Die ältere Schreibweise mit `line` und `strip` gilt weiter. Für WRSR 1.2.0.9.
+- **0.1.12:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
 - **0.1.11:** Aus dem Workshop geladen, liest das Plugin jetzt `tesmioloader\plugins\buildings_plus.ini`, wenn es sie gibt (dorthin schreibt Republic Mod Manager), sonst die INI neben seiner DLL. Die vergebenen Nummern (`buildings_plus.ids.ini`) stehen immer in `tesmioloader\plugins` und nie im Workshop-Ordner, den Steam bei jedem Update überschreibt
 - **0.1.10:** Sicherheitsrunde: ein Ordner mit dem Stempel eines fremden Generators wird nicht mehr übernommen; ein Abschnitt, den die Prüfung ablehnt, behält seinen Ordner auch bei `prune = 1` (ein Tippfehler löscht kein Gebäude); beim Neuaufbau aus einem Workshop-Spender bleibt der Stempel erhalten, ein fehlgeschlagener Schreibvorgang sperrt den Ordner nicht mehr dauerhaft; führende Nullen in `id` werden entfernt; Steuerzeichen in einer `line` werden abgewiesen, Anführungszeichen bleiben erlaubt; höchstens 512 `line`- und 64 `strip`-Zeilen, 4096 Dateien und 16 Ordnerebenen je Workshop-Spender, 256 MB je Datei; eine fehlende Referenz wird immer gemeldet; jeder Schreibfehler nennt den Windows-Fehlercode
 - **0.1.9:** Hat Soviet Mod Loader ein Gebäude gleichen Abschnittsnamens schon nummeriert (`soviet_mod_loader\catalog.ini`, `[building_ids]`), übernimmt das Plugin diese Nummer und schreibt denselben Ordner — beide Ladewege erzeugen dann dasselbe Gebäude, ein Spielstand findet es unter beiden, und im Baumenü steht es nur einmal. Eine ausdrückliche `id` im SML-Bereich ist erlaubt, wenn SMLs Katalog genau diese Nummer für den Abschnitt führt. Ein älterer eigener Ordner bleibt liegen (`prune = 1` räumt ihn weg).
@@ -373,5 +398,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.1.11  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Buildings Plus 0.2.0  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

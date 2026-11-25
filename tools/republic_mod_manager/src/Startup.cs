@@ -143,6 +143,40 @@ namespace TesmioAutoload
             catch(Exception){}
             return result;
         }
+        // 0.7.1: the rule sets of Vanilla Buildings that will not reach every target at the next
+        // start. A command whose anchor does not stand in a target exactly once makes the plugin
+        // drop the whole rule set for that target; it only says so in the log, and the game runs
+        // on as if the rule set were not there. Read from the file the plugin reads, and only
+        // when the plugin loads and the rule set is switched on.
+        public static List<RuleSpread> RuleSpreads(string build,List<LoadStep> steps,string workshopRoot)
+        {
+            var result=new List<RuleSpread>();
+            try
+            {
+                string root=Path.GetFullPath(build);
+                LoadStep vb=StepFor(steps,"vanilla_buildings");
+                if(vb==null)return result;
+                string path=SafeFiles.Child(root,"plugins\\vanilla_buildings.ini");
+                if(!File.Exists(path)&&vb.Dll.Length>4)path=vb.Dll.Substring(0,vb.Dll.Length-4)+".ini";
+                if(!File.Exists(path))return result;
+                LooseIni ini=new LooseIni(SafeFiles.Text(path));
+                string[] reserved={"general","vanilla_buildings"};
+                foreach(string own in reserved)if((ini.Get(own,"enabled")??"1").Trim()=="0")return result;
+                foreach(string section in ini.SectionNames())
+                {
+                    string name=section.Trim();
+                    if(name.Length==0||reserved.Any(r=>r.Equals(name,StringComparison.OrdinalIgnoreCase)))continue;
+                    if((ini.Get(name,"enabled")??"1").Trim()=="0")continue;
+                    RuleSpread spread=TargetPlan.Spread(ini.GetAll(name,"target"),file=>GameBuildings.TargetLines(root,workshopRoot,file),
+                        ini.GetAll(name,"add"),ini.GetAll(name,"replace"),ini.GetAll(name,"remove"),ini.GetAll(name,"insert"),
+                        ini.GetAll(name,"add_connection"),ini.GetAll(name,"replace_connection"),ini.GetAll(name,"remove_connection"));
+                    if(!spread.Trouble)continue;
+                    spread.Plugin=vb.Name;spread.Section=name;result.Add(spread);
+                }
+            }
+            catch(Exception){}
+            return result;
+        }
         // "waste" and the "waste_..." family are no resources of the list: the game's own
         // building types name them (incinerator, separation plants) and it reads them without
         // a record - its log says "ResourceGet - not found waste" at every start.
@@ -155,7 +189,7 @@ namespace TesmioAutoload
         static void CollectBuildingLines(string root,List<LoadStep> steps,Func<string,bool> wanted,List<MissingResource> result)
         {
             LoadStep vb=StepFor(steps,"vanilla_buildings"),bp=StepFor(steps,"buildings_plus");
-            if(bp!=null)ScanLines(root,"buildings_plus",bp,new[]{"buildings_plus","buildings"},new[]{"line"},wanted,result);
+            if(bp!=null)ScanLines(root,"buildings_plus",bp,new[]{"buildings_plus","buildings"},new[]{"line","add","insert","replace"},wanted,result);
             if(vb!=null)ScanLines(root,"vanilla_buildings",vb,new[]{"general"},new[]{"add","insert","replace"},wanted,result);
             ScanGenerated(root,wanted,result);
         }
@@ -215,13 +249,20 @@ namespace TesmioAutoload
                 foreach(string key in keys)
                     foreach(string value in ini.GetAll(name,key))
                     {
-                        string line=value??"";
-                        // insert = position | anchor | line, replace = old | new: the written line is the last field.
-                        if(key=="insert"||key=="replace"){int bar=line.LastIndexOf('|');if(bar>=0)line=line.Substring(bar+1);}
-                        string resource=ResourceOf(line.Trim());
-                        if(resource.Length==0||!wanted(resource))continue;
-                        if(!seen.Add(name+"\n"+resource))continue;
-                        result.Add(new MissingResource{Plugin=pluginName,Section=name,Resource=resource,Line=line.Trim()});
+                        // A command has fields: replace = old | new, insert = position | anchor | new,
+                        // and in a Buildings Plus section a new block is one field per line. Only what
+                        // is WRITTEN has to exist as a resource: the fields behind the old line or the anchor.
+                        string[] parts=(value??"").Split('|');
+                        int from=key=="replace"?1:key=="insert"?2:0;
+                        if(from>=parts.Length)continue;
+                        for(int p=from;p<parts.Length;p++)
+                        {
+                            string line=parts[p].Trim();
+                            string resource=ResourceOf(line);
+                            if(resource.Length==0||!wanted(resource))continue;
+                            if(!seen.Add(name+"\n"+resource))continue;
+                            result.Add(new MissingResource{Plugin=pluginName,Section=name,Resource=resource,Line=line});
+                        }
                     }
             }
         }

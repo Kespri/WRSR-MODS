@@ -1,8 +1,8 @@
-# 📦 Needs Plus 0.1.3
+# 📦 Needs Plus 0.1.5
 
 **Extension of the TesmioLoader plugin needs**
 
-Your own citizen needs for *Workers & Resources: Soviet Republic* 1.1.1.13: your citizens want one more good, the shops stock it, all from one INI.
+Your own citizen needs for *Workers & Resources: Soviet Republic* 1.2.0.9: your citizens want one more good, the shops stock it, all from one INI.
 
 ---
 
@@ -26,8 +26,8 @@ Your own citizen needs for *Workers & Resources: Soviet Republic* 1.1.1.13: your
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 - A resource list that holds the wanted good (Resources Plus or the original resources plugin)
 
 ### In three steps
@@ -77,7 +77,7 @@ If you also have the needs plugin by MaxLegend (subscribed or in `tesmioloader\p
 ```
 1. Subscribe to the Workshop item Republic Mod Manager – Needs Plus
    sits in its folder plugins\needs_plus
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. At the first start the plugin creates your list:
    <game>\tesmioloader\plugins\needs_plus.ini
@@ -176,6 +176,8 @@ Unchanged from the original: the storage slots of the shops are part of the save
 
 ### Version compatibility
 - With Soviet Mod Loader: SML brings needs of its own. While it runs, this plugin pauses and says so in the log; if you want Needs Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.5: for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
+- 0.1.4: for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged.
 - 0.1.3: the first list is now also made from the original's `needs.ini` when the original lies only in the Workshop folder. Before, the plugin looked in the loader folder only and took the shipped list otherwise
 - 0.1.2: for WRSR 1.1.1.13. The plugin now also recognises the original needs when it is loaded from the Workshop folder, and then stays idle. The game function that gives shops their storage slots is checked before its first call; if it does not fit the game version, the shops are not stocked this session and the log says so
 - 0.1.1: safety round, no new feature: its own log `logs\tesmioloader.needs_plus.log` for `probe`, the summary stays in `tesmioloader.log`; factor, chance and unhappiness of a line as well as `max_demands`, `when_full` and `log_seconds` are checked and set to the allowed value with a WARN line; a UTF-8 BOM in needs_plus.ini no longer hides `[list]`; more than 16 needs are reported once instead of being cut off silently; the shop slot fix switches itself off after a fault instead of repeating it
@@ -196,7 +198,7 @@ Unchanged from the original: the storage slots of the shops are part of the save
 | Citizens want the good, shops do not have it | `storage = 0` | Set `storage = 1` or stock the shops yourself |
 
 ### Logging
-- Summary in `tesmioloader.log`: the loader's line with `needs_plus` and the version `0.1.3`, at the first start `created plugins\needs_plus.ini from …`, then one line per need with donor, factor and category; invalid INI values show up there as WARN lines
+- Summary in `tesmioloader.log`: the loader's line with `needs_plus` and the version `0.1.5`, at the first start `created plugins\needs_plus.ini from …`, then one line per need with donor, factor and category; invalid INI values show up there as WARN lines
 - With `probe = 1` the plugin writes the citizens' demand lists and the shops' storage slots into its own log `logs\tesmioloader.needs_plus.log`
 
 ---
@@ -252,5 +254,5 @@ A: Republic Mod Manager switches the original off as soon as Needs Plus is switc
 
 ---
 
-**Last update:** Needs Plus 0.1.3  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Needs Plus 0.1.5  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

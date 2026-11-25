@@ -77,14 +77,14 @@
 // demand is cloned from that resource's demand, and the storage slot is added
 // to exactly those storages that already stock it.
 //
-// The addresses the plugin uses are those of SOVIET64.exe v1.1.1.13, each code
+// The addresses the plugin uses are those of SOVIET64.exe v1.2.0.9, each code
 // address checked against its bytes before use. Other addresses named in
 // comments are notes taken on earlier builds. See docs/11-needs.md.
 
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "needs_plus"
-#define PLUGIN_VERSION "0.1.3"
+#define PLUGIN_VERSION "0.1.5"
 
 // The DLL's own folder (RMM package or a local copy), resolved in DllMain,
 // and the INI actually read: plugins\needs_plus.ini.
@@ -412,21 +412,21 @@ static bool AnotherNeedsPluginRuns()
 
 // ---------------------------------------------------------------- the game
 
-// v1.1.1.13. Each of the four was compared with its 1.1.1.9 body (512-640
-// bytes): the same function, only call targets and RIP-relative operands differ.
-#define P_PERSON_PLAN_RVA   0x836CE0   // was 0x836B40 in v1.1.1.9, 0x836960 before
-#define P_STORAGE_BUILD_RVA 0x0E40F0   // unchanged. (parser, storage, class, cap, res)
-#define P_SHOP_TICK_RVA     0x171E30   // was 0x171E10 in v1.1.1.9, 0x171DA0 before. Building type 3
-#define P_TYPE_LOAD_RVA     0x11D800   // unchanged since v1.1.1.9; was 0x11D810 before
-#define P_BUILDING_TYPES    0x9E6A30   // the vector<TYPE> that function fills
-// Not a vector of pointers - a vector of the objects themselves, stride 0xBE8.
-// The clear() at 0x1FF240 walks it with `lVar2 = lVar2 + 0xbe8`, and a live
-// span of 40 477 440 bytes divides by 0xBE8 exactly 13 280 times.
-#define TYPE_STRIDE         0xBE8
-#define P_SLOT_PUSH_RVA     0x0B14E0   // std::vector<Slot>::push_back, 16-byte value
-#define P_RESOURCE_VECTOR   0x9E11C0   // the resource vector: begin, end, capacity
+// v1.2.0.9. Each of the four was compared with its 1.1.1.9 body (512-640
+// bytes): the same function; call targets, RIP-relative operands and a few field offsets differ.
+#define P_PERSON_PLAN_RVA   0x878270   // v1.2.0.9; was 0x836CE0 in v1.1.1.13, 0x836B40 in v1.1.1.9
+#define P_STORAGE_BUILD_RVA 0x0FBB60   // v1.2.0.9; was 0x0E40F0. (parser, storage, class, cap, res)
+#define P_SHOP_TICK_RVA     0x18A920   // v1.2.0.9; was 0x171E30 in v1.1.1.13. Building type 3
+#define P_TYPE_LOAD_RVA     0x136080   // v1.2.0.9; was 0x11D800
+#define P_BUILDING_TYPES    0xA30AF0   // v1.2.0.9; was 0x9E6A30. The vector<TYPE> that function fills
+// Not a vector of pointers - a vector of the objects themselves, stride 0xE98.
+// The clear() (0x21A040; 0x1FF240 before) walks it with `add rbx,0xE98`. The
+// type's own storage vector moved with the growth, +0x3A0 -> +0x3A8, inside TYPEDESC_SCAN.
+#define TYPE_STRIDE         0xE98      // v1.2.0.8; was 0xBE8
+#define P_SLOT_PUSH_RVA     0x0C8FE0   // v1.2.0.9; was 0x0B14E0. std::vector<Slot>::push_back, 16-byte value
+#define P_RESOURCE_VECTOR   0xA2B270   // v1.2.0.9; was 0x9E11C0. The resource vector: begin, end, capacity
 
-#define RES_STRIDE          832        // 0x340
+#define RES_STRIDE          896        // v1.2.0.8; was 832. Two transport classes were added (CRYO 18, HYPERGOLIC 19)
 #define RES_NAME            0x00       // inline, NUL-terminated
 // Per-transport-class block inside a record: the factor a storage of that class
 // multiplies its capacity by, and a byte that excludes the pair outright. A
@@ -435,6 +435,9 @@ static bool AnotherNeedsPluginRuns()
 #define RES_CLASS_FACTOR    0xCC       // + class * 0x20
 #define RES_CLASS_BLOCKED   0xE8       // + class * 0x20
 #define RES_CLASS_STRIDE    0x20
+// v1.2.0.8 added CRYO (18) and HYPERGOLIC (19) behind WASTE; a record carries
+// twenty class blocks now, and a class number past them reads beyond the record.
+#define RES_CLASS_COUNT     20
 
 #define ST_CAPACITY         0x8C       // what $STORAGE declared
 #define ST_CLASS            0x90       // RESOURCE_TRANSPORT_*
@@ -471,8 +474,8 @@ static bool AnotherNeedsPluginRuns()
 // A vector with a null begin and a non-null end is not a state any live vector
 // can be in, so normalising it to properly empty is safe and is all that is
 // needed: the loop is guarded by `(end - begin) >> 4`, which is then zero.
-#define G_GOODS_BUCKETS     0x12720    // five of them, stride 0x18
-#define G_GOODS_BUCKET_OTHER 0x12780
+#define G_GOODS_BUCKETS     0x127D8    // v1.2.0.9; was 0x12720. Five of them, stride 0x18
+#define G_GOODS_BUCKET_OTHER 0x12838   // v1.2.0.9; was 0x12780
 #define G_GOODS_BUCKET_COUNT 5
 
 #define B_STORAGES          0x970      // building -> vector<Storage>, stride 0xE0
@@ -559,7 +562,7 @@ struct Slot { void* res; float content; float limit; };
 // How many *kinds* of need may be declared. Unrelated to the seven-demand
 // ceiling: that one is how many a single citizen carries at once, this is how
 // many exist in the world. The binding limit in practice is elsewhere - the
-// engine's resource vector holds 63 records against 57 base-game ones, so six
+// engine's resource vector has little room behind its 61 base-game records, so few
 // mod resources fit - and a need may also name a vanilla resource, which costs
 // no slot at all.
 #define MAX_NEEDS 16
@@ -929,7 +932,7 @@ static int InferDemandCategory(BYTE* storage, int cls)
 // starts at zero and the shop orders its own first delivery.
 static void ExtendStorage(BYTE* storage, int cls, bool live)
 {
-    if (cls < 0 || cls > 31) return;
+    if (cls < 0 || cls >= RES_CLASS_COUNT) return;
     float capacity = *(float*)(storage + ST_CAPACITY);
     if (capacity <= 0.0f) return;
 
@@ -1186,7 +1189,7 @@ static ResVector* FindStoragesIn(BYTE* td)
             BYTE* s   = v->begin + i * STORAGE_STRIDE;
             int   cls = *(int*)(s + ST_CLASS);
             float cap = *(float*)(s + ST_CAPACITY);
-            if (cls < 0 || cls > 17 || !(cap > 0.0f) || !SlotVectorValid(s)) ok = false;
+            if (cls < 0 || cls >= RES_CLASS_COUNT || !(cap > 0.0f) || !SlotVectorValid(s)) ok = false;
             else if (resBegin && !SlotsPointAtResources(s, resBegin, resEnd)) ok = false;
         }
         if (ok) return v;
@@ -1958,7 +1961,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
             o_SlotPush = (t_SlotPush)pushSite;
         else if (g_doStorage)
         {
-            Logf("needs_plus  push_back at rva 0x%X does not look like v1.1.1.13 - shops are "
+            Logf("needs_plus  push_back at rva 0x%X does not look like v1.2.0.9 - shops are "
                  "not stocked with the declared goods this session", (unsigned)P_SLOT_PUSH_RVA);
             g_doStorage = 0;
         }

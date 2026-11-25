@@ -1,8 +1,8 @@
-# ❄️ Weather Roads 0.3.5
+# ❄️ Weather Roads 0.3.7
 
 **TesmioLoader-Plugin für Straßenschnee, Schmelze und Schutz nach dem Räumen**
 
-Steuert in *Workers & Resources: Soviet Republic* 1.1.1.13, wie schnell sich Schnee auf Straßen aufbaut, wie schnell er natürlich schmilzt, und gibt geräumten Straßen einen zeitlich begrenzten Schutz: eine Schutzphase in Spielminuten, danach eine schwächere „Salzphase“ in Spielstunden. Mit Technical Service Storage entscheidet das geladene Streugut, wie stark dieser Schutz ist. Schnee und Schmelze funktionieren auch ohne Technischen Service und ohne Schneepflug.
+Steuert in *Workers & Resources: Soviet Republic* 1.2.0.9, wie schnell sich Schnee auf Straßen aufbaut, wie schnell er natürlich schmilzt, und gibt geräumten Straßen einen zeitlich begrenzten Schutz: eine Schutzphase in Spielminuten, danach eine schwächere „Salzphase“ in Spielstunden. Mit Technical Service Storage entscheidet das geladene Streugut, wie stark dieser Schutz ist. Schnee und Schmelze funktionieren auch ohne Technischen Service und ohne Schneepflug.
 
 ---
 
@@ -28,8 +28,8 @@ Steuert in *Workers & Resources: Soviet Republic* 1.1.1.13, wie schnell sich Sch
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13 (die Kennungen von `SOVIET64.exe` und `C3DDLL64.dll` sowie die Hook-Signaturen werden geprüft; andere Stände werden abgewiesen)
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9 (die Kennungen von `SOVIET64.exe` und `C3DDLL64.dll` sowie die Hook-Signaturen werden geprüft; andere Stände werden abgewiesen)
+- TesmioLoader ab b0.4.5 (API 4)
 - **Optional:** Technical Service Storage mit seinem Streugut-Dienst für materialabhängigen Schutz und die Erkennung von Trockenpflügen; ohne ihn zählt jedes Räumen mit Stärke 1.00
 - **Kein** Localization-Plugin nötig; das Overlay hat eingebaute deutsche und englische Texte
 
@@ -80,7 +80,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -240,6 +240,8 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 - Die Wetteraufruf-Verkettung berücksichtigt den Hook von `daynight`; weitere Kombinationen sind nicht geprüft.
 
 ### Versionskompatibilität
+- **0.3.7:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
+- **0.3.6:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.3.5:** Im Spiel ändert sich nichts; nur Texte im Protokoll aufgeräumt
 - **0.3.4:** Für WRSR 1.1.1.13; sonst unverändert
 - **0.3.3:** Standard `accumulation_multiplier` 0.35 und `maximum_accumulation_per_burst` 95; sonst unverändert
@@ -342,5 +344,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Weather Roads 0.3.5  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Weather Roads 0.3.7  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

@@ -4,7 +4,7 @@
 // Every module owns its addresses, validation, configuration and activation.
 // There is intentionally no global row-spacing option.
 
-// CUSTOMHOUSE module (SOVIET64.exe 1.1.1.13):
+// CUSTOMHOUSE module (SOVIET64.exe 1.2.0.9):
 // The native resource-column renderer uses a 25-logical-pixel row pitch. The
 // customs-house panel invokes that renderer once to measure its list and once
 // to draw it. This module redirects the renderer's pitch operand to a neutral
@@ -29,7 +29,7 @@
 
 namespace UiLayoutFixes
 {
-static const char* const PLUGIN_VERSION = "0.3.1";
+static const char* const PLUGIN_VERSION = "0.3.3";
 // Configuration comes through tesmio_config.h: <loader>\plugins\ui_layout_fixes.ini
 static const char* const LOG_NAME = "tesmioloader.ui_layout_fixes.log";
 
@@ -372,16 +372,16 @@ static LONG FloatBits(float value)
 
 namespace Customhouse
 {
-static const DWORD EXPECTED_IMAGE_SIZE = 0x00A9D000;
-static const DWORD EXPECTED_EXE_TIMESTAMP = 0x6A8D4087;
+static const DWORD EXPECTED_IMAGE_SIZE = 0x00AE9000;
+static const DWORD EXPECTED_EXE_TIMESTAMP = 0x6B05A574;
 
-static const DWORD RVA_PANEL = 0x0071B5B0;
-static const DWORD RVA_LIST_MEASURE_CALL = 0x0071C615;
-static const DWORD RVA_LIST_DRAW_CALL = 0x0071C655;
-static const DWORD RVA_RESOURCE_COLUMNS = 0x007C68C0;
-static const DWORD RVA_ROW_PITCH_INSTRUCTION = 0x007C692C;
-static const DWORD RVA_ROW_PITCH_DISPLACEMENT = 0x007C6931;
-static const DWORD RVA_ROW_PITCH_INSTRUCTION_END = 0x007C6935;
+static const DWORD RVA_PANEL = 0x00751860;
+static const DWORD RVA_LIST_MEASURE_CALL = 0x007528C5;
+static const DWORD RVA_LIST_DRAW_CALL = 0x00752905;
+static const DWORD RVA_RESOURCE_COLUMNS = 0x00804D60;
+static const DWORD RVA_ROW_PITCH_INSTRUCTION = 0x00804DCC;
+static const DWORD RVA_ROW_PITCH_DISPLACEMENT = 0x00804DD1;
+static const DWORD RVA_ROW_PITCH_INSTRUCTION_END = 0x00804DD5;
 
 static const float NATIVE_ROW_PITCH = 25.0f;
 static const float DEFAULT_ROW_PITCH = 30.0f;
@@ -391,7 +391,7 @@ static const BYTE EXPECT_PANEL[] = {
     0x41,0x55,0x41,0x56,0x41,0x57
 };
 static const BYTE EXPECT_ROW_PITCH_INSTRUCTION[] = {
-    0xF3,0x44,0x0F,0x59,0x35,0x43,0x40,0x14,0x00
+    0xF3,0x44,0x0F,0x59,0x35,0x7F,0xD1,0x14,0x00
 };
 
 // The first four parameters use the Windows x64 register positions. The
@@ -431,7 +431,7 @@ static bool VerifyTargetBuild()
         timestamp != EXPECTED_EXE_TIMESTAMP)
     {
         LogError("CUSTOMHOUSE", "unsupported-build",
-            "expected SOVIET64.exe 1.1.1.13 "
+            "expected SOVIET64.exe 1.2.0.9 "
             "(image=0x%X timestamp=0x%08X), found image=0x%llX timestamp=0x%08X; "
             "the module remains inactive",
             EXPECTED_IMAGE_SIZE, EXPECTED_EXE_TIMESTAMP,

@@ -1,7 +1,7 @@
 # tesmioloader.dll – build notes
 
-The loader itself: MaxLegend's TesmioLoader b0.3.7 (GPL v3, https://github.com/MaxLegend/TesmioLoader)
-with the corrections below. Target: WRSR 1.1.1.13 (SOVIET64.exe PE stamp 0x6A8D4087), plugin
+The loader itself: MaxLegend's TesmioLoader b0.4.5 (GPL v3, https://github.com/MaxLegend/TesmioLoader)
+with the corrections below. Target: WRSR 1.2.0.9 (SOVIET64.exe PE stamp 0x6B05A574), plugin
 API 4, accepts plugins built for API 3..4. Build: the loader line of the root `build.bat`
 (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib; user32 is pulled in by a pragma for the
 one message box). Offline self-test: compile the same file with `/DTESMIO_SELFTEST` as an EXE
@@ -12,9 +12,40 @@ user_config overlay, the service noticeboard, the save manifest and the repeat c
 Compatibility promise: the host table, the API version, the export names, the two-phase
 Init/Start rule, the `[plugins]` switches, the launcher's ini keys and every log line other
 tools read (`plugin <name> <version> from <dll>`, `<name>  idle - `, `plugin N loaded`,
-`--- shutdown`, the service lines) are those of upstream b0.3.7. A plugin built for upstream
+`--- shutdown`, the service lines) are those of upstream b0.4.5. A plugin built for upstream
 runs here; a plugin built here runs on upstream. The launcher is upstream's, unchanged.
 Republic Mod Manager ships this DLL and installs it over the upstream one.
+
+## b0.4.5-rmm.2 (2026-11-25)
+
+- Game addresses for WRSR 1.2.0.9 (PE stamp 0x6B05A574), the hotfix that followed 1.2.0.8 on the
+  same day: the menu version line 0x2A70FC -> 0x2A724C (still `48 8D 05`, still the same format
+  string). The engine DLL has a new stamp (0x6B05A4A4) but byte-identical code, so the texture
+  vtable stays at 0x188C58; the slots are compared with the engine's exports before the write, as
+  in rmm.1.
+- The head line of the log names 1.2.0.9 as the build the addresses were taken from.
+- Nothing else changed. Upstream's launcher 0.4.5 knows only the stamp of 1.2.0.8 and refuses to
+  start this build unless `version_check = 0` is set in tesmioloader.ini or `--ignore-version` is
+  passed; that check is the launcher's, not the loader's.
+- Verified: the address read back from the file on disk; self-test, all passed; build free of
+  warnings.
+
+## b0.4.5-rmm.1 (2026-11-25)
+
+- Rebased on MaxLegend's b0.4.5 (commit aafbe87, "v0.4.5 support WRSR 1.2.0.8") by a three-way
+  merge (`git merge-file --diff3`, base 775b9d9). Six conflicts, resolved by hand: the wide-path
+  `VfsResolveW` and `RotateLog` stay ours; `ResolveVfsRoot` follows the upstream rule in its wide
+  form - `vfs` beside the DLL first, one level up as the fallback.
+- From upstream: `tesmio_discovery.h` (reads the `TsmPluginTargetVersion` data export),
+  `tesmio_release.h`, and the export itself in `tesmio_plugin.h`. A plugin built with
+  `/DTSM_RELEASE_VERSION=0.4.5` names its target release; launcher 0.4.5 marks every other plugin.
+- Game addresses for WRSR 1.2.0.8 (PE stamp 0x6B0097B2): the menu version line 0x28B54C ->
+  0x2A70FC (still `48 8D 05`), the texture vtable in C3DDLL64.dll 0x187BF0 -> 0x188C58.
+- New: `HookTextureVtable` compares the two slots it replaces with the engine's own exports
+  (`GetProcAddress`) before it writes. The table used to be written at a fixed address without any
+  check, and after this update that address held unrelated data.
+- Verified: both addresses read back from the files on disk; self-test 49 checks, all passed;
+  build free of warnings. Not run in the game yet.
 
 ## b0.3.7-rmm.2 (2026-11-18)
 

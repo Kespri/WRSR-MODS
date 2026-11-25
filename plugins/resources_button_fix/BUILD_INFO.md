@@ -1,7 +1,29 @@
 # Resources Button Fix – build notes
 
-Target: WRSR 1.1.1.13 (PE stamp 0x6A8D4087), TesmioLoader API 4. Build: MSVC x64, `/std:c++17 /O2 /MT /W3 /EHsc /LD`,
+Target: WRSR 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4. Build: MSVC x64, `/std:c++17 /O2 /MT /W3 /EHsc /LD`,
 kernel32.lib only. Workshop package: `My Plugins\resources_button_fix` (local_copy). History newest first.
+
+## 0.4.5 (2026-11-25)
+
+- Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, image 0x00AE9000). Button drawer 0x3A12F0 ->
+  0x3A15A0, Resources panel 0x24E390..0x24EA97 -> 0x24E240..0x24E947, Rocks panel
+  0x24A050..0x24B782 -> 0x249F00..0x24B632. Repointed instructions: cancel X 0x24E6F3, cancel Y
+  0x24E710, the brush-gap reload 0x24E892, Rocks brush Y 0x24A1DD.
+- The float pool moved by +0xB8: 50 at 0x952014, 85 at 0x952104, 250 at 0x9523A8, 80 at 0x9520EC,
+  0.85 at 0x951474; the remaining constants follow the same distance. DPI stays at 0x9DC08C.
+
+## 0.4.4 (2026-11-25)
+
+- Ported to WRSR 1.2.0.8 (PE stamp 0x6B0097B2, image 0x00AE9000). Button drawer 0x3826A0 ->
+  0x3A12F0; its prologue saves RBX at `[rax+0x18]` now, the nine arguments are the same (call
+  site compared in both builds). Resources panel 0x233100..0x233807 -> 0x24E390..0x24EA97, Rocks
+  panel 0x22EE20..0x2304F7 -> 0x24A050..0x24B782 (its epilogue changed, the end is the byte behind
+  its RET). Repointed instructions: cancel X 0x24E843, cancel Y 0x24E860, the brush-gap reload
+  0x24E9E2, Rocks brush Y 0x24A32D.
+- Layout constants by value: 50 at 0x951F5C, 85 at 0x95204C, 250 at 0x9522F0, 80 at 0x952034,
+  0.85 at 0x9513BC, 90 at 0x952064, 105 at 0x9520BC, 42 at 0x951F30, 170 at 0x9521BC, 60 at
+  0x951FAC, 75 at 0x952014; DPI at 0x9DC08C.
+- `bytearrays.pl` matches the prologue and the four instruction heads. Not run in the game yet.
 
 ## 0.4.3 (2026-11-18)
 

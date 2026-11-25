@@ -1,6 +1,6 @@
 # Weather Roads – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.13 (PE stamp 0x6A8D4087, engine 0x6A8B496D), GPL v3. Build: the standard line of the root
+TesmioLoader plugin (API 4) for WRSR 1.2.0.9 (PE stamp 0x6B05A574, engine 0x6B05A4A4), GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `weather_roads.cpp`;
 it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer side of the
 `tss.grit_spreader` service of Technical Service Storage) and the two persistence headers
@@ -8,6 +8,71 @@ it includes `src/tesmio_plugin.h`, `my_plugins/grit_spreader_api.h` (consumer si
 `tesmioloader.weather_roads.protection.bin` beside the savegame). Hooks are installed only on the
 verified SOVIET64.exe / C3DDLL64.dll build. User documentation: README_DE.md / README_EN.md.
 History newest first.
+
+## 0.3.7 (2026-11-25)
+
+Ported to WRSR 1.2.0.9 (SOVIET64.exe stamp 0x6B05A574, image 0xAE9000; C3DDLL64.dll stamp
+0x6B05A4A4, image 0x1F3000). No behaviour change intended.
+
+- Engine: the code of C3DDLL64.dll is byte-identical to the previous build, so the texture
+  functions, the vtable (0x188C58) and the EditMask return address keep their values; only the
+  expected stamp changed.
+- Executable: weather call site 0x32BFAB -> 0x32C1EB (tick 0x352540 -> 0x3527F0), road snow clear
+  body 0x6EFEF9 -> 0x6F0269, road snow adjust 0x44EF90 -> 0x44F240, mask update 0x4324F0 ->
+  0x4327A0, the four snow writes 0x6EFF80.. -> 0x6F02F0.., save-close bridge 0x452EE2 -> 0x453192.
+- The game object grew by 8 bytes: the road manager is at +0xF840 (was +0xF838), which is inside the
+  compared prologue of the snow adjust function, and the flag tested at the save close is at
+  +0x14DEE (was +0x14DE6). Both expected-byte arrays follow.
+
+## 0.3.6 (2026-11-25)
+
+Ported to WRSR 1.2.0.8 (SOVIET64.exe stamp 0x6B0097B2, image 0xAE9000; C3DDLL64.dll stamp
+0x6B004BD7, image 0x1F3000); 1.1.1.13 is refused by the PE stamps. No behaviour change intended.
+Not run in the game yet.
+
+- Code moved by no single distance. Weather call site 0x30D958 -> 0x32BFAB (resume 0x32BFBA),
+  weather tick 0x333B50 -> 0x352540. Road-snow clearing entry 0x6BC3B0 -> 0x6EFEF0: body
+  0x6EFEF9, the four zero stores 0x6EFF80 / 0x6F0050 / 0x6F0120 / 0x6F01C0. Road-snow adjust
+  0x42AEF0 -> 0x44EF90, its two +30 weather return addresses 0x5F8026 / 0x5F8116 (the game still
+  has four callers: -255 at 0x355C55, -30 at 0x5F7DF8 and the two +30 ones). Global mask update
+  0x40E720 -> 0x4324F0, EditMask flush return 0x40ED81 -> 0x432BFF (call at 0x432BF9, import
+  `C3D_TERRAIN::EditMask`). Road geometry 0x56ADC0 -> 0x591030, save-close call 0x42EDC2 ->
+  0x452EE2 (import `fclose`). Global game-world pointer 0x9941F0 -> 0x9DDC88.
+- The world object grew, so its fields moved, each by its own distance: day 0x590 -> 0x5B8, year
+  0x594 -> 0x5BC, time of day 0x59C -> 0x5C4, weather switch 0x5C4 -> 0x5EC, mask request bytes
+  0x5E4 / 0x5E5 -> 0x60C / 0x60D, winter roll 0xE28 -> 0xE50 (its period timer 0xE54), weather
+  index 0xE70 -> 0xEA0, night factor 0xE74 -> 0xEA4, road manager 0xF7A0 -> 0xF838; on the
+  game-world object the terrain 0xED8 -> 0xF78. Road fields (+8/+0x10 points, +0x20/+0x28 end
+  nodes, +0xE8/+0xF0 snow bytes, +0x120 type) and manager +0x2B0/+0x2B8 did not move.
+- Expected bytes re-read where they carry a moved value: the weather call displacement
+  (`E8 8B 65 02 00`), road-snow adjust (`mov r8,[rcx+0xF838]`), global mask update
+  (`sub rsp,0xB0`, the frame grew), the save-close signature (`FF 15 78 01 46 00`,
+  `cmp byte [rdi+0x14DE6],0`).
+- The save function was rebuilt by the compiler: the save folder is `self+0xA20` (it was +0x9F8)
+  and lives in R12, no longer in R15. It is loaded at 0x450CEF and again at 0x45196A, and no
+  instruction writes R12 between there and the string call at 0x452F02 that still takes it after
+  the close; the one jump that skips the second load (0x450EFD -> 0x451971) arrives with the first
+  one intact. The folder signature is now `lea r12,[rdi+0xA20]` at 0x45196A and the bridge passes
+  `mov rdx,r12`. The same register carries the folder into `"%s/windows.bin"` right before the
+  final `fopen`, exactly where the old build used R15.
+- C3DDLL64.dll: the texture functions are where they were (texel writer 0x19100 with the same
+  15-byte prologue, access open 0x18D40, open2 0x18E80, close 0x18FC0). The texture vtable moved
+  0x187BF0 -> 0x188C58 (slots 16, 17, 18 and 23 hold those four functions). `EditMask` is the
+  export at 0xFC480 and ends before 0xFC870; its only `call [r10+0xB8]` is at 0xFC7B3, so the
+  texel writer returns to 0xFC7BA (it was 0xFBC8A). Terrain fields (+0x158 mask texture, +0x87C /
+  +0x880 size, +0x890 / +0x898 origin) were read back from `GetMaskPixelOverPoint`, texture fields
+  (+0x14, +0x18, +0x130, +0x158, +0x160, +0x168, +0x170) from the access functions: unchanged.
+- Method: `my_plugins\tests\portmap.pl` over the whole `.text` with the 1.1.1.9 bytes of every
+  site (list `tests\portlists\wr.map`) plus a second list with the weather tick, the light factor,
+  the winter roll and the caller of the mask update, so that every field offset is evidenced by
+  the instruction that uses it; `my_plugins\tests\bytearrays.pl` then compared every
+  expected-byte array with the files on disk at its site (fourteen comparisons, all match). The winter roll and the save function
+  matched only weakly and were read by hand in the disassembly.
+- Known difference in the game, not in the plugin: the winter roll now skips climates 1, 2 and 4
+  (it skipped 1 and 2); the plugin only reads the rolled value.
+- Open for the game test: weather sampling (the snapshot refuses a weather index above 3 or a
+  roll above 7), gradual snow and the inline mask correction, the plow trail with and without
+  the grit service, the sidecar save and load.
 
 ## 0.3.5 (2026-11-18)
 

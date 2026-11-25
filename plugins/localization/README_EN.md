@@ -1,8 +1,8 @@
-# 🌐 Localization 0.4.0
+# 🌐 Localization 0.4.2
 
 **TesmioLoader plugin for custom texts and translations**
 
-Adds custom names, descriptions and labels to *Workers & Resources: Soviet Republic* 1.1.1.13 without touching the original language files. Text packs are plain INI files; at game start the plugin builds extended `soviet*.btf` language files from them in the TesmioLoader virtual file system (VFS) and provides a translation service to other plugins. The package contains the text packs of Research Expansion, Technical Service Storage and the shared pack `tesmio_lang`.
+Adds custom names, descriptions and labels to *Workers & Resources: Soviet Republic* 1.2.0.9 without touching the original language files. Text packs are plain INI files; at game start the plugin builds extended `soviet*.btf` language files from them in the TesmioLoader virtual file system (VFS) and provides a translation service to other plugins. The package contains the text packs of Research Expansion, Technical Service Storage and the shared pack `tesmio_lang`.
 
 ---
 
@@ -27,8 +27,8 @@ Adds custom names, descriptions and labels to *Workers & Resources: Soviet Repub
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4) with VFS enabled
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4) with VFS enabled
 - At least one valid text pack (three are included)
 
 ### In three steps
@@ -66,7 +66,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice, and 
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds INI and text packs next to itself in the package
 4. Steam updates apply from the next game start
@@ -230,6 +230,8 @@ Language files are not part of the savegame. Texts of a research or resource a s
 - Other plugins that replace `soviet*.btf` in the VFS are not merged.
 
 ### Version compatibility
+- **0.4.2:** texts for WRSR 1.2.0.9; the plugin uses no game address and is otherwise unchanged.
+- **0.4.1:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
 - **0.4.0:** first published version; Research Expansion requires `tesmio.localization >= 0.4.0`
 
 ---
@@ -333,5 +335,5 @@ A: No. Republic Mod Manager offers the two switches; text packs are folders with
 
 ---
 
-**Last update:** Localization 0.4.0  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Localization 0.4.2  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

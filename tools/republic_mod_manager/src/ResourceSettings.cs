@@ -15,14 +15,14 @@ namespace TesmioAutoload
     // and primary class - the donors a new resource can be cloned from.
     public static class ResourceCatalogData
     {
-        public static readonly string[] TransportClasses = { "covered", "open", "gravel", "oil", "cement", "cooler", "livestock", "passanger", "concrete", "eletric", "vehicles", "general", "nuclear1", "nuclear2", "heating", "water", "sewage", "waste" };
+        public static readonly string[] TransportClasses = { "covered", "open", "gravel", "oil", "cement", "cooler", "livestock", "passanger", "concrete", "eletric", "vehicles", "general", "nuclear1", "nuclear2", "heating", "water", "sewage", "waste", "cryo", "hypergolic" };
         public sealed class Template { public string Name, Group, Transport; }
         public static readonly string[] Groups = { "basics", "build", "raw", "nuclear", "consumer", "industry", "water", "waste" };
         static Template T(string name, string group, string transport) { return new Template { Name = name, Group = group, Transport = transport }; }
         public static readonly Template[] Templates = {
             T("workers","basics","passanger"), T("eletric","basics","eletric"), T("vehicles","basics","vehicles"), T("trains","basics","vehicles"), T("heat","basics","heating"),
             T("gravel","build","gravel"), T("rawgravel","build","gravel"), T("plants","build","covered"), T("steel","build","open"), T("aluminium","build","open"), T("prefabpanels","build","open"), T("bricks","build","open"), T("wood","build","open"), T("boards","build","open"), T("asphalt","build","open"), T("concrete","build","concrete"), T("cement","build","cement"), T("alumina","build","cement"),
-            T("oil","raw","oil"), T("chemicals","raw","covered"), T("coal","raw","gravel"), T("rawcoal","raw","gravel"), T("iron","raw","gravel"), T("rawiron","raw","gravel"), T("bauxite","raw","gravel"), T("rawbauxite","raw","gravel"), T("bitumen","raw","oil"), T("fuel","raw","oil"),
+            T("oil","raw","oil"), T("chemicals","raw","covered"), T("coal","raw","gravel"), T("rawcoal","raw","gravel"), T("iron","raw","gravel"), T("rawiron","raw","gravel"), T("bauxite","raw","gravel"), T("rawbauxite","raw","gravel"), T("bitumen","raw","oil"), T("fuel","raw","oil"), T("kerosene","raw","oil"), T("lox","raw","cryo"), T("udmh","raw","hypergolic"), T("n2o4","raw","hypergolic"),
             T("uranium","nuclear","gravel"), T("yellowcake","nuclear","gravel"), T("uf6","nuclear","nuclear1"), T("nuclearfuel","nuclear","nuclear2"), T("nuclearfuelburned","nuclear","nuclear2"),
             T("fabric","consumer","covered"), T("alcohol","consumer","covered"), T("food","consumer","covered"), T("clothes","consumer","covered"), T("meat","consumer","cooler"), T("livestock","consumer","livestock"),
             T("ecomponents","industry","covered"), T("mcomponents","industry","covered"), T("plastics","industry","covered"), T("eletronics","industry","covered"), T("explosives","industry","covered"),

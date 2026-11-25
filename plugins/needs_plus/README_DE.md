@@ -1,8 +1,8 @@
-# 📦 Needs Plus 0.1.3
+# 📦 Needs Plus 0.1.5
 
 **Erweiterung des TesmioLoader-Plugins needs**
 
-Eigene Bedürfnisse für *Workers & Resources: Soviet Republic* 1.1.1.13: Deine Bürger wollen eine weitere Ware, die Läden führen sie, alles aus einer INI heraus.
+Eigene Bedürfnisse für *Workers & Resources: Soviet Republic* 1.2.0.9: Deine Bürger wollen eine weitere Ware, die Läden führen sie, alles aus einer INI heraus.
 
 ---
 
@@ -26,8 +26,8 @@ Eigene Bedürfnisse für *Workers & Resources: Soviet Republic* 1.1.1.13: Deine 
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader ab b0.4.5 (API 4)
 - Eine Ressourcenliste, in der die gewünschte Ware steht (Resources Plus oder das Original-Plugin resources)
 
 ### In drei Schritten
@@ -77,7 +77,7 @@ Hast du auch das Plugin needs von MaxLegend (abonniert oder in `tesmioloader\plu
 ```
 1. Das Workshop-Objekt Republic Mod Manager abonnieren – Needs Plus
    liegt darin im Ordner plugins\needs_plus
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Beim ersten Start legt das Plugin deine Liste an:
    <Spiel>\tesmioloader\plugins\needs_plus.ini
@@ -176,6 +176,8 @@ Unverändert gegenüber dem Original: Die Lagerplätze der Läden sind Teil des 
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Bedürfnisse selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Needs Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.5: Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert.
+- 0.1.4: Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert.
 - 0.1.3: Die erste Liste entsteht jetzt auch aus der `needs.ini` des Originals, wenn das Original nur im Workshop-Ordner liegt. Vorher sah das Plugin nur im Loader-Ordner nach und nahm sonst die mitgelieferte Liste
 - 0.1.2: Für WRSR 1.1.1.13. Das Plugin erkennt das Original needs jetzt auch, wenn es aus dem Workshop-Ordner geladen wird, und bleibt dann untätig. Die Funktion des Spiels, über die Läden ihre Lagerplätze bekommen, wird vor dem ersten Aufruf geprüft; passt sie nicht zur Spielversion, werden die Läden in dieser Sitzung nicht bestückt und das Log sagt es
 - 0.1.1: Sicherheitsrunde ohne neue Funktion: eigenes Protokoll `logs\tesmioloader.needs_plus.log` für `probe`, die Zusammenfassung bleibt in `tesmioloader.log`; Faktor, Chance und Unzufriedenheit einer Zeile sowie `max_demands`, `when_full` und `log_seconds` werden geprüft und mit einer WARN-Zeile auf den erlaubten Wert gesetzt; eine UTF-8-BOM in needs_plus.ini versteckt `[list]` nicht mehr; mehr als 16 Bedürfnisse werden einmal gemeldet statt still abgeschnitten; die Lagerplatz-Korrektur der Läden schaltet sich nach einem Fehler ab, statt ihn zu wiederholen
@@ -196,7 +198,7 @@ Unverändert gegenüber dem Original: Die Lagerplätze der Läden sind Teil des 
 | Bürger wollen die Ware, Läden haben sie nicht | `storage = 0` | `storage = 1` setzen oder die Läden selbst bestücken |
 
 ### Logging
-- Zusammenfassung in `tesmioloader.log`: die Zeile des Loaders mit `needs_plus` und der Version `0.1.3`, beim ersten Start `created plugins\needs_plus.ini from …`, dann je Bedürfnis eine Zeile mit Spender, Faktor und Kategorie; ungültige Werte in der INI stehen dort als WARN-Zeile
+- Zusammenfassung in `tesmioloader.log`: die Zeile des Loaders mit `needs_plus` und der Version `0.1.5`, beim ersten Start `created plugins\needs_plus.ini from …`, dann je Bedürfnis eine Zeile mit Spender, Faktor und Kategorie; ungültige Werte in der INI stehen dort als WARN-Zeile
 - Mit `probe = 1` schreibt das Plugin die Bedürfnislisten der Bürger und die Lagerplätze der Läden in sein eigenes Protokoll `logs\tesmioloader.needs_plus.log`
 
 ---
@@ -252,5 +254,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Needs Plus eingeschalt
 
 ---
 
-**Letzte Aktualisierung:** Needs Plus 0.1.3  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Needs Plus 0.1.5  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

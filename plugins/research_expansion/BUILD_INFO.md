@@ -1,12 +1,25 @@
 # Research Expansion – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address),
+TesmioLoader plugin (API 4) for WRSR 1.2.0.9 (the plugin uses no game address),
 GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `research_expansion.cpp`;
 it includes `src/tesmio_plugin.h` and consumes the `localization` service of the Localization
 plugin. Output: a generated `research.ini` plus one `<id>.png` per new research in the loader's VFS
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
+
+## 0.4.4 (2026-11-25)
+
+- Texts only: README, INI head and package name WRSR 1.2.0.9 (the hotfix that followed 1.2.0.8 on
+  the same day). The plugin uses no game address; the code is unchanged and was rebuilt only for
+  the new version number. Not run against the game's `research.ini` of this build with a research
+  entry configured.
+
+## 0.4.3 (2026-11-25)
+
+- Rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5 with `/DTSM_RELEASE_VERSION=0.4.5`
+  (`TsmPluginTargetVersion` export). No change to the code. The game's `research.ini` gained the
+  space researches of the DLC; the plugin was not run against it yet.
 
 ## 0.4.2 (2026-09-17)
 

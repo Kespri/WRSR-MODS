@@ -1,12 +1,26 @@
 # Localization – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address),
+TesmioLoader plugin (API 4) for WRSR 1.2.0.9 (the plugin uses no game address),
 GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) compiles `localization.cpp`;
 it includes `src/tesmio_plugin.h` and provides the `localization` service (key -> text id in the
 reserved range 2,000,000..2,999,999). Output: extended `soviet<Language>.btf` overlays in the
 loader's VFS (`<loader>\vfs\media_soviet`), removed again on a start with `enabled = 0`.
 User documentation: README_DE.md / README_EN.md. History newest first.
+
+## 0.4.2 (2026-11-25)
+
+- Texts only: README, INI head and package name WRSR 1.2.0.9 (the hotfix that followed 1.2.0.8 on
+  the same day). The plugin uses no game address; the code is unchanged and was rebuilt only for
+  the new version number. Loaded on 1.2.0.9 in the start test of 2026-11-25 (21 language files
+  extended, no warning).
+
+## 0.4.1 (2026-11-25)
+
+- Rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5 with `/DTSM_RELEASE_VERSION=0.4.5`, so the DLL
+  exports `TsmPluginTargetVersion` and launcher 0.4.5 does not mark it. No change to the code.
+- Checked against the new game files: `sovietEnglish.btf` has 8681 entries, the highest id is
+  still 580231, so the reserved range from 2,000,000 stays free. Not run in the game yet.
 
 ## 0.4.0 (2026-09-10)
 

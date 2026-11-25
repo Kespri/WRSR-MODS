@@ -231,6 +231,9 @@ namespace TesmioAutoload
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             bool prune=localSpec.CardState=="buildings_plus"&&CardPrune();
+            // 0.7.1: a rule set whose commands do not fit every target file says so on its row -
+            // the plugin only writes that into the game's log.
+            LocalCard spreadCard=localSpec.Cards.FirstOrDefault(c=>c.Editor=="target_lines");
             foreach(LocalResourceItem entry in items)
             {
                 LocalResourceItem item=entry;
@@ -281,6 +284,12 @@ namespace TesmioAutoload
                 BuildingStates.Result state=row==null?null:BuildingStates.Of(resourceSession.Build,row,prune,language);
                 var stateLabel=Theme.Label(state==null?"":state.Text,9,false);
                 stateLabel.ForeColor=state==null?Theme.Muted:state.Tone=="error"?Color.FromArgb(150,28,28):state.Tone=="warn"?Color.FromArgb(139,81,0):state.Tone=="normal"?Theme.Ink:Theme.Muted;
+                RuleSpread spread=state==null&&spreadCard!=null?CardSpread(item,spreadCard):null;
+                if(spread!=null&&spread.Trouble)
+                {
+                    stateLabel.Text=language.Format("card_rule_spread",spread.Fit,spread.Found);stateLabel.ForeColor=Color.FromArgb(150,28,28);stateLabel.Font=new Font("Segoe UI",9,FontStyle.Bold);
+                    tips.SetToolTip(stateLabel,language.Format("card_rule_spread_tip",String.Join(", ",spread.Bad.Take(6))+(spread.Bad.Count>6?" ...":"")));
+                }
                 stateLabel.Anchor=AnchorStyles.None;stateLabel.Margin=new Padding(12,0,8,0);stateLabel.AccessibleName="card:state:"+localSpec.DisplayId(item.Id);
                 var actions=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Margin=new Padding(8,0,0,0),Anchor=AnchorStyles.None,WrapContents=false};
                 if(localSpec.CardAction("edit"))
@@ -382,7 +391,7 @@ namespace TesmioAutoload
             // the box is made fresh each time and only its text is kept.
             string typedName="";
             if(!isNew)RememberCardValues(item,group);
-            using(var dialog=new Form{Text=isNew?newTitle:language.Format("card_dialog_title",caption),Font=Font,Size=new Size(1120,780),MinimumSize=new Size(900,620),StartPosition=FormStartPosition.CenterParent,MaximizeBox=true,MinimizeBox=false,ShowInTaskbar=false,Icon=FindForm()==null?null:FindForm().Icon})
+            using(var dialog=new Form{Text=isNew?newTitle:language.Format("card_dialog_title",caption),Font=Font,Size=new Size(1120,Math.Min(880,Math.Max(720,Screen.FromControl(this).WorkingArea.Height-24))),MinimumSize=new Size(900,720),StartPosition=FormStartPosition.CenterParent,MaximizeBox=true,MinimizeBox=false,ShowInTaskbar=false,Icon=FindForm()==null?null:FindForm().Icon})
             {
                 Theme.ApplyWindowChrome(dialog);
                 var shell=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(20,16,20,14),BackColor=Color.White};
@@ -474,7 +483,7 @@ namespace TesmioAutoload
         // other field.
         void BuildDonorEditor(Panel body,LocalResourceItem item,ItemGroup group,LocalCard card)
         {
-            Theme.DisposeChildren(body);donorEditor=null;
+            Theme.DisposeChildren(body);donorEditor=null;targetEditor=null;
             var fields=localSpec.ItemFields(group).ToList();
             LocalDetailField lineField=localSpec.FieldById(card.EditorLines),stripField=localSpec.FieldById(card.EditorStrip);
             if(lineField==null){BuildLocalSectionDetails(body,new ListBox(),item,f=>f.Card.Equals(card.Id,StringComparison.OrdinalIgnoreCase),false,false);return;}
@@ -491,6 +500,27 @@ namespace TesmioAutoload
             }
             List<string> donorLines=null;
             try{if(donor.Length>0)donorLines=GameBuildings.DonorLines(state.Build,donor);}catch(Exception){}
+            // 0.7.0: a building written as commands (add, replace, remove, insert) opens the same
+            // editor as a Vanilla Buildings rule set, with the donor's file as its one target. A
+            // section that still carries line or strip rows keeps the old editor: those rows mean
+            // something else, and the two are never mixed in one window.
+            LocalDetailField cAdd=localSpec.FieldById(card.EditorAdd),cReplace=localSpec.FieldById(card.EditorReplace),cRemove=localSpec.FieldById(card.EditorRemove),cInsert=localSpec.FieldById(card.EditorInsert);
+            bool oldStyle=Split(item,lineField).Count>0||(stripField!=null&&Split(item,stripField).Count>0);
+            if(cAdd!=null&&cReplace!=null&&cRemove!=null&&cInsert!=null&&!oldStyle)
+            {
+                List<string> shown=donorLines;
+                var commands=new TargetLinesEditor(language,new[]{donor},f=>shown,Split(item,cAdd),Split(item,cReplace),Split(item,cRemove),Split(item,cInsert),null,null,null,Font,true,()=>DonorNameLine(item,nameField));
+                commands.Changed=()=>Run(()=>
+                {
+                    resourceSession.SetField(item.Id,cAdd,String.Join("\n",commands.Add));
+                    resourceSession.SetField(item.Id,cReplace,String.Join("\n",commands.Replace));
+                    resourceSession.SetField(item.Id,cRemove,String.Join("\n",commands.Remove));
+                    resourceSession.SetField(item.Id,cInsert,String.Join("\n",commands.Insert));
+                    UpdateStatus();
+                });
+                commands.Dock=DockStyle.Fill;body.Controls.Add(commands);
+                targetEditor=commands;return;
+            }
             var shell=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Margin=Padding.Empty,BackColor=Color.White};
             shell.RowStyles.Add(new RowStyle(SizeType.AutoSize));shell.RowStyles.Add(new RowStyle(SizeType.Percent,100));
             if(donorLines==null)
@@ -554,6 +584,22 @@ namespace TesmioAutoload
         }
         TargetLinesEditor targetEditor;
         internal TargetLinesEditor TestTargetEditor{get{return targetEditor;}}
+        // The same count the lines window shows, for the row of the rule set in the list.
+        RuleSpread CardSpread(LocalResourceItem item,LocalCard card)
+        {
+            LocalDetailField targetField=localSpec.FieldById(card.EditorTargets);
+            LocalDetailField addField=localSpec.FieldById(card.EditorAdd),replaceField=localSpec.FieldById(card.EditorReplace);
+            LocalDetailField removeField=localSpec.FieldById(card.EditorRemove),insertField=localSpec.FieldById(card.EditorInsert);
+            if(targetField==null||addField==null||replaceField==null||removeField==null||insertField==null)return null;
+            string root=resourceSession.Build;string shop=state.WorkshopRoot;
+            try
+            {
+                return TargetPlan.Spread(Split(item,targetField),file=>GameBuildings.TargetLines(root,shop,file),
+                    Split(item,addField),Split(item,replaceField),Split(item,removeField),Split(item,insertField),
+                    Split(item,localSpec.FieldById(card.EditorAddLink)),Split(item,localSpec.FieldById(card.EditorReplaceLink)),Split(item,localSpec.FieldById(card.EditorRemoveLink)));
+            }
+            catch(Exception){return null;}
+        }
         List<string> Split(LocalResourceItem item,LocalDetailField field)
         { return field==null?new List<string>():resourceSession.Value(item.Id,field).Replace("\r\n","\n").Split('\n').Where(x=>x.Trim().Length>0).ToList(); }
         // What the name field will put into the file. A value with dots is a translation key the

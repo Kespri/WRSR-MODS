@@ -1,8 +1,8 @@
-# 🚚 Vehicle Materials 0.4.1
+# 🚚 Vehicle Materials 0.4.3
 
 **TesmioLoader plugin for additional vehicle materials**
 
-Freely configurable extra materials for vehicle production in *Workers & Resources: Soviet Republic* 1.1.1.13: glass, cables, copper or any other resource that Resources Plus or Resources registers, set separately for road, rail, ship and aircraft.
+Freely configurable extra materials for vehicle production in *Workers & Resources: Soviet Republic* 1.2.0.9: glass, cables, copper or any other resource that Resources Plus or Resources registers, set separately for road, rail, ship and aircraft.
 
 ---
 
@@ -27,8 +27,8 @@ Freely configurable extra materials for vehicle production in *Workers & Resourc
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 - Mandatory: Resources Plus or Resources (Resources Plus replaces Resources) with every resource you want to use as a vehicle material. Without one of the two, Vehicle Materials does not start; the reason is in the log. Where this guide says `resources.ini`, with Resources Plus it means `resources_plus.ini`.
 
 ### In three steps
@@ -72,7 +72,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice. Reso
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. Make sure Resources Plus or Resources is switched on
    and the materials exist in resources.ini
@@ -280,6 +280,8 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 ### Version compatibility
 
+- **0.4.3:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); any other game version is refused. Otherwise unchanged.
+- **0.4.2:** for WRSR 1.2.0.8 with the rocket DLC; another game version is refused. Otherwise unchanged.
 - **0.4.1:** for WRSR 1.1.1.13; another game version is refused. The plugin checks two more places in the game before it starts; if one does not match, it stays off and the game runs as usual
 - **0.4.0:** first published version; the configuration is read as base plus personal overlay
 
@@ -378,5 +380,5 @@ A: No. Republic Mod Manager offers the materials from resources.ini with +, crea
 
 ---
 
-**Last update:** Vehicle Materials 0.4.1  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Vehicle Materials 0.4.3  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

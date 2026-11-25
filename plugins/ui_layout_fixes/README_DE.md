@@ -1,8 +1,8 @@
-# 🪟 UI Layout Fixes 0.3.1
+# 🪟 UI Layout Fixes 0.3.3
 
 **TesmioLoader-Plugin für gezielte Korrekturen an einzelnen Infofenstern**
 
-Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic* 1.1.1.13. Jede Fensterart ist ein eigenes Modul mit eigener Konfiguration, Zielprüfung und eigenem Schalter. Derzeit enthalten: das Modul **CUSTOMHOUSE** (größerer Zeilenabstand der Ressourcenliste im Zollhaus) und das Modul **TEXT_WRAP** (Spieltexte, die du per Text-ID einträgst, werden umgebrochen und zeilenweise gezeichnet, statt aus ihrem Fenster zu laufen; vorbelegt ist der Routenhinweis im Fahrzeugfenster). Es gibt bewusst keinen globalen Zeilenabstand.
+Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic* 1.2.0.9. Jede Fensterart ist ein eigenes Modul mit eigener Konfiguration, Zielprüfung und eigenem Schalter. Derzeit enthalten: das Modul **CUSTOMHOUSE** (größerer Zeilenabstand der Ressourcenliste im Zollhaus) und das Modul **TEXT_WRAP** (Spieltexte, die du per Text-ID einträgst, werden umgebrochen und zeilenweise gezeichnet, statt aus ihrem Fenster zu laufen; vorbelegt ist der Routenhinweis im Fahrzeugfenster). Es gibt bewusst keinen globalen Zeilenabstand.
 
 ---
 
@@ -25,8 +25,8 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader ab b0.3.7 (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader ab b0.4.5 (API 4)
 - Keine Abhängigkeit zu anderen Plugins
 
 ### In drei Schritten
@@ -63,7 +63,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -177,16 +177,16 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 
 | Eigenschaft | Erwarteter Wert |
 |---|---|
-| Spielversion | `SOVIET64.exe 1.1.1.13` |
-| PE-Zeitstempel | `0x6A8D4087` |
-| Größe des ausführbaren Abbilds | `0x00A9D000` |
+| Spielversion | `SOVIET64.exe 1.2.0.9` |
+| PE-Zeitstempel | `0x6B05A574` |
+| Größe des ausführbaren Abbilds | `0x00AE9000` |
 
 ---
 
 ## 💾 Kompatibilität
 
 ### Spiel und Loader
-- Exakt unterstützte Spielversion 1.1.1.13 für CUSTOMHOUSE; andere Versionen werden abgelehnt, weil Speicheradressen und Signaturen versionsabhängig sind. TEXT_WRAP ändert keinen Spielcode und hängt nur an den Text-IDs
+- Exakt unterstützte Spielversion 1.2.0.9 für CUSTOMHOUSE; andere Versionen werden abgelehnt, weil Speicheradressen und Signaturen versionsabhängig sind. TEXT_WRAP ändert keinen Spielcode und hängt nur an den Text-IDs
 - Verträgt sich mit dem Resources-Plugin, das dieselbe Textabfrage hookt; die Hooks reihen sich in Ladereihenfolge
 - Nur Sprachen mit Leerzeichen zwischen den Wörtern werden umgebrochen (Chinesisch und Japanisch bleiben unverändert)
 - Keine Abhängigkeit zum Localization-Plugin oder zu anderen TesmioLoader-Plugins
@@ -196,6 +196,8 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Versionskompatibilität
+- **0.3.3:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
+- **0.3.2:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.3.1:** Für WRSR 1.1.1.13; sonst unverändert
 - **0.3.0:** erste veröffentlichte Fassung mit den Modulen CUSTOMHOUSE und TEXT_WRAP
 
@@ -302,5 +304,5 @@ A: Nein. Republic Mod Manager zeigt alle Schalter und Werte mit Beschreibung und
 
 ---
 
-**Letzte Aktualisierung:** UI Layout Fixes 0.3.1  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** UI Layout Fixes 0.3.3  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4

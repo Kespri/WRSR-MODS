@@ -3,12 +3,15 @@
 // of the plugin's C++ allocator for game-owned memory. See TECHNICAL_NOTES.md.
 #pragma once
 
-static const DWORD RVA_MIGRATION_BUILDING_LOAD = 0x001F0B60;
-static const DWORD RVA_MIGRATION_BUILDING_LOAD_CALL = 0x00433167;
-static const DWORD RVA_MIGRATION_STORAGE_PUSH = 0x000CC2F0;
-static const DWORD RVA_MIGRATION_VECTOR_DESTROY = 0x000B18F0;
-static const DWORD RVA_MIGRATION_STORAGE_CONTROLS = 0x001EBB70;
-static const size_t MIGRATION_TYPE_STORAGES = 0x3A0;
+static const DWORD RVA_MIGRATION_BUILDING_LOAD = 0x0020B790;
+static const DWORD RVA_MIGRATION_BUILDING_LOAD_CALL = 0x00457617;
+static const DWORD RVA_MIGRATION_STORAGE_PUSH = 0x000E3D60;
+static const DWORD RVA_MIGRATION_VECTOR_DESTROY = 0x000C9360;
+static const DWORD RVA_MIGRATION_STORAGE_CONTROLS = 0x002067F0;
+static const DWORD RVA_MIGRATION_DEEP_COPY = 0x001245E0;
+// The type descriptor's own vector<Storage>; the building loader walks it with
+// `lea rbx,[r13+0x3A8]` (exe+0x212380).
+static const size_t MIGRATION_TYPE_STORAGES = 0x3A8;
 
 struct MigrationVector { BYTE* begin; BYTE* end; BYTE* capacity; };
 static_assert(sizeof(MigrationVector) == 24, "native x64 vector layout");
@@ -201,7 +204,7 @@ static bool MigrationMakePlan(BYTE* building, MigrationPlan* plan)
         if (!MigrationConfigured(name)) continue;
         int transport = *(int*)(definition + STORAGE_CLASS);
         float capacity = *(float*)(definition + STORAGE_CAPACITY);
-        // Parser 0x116ECE..0x116F13 marks IMPORT_SPECIAL +0x84=1;
+        // The building.ini parser marks IMPORT_SPECIAL +0x84=1;
         // EXPORT uses +0x85. Normal imports retain purpose +0x88=-1.
         if (slotCount != 1 || definition[0x84] != 1 || definition[0x85] != 0 ||
             *(int*)(definition + 0x88) != -1 ||
@@ -421,11 +424,11 @@ static bool InstallStorageMigrationHook()
     static const BYTE copy[] = { 0x48,0x8B,0xC4,0x48,0x89,0x48,0x08,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57 };
     static const BYTE controls[] = { 0x48,0x89,0x5C,0x24,0x10,0x57,0x48,0x83,0xEC,0x20,0x48,0x8B,0x51,0x08 };
     static const BYTE destroy[] = { 0x48,0x89,0x5C,0x24,0x10,0x56,0x48,0x83,0xEC,0x20,0x48,0x8B,0x19,0x48,0x8B,0xF1 };
-    static const BYTE call[] = { 0x48,0x8B,0xD6,0x4A,0x8B,0x0C,0xC1,0xE8,0xF4,0xD9,0xDB,0xFF };
+    static const BYTE call[] = { 0x49,0x8B,0xD6,0x4A,0x8B,0x0C,0xC1,0xE8,0x74,0x41,0xDB,0xFF };
     if (!MigrationVerify(RVA_MIGRATION_BUILDING_LOAD_CALL - 7, call, sizeof(call), "load call + arguments") ||
         !MigrationVerify(RVA_MIGRATION_BUILDING_LOAD, load, sizeof(load), "loader") ||
         !MigrationVerify(RVA_MIGRATION_STORAGE_PUSH, push, sizeof(push), "push") ||
-        !MigrationVerify(0x10C500, copy, sizeof(copy), "deep copy") ||
+        !MigrationVerify(RVA_MIGRATION_DEEP_COPY, copy, sizeof(copy), "deep copy") ||
         !MigrationVerify(RVA_MIGRATION_VECTOR_DESTROY, destroy, sizeof(destroy), "vector destructor") ||
         !MigrationVerify(RVA_MIGRATION_STORAGE_CONTROLS, controls, sizeof(controls), "controls"))
     {

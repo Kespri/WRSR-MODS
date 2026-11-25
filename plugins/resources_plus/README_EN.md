@@ -1,8 +1,8 @@
-# 📦 Resources Plus 0.1.5
+# 📦 Resources Plus 0.1.7
 
 **Extension of the TesmioLoader plugin resources**
 
-Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.13: new goods with an icon, cargo models, a price and trade at the customs house, all from one INI.
+Your own resources for *Workers & Resources: Soviet Republic* 1.2.0.9: new goods with an icon, cargo models, a price and trade at the customs house, all from one INI.
 
 ---
 
@@ -26,8 +26,8 @@ Your own resources for *Workers & Resources: Soviet Republic* 1.1.1.13: new good
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 
 ### In three steps
 1. **Subscribe:** Resources Plus is part of the Workshop item Republic Mod Manager. The TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
@@ -82,7 +82,7 @@ If you also have the resources plugin by MaxLegend (subscribed or in `tesmioload
 ```
 1. Subscribe to the Workshop item Republic Mod Manager – Resources Plus
    sits in its folder plugins\resources_plus
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. At the first start the plugin creates your list:
    <game>\tesmioloader\plugins\resources_plus.ini
@@ -179,6 +179,8 @@ Unchanged from the original: the number of resources is part of the save, the di
 
 ### Version compatibility
 - With Soviet Mod Loader: SML brings resources of its own. While it runs, this plugin pauses and says so in the log; if you want Resources Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.7: for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
+- 0.1.6: for WRSR 1.2.0.8 with the rocket DLC. The plugin knows the game's four new resources (`kerosene`, `lox`, `udmh`, `n2o4`) and the two new transport classes `cryo` and `hypergolic`. Old address lines in your `resources_plus.ini` do no harm, the plugin then uses its own.
 - 0.1.5: the first list is now also made from the original's `resources.ini` when the original lies only in the Workshop folder. Before, the plugin looked in the loader folder only and took the shipped list otherwise
 - 0.1.4: names in the game language: new sections `[names:<Language>]` in the list; the shipped list brings German names. Without such sections nothing changes
 - 0.1.3: for WRSR 1.1.1.13. The plugin now also recognises the original resources when it is loaded from the Workshop folder, and then stays idle. If your `resources_plus.ini` still carries a game address of the previous game version (`resource_rva`, `price_pass_rva`, `customhouse_tick_rva`), the plugin skips it with a log line and uses its built-in one
@@ -202,7 +204,7 @@ Unchanged from the original: the number of resources is part of the save, the di
 | No icon | PNG missing | `media_soviet\resources\<name>.png`, 48×48 RGBA |
 
 ### Logging
-- Summary in `tesmioloader.log`: the loader's line with `resources_plus` and the version `0.1.5`, at the first start `created plugins\resources_plus.ini from …`, then `published as index …` per resource; with `price_report = 1` the price table as well, with `custom_report = 1` the records
+- Summary in `tesmioloader.log`: the loader's line with `resources_plus` and the version `0.1.7`, at the first start `created plugins\resources_plus.ini from …`, then `published as index …` per resource; with `price_report = 1` the price table as well, with `custom_report = 1` the records
 - Details in `logs\tesmioloader.resources_plus.log`: every resource name the game asked for
 
 ---
@@ -258,5 +260,5 @@ A: Republic Mod Manager switches the original off as soon as Resources Plus is s
 
 ---
 
-**Last update:** Resources Plus 0.1.5  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Resources Plus 0.1.7  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

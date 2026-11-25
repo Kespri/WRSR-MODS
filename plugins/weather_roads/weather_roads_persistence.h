@@ -3,8 +3,10 @@
 
 static const char WR_SIDE_FILE[] = "tesmioloader.weather_roads.protection.bin";
 // Last successful native FILE close, after header/road writes, before optional
-// autosave ZIP packing. The earlier 42CDAE call is only a partial save stage.
-static const DWORD WR_SAVE_CLOSE_CALL = 0x42EDC2;
+// autosave ZIP packing. The earlier 450DDE call is only a partial save stage.
+static const DWORD WR_SAVE_CLOSE_CALL = 0x453192;
+// world -> road manager, as the road-snow adjust function reads it (exe+0x44EF96).
+static const DWORD WR_OFF_ROAD_MANAGER = 0xF840;
 static const char WR_TEXTURE_SYMBOL[] =
     "?CreateManagedTexture@C3D_MIDDLEPOINT@@QEAAPEAVC3DAPI_TEXTURE@@PEBD@Z";
 typedef int (*WrCloseFn)(void*);
@@ -148,9 +150,9 @@ static bool WrHashPosition(const BYTE* position, uint64_t* hash)
     return true;
 }
 
-// Verified against exe+0x56ADC0: road+8/+10 is a 24-byte point vector,
+// Verified against exe+0x591030: road+8/+10 is a 24-byte point vector,
 // its first 12 bytes are xyz, and endpoint nodes at +20/+28 store xyz at +4.
-// exe+0x42AEF0 traverses weather+F7A0 -> manager+2B0/+2B8 and reads type+120.
+// exe+0x44EF90 traverses weather+F838 -> manager+2B0/+2B8 and reads type+120.
 static bool WrRoadIdentity(void* road, WrLiveRoad* out)
 {
     if (!road || !out || !ReadablePtr(road, 0x124)) return false;
@@ -192,8 +194,8 @@ static WrLiveRoad* WrRoadMap(void* world, size_t* count, size_t* registryCount)
     void** end = NULL;
     __try
     {
-        if (!world || !ReadablePtr((BYTE*)world + 0xF7A0, sizeof(void*))) return NULL;
-        BYTE* manager = *(BYTE**)((BYTE*)world + 0xF7A0);
+        if (!world || !ReadablePtr((BYTE*)world + WR_OFF_ROAD_MANAGER, sizeof(void*))) return NULL;
+        BYTE* manager = *(BYTE**)((BYTE*)world + WR_OFF_ROAD_MANAGER);
         if (!manager || !ReadablePtr(manager + 0x2B0, 16)) return NULL;
         begin = *(void***)(manager + 0x2B0);
         end = *(void***)(manager + 0x2B8);
@@ -650,17 +652,17 @@ static bool WeatherPersistenceInstall()
     static const BYTE registry[] = {0x49,0x81,0xC0,0xB0,0x02,0,0};
     static const BYTE points[] = {0x49,0x8B,0x50,0x08,0x4B,0x8D,0x04,0x5B,0xF2,0x0F,0x10,0x04,0xC2};
     static const BYTE endpoint[] = {0x49,0x8B,0x40,0x20,0xF2,0x0F,0x11,0x45,0xF0,0xF2,0x0F,0x10,0x40,0x04};
-    if (memcmp(g_exeBase + 0x42AEFF, registry, sizeof(registry)) ||
-        memcmp(g_exeBase + 0x56AE3D, points, sizeof(points)) ||
-        memcmp(g_exeBase + 0x56ADF4, endpoint, sizeof(endpoint)))
+    if (memcmp(g_exeBase + 0x44F24F, registry, sizeof(registry)) ||
+        memcmp(g_exeBase + 0x59138D, points, sizeof(points)) ||
+        memcmp(g_exeBase + 0x591344, endpoint, sizeof(endpoint)))
     { Warn("protection persistence unavailable: native road geometry signature mismatch"); return false; }
-    // r15 is the current save folder (reloaded at 42D8BA and unchanged until
-    // 42EE55); r14 is the final FILE*. The ZIP branch is strictly after this.
-    static const BYTE folder[] = {0x4C,0x8D,0xBF,0xF8,0x09,0,0};
-    static const BYTE close[] = {0x49,0x8B,0xCE,0xFF,0x15,0x50,0xF2,0x43,0x00,
-        0x80,0xBF,0x36,0x4D,0x01,0x00,0x00};
+    // r12 is the current save folder (self+0xA20; loaded at 450CEF, again at 45196A, unchanged until
+    // 452F02); r14 is the final FILE*. The ZIP branch is strictly after this.
+    static const BYTE folder[] = {0x4C,0x8D,0xA7,0x20,0x0A,0,0};
+    static const BYTE close[] = {0x49,0x8B,0xCE,0xFF,0x15,0xC8,0xFE,0x45,0x00,
+        0x80,0xBF,0xEE,0x4D,0x01,0x00,0x00};
     BYTE* site = g_exeBase + WR_SAVE_CLOSE_CALL;
-    if (memcmp(g_exeBase + 0x42D8BA, folder, sizeof(folder)) ||
+    if (memcmp(g_exeBase + 0x451C1A, folder, sizeof(folder)) ||
         memcmp(site - 3, close, sizeof(close)))
     { Warn("protection persistence unavailable: final-save-close signature mismatch"); return false; }
     int relative = 0; memcpy(&relative, site + 2, 4);
@@ -669,7 +671,7 @@ static bool WeatherPersistenceInstall()
     BYTE* cave = AllocNear(site, 32);
     if (!cave) return false;
     // Leaf bridge: keep rcx=FILE*, add rdx=folder, tail-jump to the wrapper.
-    cave[0] = 0x49; cave[1] = 0x8B; cave[2] = 0xD7;
+    cave[0] = 0x49; cave[1] = 0x8B; cave[2] = 0xD4;   // mov rdx,r12
     cave[3] = 0xFF; cave[4] = 0x25; memset(cave + 5, 0, 4);
     void* target = (void*)&WrSaveCloseHook; memcpy(cave + 9, &target, 8);
     FlushInstructionCache(GetCurrentProcess(), cave, 17);

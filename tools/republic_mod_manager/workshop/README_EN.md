@@ -23,8 +23,8 @@ Settings, switching on and off, and starting your TesmioLoader plugins in one wi
 
 ### Requirements
 
-- *Workers & Resources: Soviet Republic* 1.1.1.13
-- **TesmioLoader** by MaxLegend, b0.3.7 or newer, installed in the game folder (subscribe to it in the Steam Workshop and set it up as its guide says). This package brings a corrected build of its `tesmioloader.dll` (b0.3.7-rmm.2, same API, source in the GitHub repository) and replaces the one you have; launcher and `tesmioloader.ini` stay MaxLegend's
+- *Workers & Resources: Soviet Republic* 1.2.0.9
+- **TesmioLoader** by MaxLegend, b0.4.5 or newer, installed in the game folder (subscribe to it in the Steam Workshop and set it up as its guide says). This package brings a corrected build of its `tesmioloader.dll` (b0.4.5-rmm.2, same API, source in the GitHub repository) and replaces the one you have; launcher and `tesmioloader.ini` stay MaxLegend's
 - Windows 10 or 11 (.NET Framework 4 is included)
 
 ### In three steps
@@ -51,7 +51,7 @@ Settings, switching on and off, and starting your TesmioLoader plugins in one wi
 
 ### 🔧 Corrected loader DLL (`tesmioloader.dll`)
 
-MaxLegend's TesmioLoader b0.3.7 with corrections. What matters for you: with this build the values you set in the manager also reach plugins by other authors. The installer replaces the DLL you have and backs it up first.
+MaxLegend's TesmioLoader b0.4.5 with corrections. What matters for you: with this build the values you set in the manager also reach plugins by other authors. The installer replaces the DLL you have and backs it up first.
 
 ### 🏭 Buildings Plus (`plugins\buildings_plus`)
 
@@ -128,7 +128,7 @@ The file `Manual Installation\WHERE.txt` repeats these steps.
 ├── Manual Installation\
 │   ├── WOHIN.txt / WHERE.txt       (the steps by hand)
 │   └── tesmioloader\               (target structure, to drag over)
-│       ├── tesmioloader.dll        (corrected loader DLL b0.3.7-rmm.2)
+│       ├── tesmioloader.dll        (corrected loader DLL b0.4.5-rmm.2)
 │       ├── rmm.exe
 │       ├── rmm.ini
 │       ├── rmm.README_DE.md, rmm.README_EN.md   (guide)
@@ -148,7 +148,7 @@ The file `Manual Installation\WHERE.txt` repeats these steps.
 **Game folder** after the installation
 ```
 SovietRepublic\tesmioloader\
-├── tesmioloader.dll                (TesmioLoader b0.3.7-rmm.2, from this package)
+├── tesmioloader.dll                (TesmioLoader b0.4.5-rmm.2, from this package)
 ├── tesmiolauncher.exe, tesmioloader.ini   (TesmioLoader by MaxLegend, not from this package)
 ├── rmm.exe, rmm.ini, rmm.README_DE/EN.md, rmm.SCHEMA_DE/EN.md
 ├── settings_schemas\
@@ -167,7 +167,7 @@ SovietRepublic\tesmioloader\
 
 | Installer message | Cause | Remedy |
 |---|---|---|
-| The TesmioLoader is not installed | `tesmioloader.dll`, `tesmiolauncher.exe` or `tesmioloader.ini` are missing in the folder `tesmioloader` | Subscribe to the TesmioLoader by MaxLegend (b0.3.7 or newer) and install it as its guide says, then run again |
+| The TesmioLoader is not installed | `tesmioloader.dll`, `tesmiolauncher.exe` or `tesmioloader.ini` are missing in the folder `tesmioloader` | Subscribe to the TesmioLoader by MaxLegend (b0.4.5 or newer) and install it as its guide says, then run again |
 | The game folder was not found | The installer found the game in none of your Steam libraries, or the folder you gave has no `SOVIET64.exe` | `Install-RMM.bat -GamePath "<game folder>"` |
 | The game or Republic Mod Manager is still running | Files are in use | Close the programs, run again |
 | File could not be copied | Write permissions or antivirus | Run as administrator or allow the folder in the antivirus |
@@ -181,7 +181,7 @@ The manager itself has a log window (icon in the sidebar) with `tesmioloader.log
 
 ## 📜 Licence & credits
 
-**GNU GPL v3**, see `LICENSE` in the package. Republic Mod Manager is a development of its own; the included `tesmioloader.dll` is a corrected build of MaxLegend's TesmioLoader b0.3.7 (GPL v3), launcher and INI remain his work. Resources Plus, Needs Plus and Buildings Plus are forks of his plugins resources, needs and buildings (all GPL v3). The complete source code of plugins, manager and loader is at https://github.com/Kespri/WRSR-MODS.
+**GNU GPL v3**, see `LICENSE` in the package. Republic Mod Manager is a development of its own; the included `tesmioloader.dll` is a corrected build of MaxLegend's TesmioLoader b0.4.5 (GPL v3), launcher and INI remain his work. Resources Plus, Needs Plus and Buildings Plus are forks of his plugins resources, needs and buildings (all GPL v3). The complete source code of plugins, manager and loader is at https://github.com/Kespri/WRSR-MODS.
 
 **Attention, comrade:** this program was written with the help of an artificial intelligence. The five-year plans behind it were still drawn up, tested and sworn at by a human every time the game crashed. If you do not want AI in your code, just stick to the base game. No hard feelings, no re-education.
 
@@ -203,5 +203,5 @@ A: Each one is a Workshop item of its own. Subscribe, start the game, done; you 
 
 ---
 
-**Last update:** Republic Mod Manager 0.6.13  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Republic Mod Manager 0.7.2  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

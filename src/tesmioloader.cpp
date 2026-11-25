@@ -40,7 +40,7 @@
 // counts the rounds of fixes on top of it. The host table, the API version and
 // every log line other tools read are unchanged - a plugin built for b0.3.6
 // runs here and one built here runs on b0.3.6.
-#define LOADER_VERSION "b0.3.7-rmm.2"
+#define LOADER_VERSION "b0.4.5-rmm.2"
 
 // ---------------------------------------------------------------- exported names
 
@@ -827,10 +827,12 @@ static HANDLE WINAPI h_CreateFile2(LPCWSTR path, DWORD access, DWORD share,
 //   [20] +0xA0  TextureAccesGetTexel(x, y) -> colour
 //   [23] +0xB8  TextureAccesSetTexel(x, y, colour)
 //   [36] +0x120 SaveToDDS          - how depletion survives a save
-#define TEX_VTABLE_RVA   0x187BF0   // C3DDLL64.dll rva - the 2026-11-11 engine
-                                    // update changed 34 bytes of timestamps
-                                    // only; v1.1.1.13: unchanged, verified by
-                                    // a byte-for-byte section diff
+#define TEX_VTABLE_RVA   0x188C58  // v1.2.0.8; was 0x187BF0. C3DDLL64.dll rva.
+                                    // The two slots are compared with the
+                                    // engine's own exports before anything
+                                    // is written - see HookTextureVtable.
+#define TEX_EXPORT_LOAD     "?Load2DFromFile@C3DAPI_D3D11_TEXTURE@@UEAAHPEBDHHIW4_C3DFORMAT@@@Z"
+#define TEX_EXPORT_GETTEXEL "?TextureAccesGetTexel@C3DAPI_D3D11_TEXTURE@@UEAAKHH@Z"
 #define TEX_SLOT_LOAD    2
 #define TEX_SLOT_GETTEXEL 20
 
@@ -905,6 +907,20 @@ static void HookTextureVtable(HMODULE engine)
     if (!g_probeTexel || !engine) return;
 
     void** vt = (void**)((BYTE*)engine + TEX_VTABLE_RVA);
+
+    // A fixed address in a DLL that is rebuilt with every game update: the
+    // table is only written when both slots hold exactly what the engine
+    // exports under those names.
+    void* wantLoad  = (void*)GetProcAddress(engine, TEX_EXPORT_LOAD);
+    void* wantTexel = (void*)GetProcAddress(engine, TEX_EXPORT_GETTEXEL);
+    if (!wantLoad || !wantTexel || !ReadablePtr(vt, 64 * sizeof(void*)) ||
+        vt[TEX_SLOT_LOAD] != wantLoad || vt[TEX_SLOT_GETTEXEL] != wantTexel)
+    {
+        Logf("texel  FAILED  no texture vtable at C3DDLL64.dll + 0x%X - wrong engine build, refusing to patch",
+             TEX_VTABLE_RVA);
+        return;
+    }
+
     DWORD  prot = 0;
     if (!VirtualProtect(vt, 64 * sizeof(void*), PAGE_READWRITE, &prot))
     {
@@ -2671,7 +2687,7 @@ static void NoteSaveOpenW(const wchar_t* path, bool writing)
 //
 // The suffix is appended to the format string rather than printed separately,
 // so the game does the drawing and the line stays one string with one layout.
-#define P_MENU_VERSION_SITE 0x28B54C  // v1.1.1.13; was 0x28B5CC. LEA RAX,[rip+disp32] - the format argument
+#define P_MENU_VERSION_SITE 0x2A724C  // v1.2.0.9; was 0x28B54C. LEA RAX,[rip+disp32] - the format argument
 #define MENU_LEA_LEN        7
 
 static const BYTE kMenuLeaOrig[3] = { 0x48, 0x8D, 0x05 };   // lea rax,[rip+disp32]
@@ -2803,33 +2819,28 @@ static void RotateLog()
     MoveFileExW(cur, prev, MOVEFILE_REPLACE_EXISTING);
 }
 
-// g_baseDir is "<...>\tesmioloader\build" (the folder tesmioloader.dll lives
-// in) when run from a source checkout, or wherever a distributed copy was
-// unpacked to otherwise. The checked-in assets live in "<...>\tesmioloader\vfs",
-// one level up from build\ - so a vfs folder is looked for there first, and
-// only a plain "vfs" folder beside the dll itself (baseDir\vfs) is used as the
-// fallback, for a distribution that ships build\ on its own with vfs inside
-// it. No link of any kind is required between the two; whichever one exists
-// is read directly, so there is nothing to fall out of sync.
+// A release ships vfs beside the DLL. A source checkout keeps it one level
+// above build\, so that layout stays as the fallback. When neither folder
+// exists the one beside the DLL is named, so the log says where it belongs.
 static void ResolveVfsRoot()
 {
-    wchar_t parent[MAX_PATH];
-    _snwprintf_s(parent, MAX_PATH, _TRUNCATE, L"%s", g_baseDirW);
-    wchar_t* slash = wcsrchr(parent, L'\\');
-    bool found = false;
-    if (slash)
+    _snwprintf_s(g_vfsRootW, MAX_PATH, _TRUNCATE, L"%s\\vfs", g_baseDirW);
+    DWORD attr = GetFileAttributesW(g_vfsRootW);
+    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY))
     {
-        *slash = 0;
-        wchar_t sibling[MAX_PATH];
-        _snwprintf_s(sibling, MAX_PATH, _TRUNCATE, L"%s\\vfs", parent);
-        DWORD attr = GetFileAttributesW(sibling);
-        if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY))
+        wchar_t parent[MAX_PATH];
+        _snwprintf_s(parent, MAX_PATH, _TRUNCATE, L"%s", g_baseDirW);
+        wchar_t* slash = wcsrchr(parent, L'\\');
+        if (slash)
         {
-            _snwprintf_s(g_vfsRootW, MAX_PATH, _TRUNCATE, L"%s", sibling);
-            found = true;
+            *slash = 0;
+            wchar_t sibling[MAX_PATH];
+            _snwprintf_s(sibling, MAX_PATH, _TRUNCATE, L"%s\\vfs", parent);
+            attr = GetFileAttributesW(sibling);
+            if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY))
+                _snwprintf_s(g_vfsRootW, MAX_PATH, _TRUNCATE, L"%s", sibling);
         }
     }
-    if (!found) _snwprintf_s(g_vfsRootW, MAX_PATH, _TRUNCATE, L"%s\\vfs", g_baseDirW);
 
     // The ANSI copy in the system codepage: it is what the A-flavoured file
     // calls and the plugin table (host->vfsRoot) expect.
@@ -2879,7 +2890,7 @@ static void Init()
              t.wYear, t.wMonth, t.wDay);
         Logf("game      %ls", exePath);
         Logf("game      image size 0x%zX  pe-stamp 0x%08lX%s", g_exeSize, (unsigned long)exeStamp,
-             exeStamp == 0x6A8D4087 ? "  (v1.1.1.13, the build the addresses were taken from)" : "  (NOT the build the addresses were taken from - patches that check their bytes will refuse)");
+             exeStamp == 0x6B05A574 ? "  (v1.2.0.9, the build the addresses were taken from)" : "  (NOT the build the addresses were taken from - patches that check their bytes will refuse)");
         Logf("base dir  %ls", g_baseDirW);
     }
     Logf("tesmioloader phase B");

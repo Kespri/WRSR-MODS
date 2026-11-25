@@ -45,6 +45,20 @@ namespace TesmioAutoload
             button.FlatAppearance.MouseDownBackColor = primary ? Color.FromArgb(0,61,158) : Color.FromArgb(217,231,252);
             button.Click += (s,e) => click(); return button;
         }
+        // A button that is switched on and off while the user works has to LOOK off: a flat
+        // button only greys its text, which is easy to miss. Off, it loses its fill and most of
+        // its frame as well, and the hand cursor.
+        public static void DimWhenOff(Button button)
+        {
+            Action paint = () =>
+            {
+                button.BackColor = button.Enabled ? Chrome : Color.White;
+                button.FlatAppearance.BorderColor = button.Enabled ? Line : Color.FromArgb(232, 236, 242);
+                button.Cursor = button.Enabled ? Cursors.Hand : Cursors.Default;
+            };
+            button.EnabledChanged += (s, e) => paint();
+            paint();
+        }
         // 0.5.8: a tab of the strip. Its top corners are rounded, so a tab reads as a tab and not
         // as a rectangle in a row; the bottom stays square because it sits on the strip's line.
         // Tabs sit close together - a wide gap makes a row of buttons out of them.

@@ -32,7 +32,7 @@ typedef struct TsmLocalizationApi
 #include <limits.h>
 #include <ctype.h>
 
-#define PLUGIN_VERSION "0.4.2"
+#define PLUGIN_VERSION "0.4.4"
 // The namespace of the plugin's own Localization text pack (localization.ini of
 // plugins\localization\research_expansion); [research:] sections complete short
 // name / desc values with it.

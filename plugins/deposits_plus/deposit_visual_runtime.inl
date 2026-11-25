@@ -287,9 +287,9 @@ static bool VsInstall(){
  if(!ReadablePtr(dos,sizeof(IMAGE_DOS_HEADER))||dos->e_magic!=IMAGE_DOS_SIGNATURE){Logf("sand surface WARN engine module has no readable DOS header; disabled");return false;}
  auto*nt=(IMAGE_NT_HEADERS*)((BYTE*)g_engine+dos->e_lfanew);
  if(!ReadablePtr(nt,sizeof(IMAGE_NT_HEADERS))||nt->Signature!=IMAGE_NT_SIGNATURE){Logf("sand surface WARN engine module has no readable PE header; disabled");return false;}
- if(nt->FileHeader.TimeDateStamp!=0x6A8B496Du||nt->OptionalHeader.SizeOfImage!=0x1F2000u){Logf("sand surface WARN unsupported engine build; disabled");return false;}
+ if(nt->FileHeader.TimeDateStamp!=0x6B05A4A4u||nt->OptionalHeader.SizeOfImage!=0x1F3000u){Logf("sand surface WARN unsupported engine build; disabled");return false;}
  auto*create=(BYTE*)GetProcAddress(g_engine,"?CreateShaders@C3DAPI_D3D11_SHADERS@@UEAAHPEBD@Z");
- const BYTE expected[]={0x4c,0x8b,0x0d,0x3f,0x07,0x1c,0x00};
+ const BYTE expected[]={0x4c,0x8b,0x0d,0x3f,0x17,0x1c,0x00};
  if(!create||!ReadablePtr(create+0x2ba,7)||memcmp(create+0x2ba,expected,7)){Logf("sand surface WARN D3D device accessor signature differs; disabled");return false;}
  vsDeviceSlot=(void**)(create+0x2c1+*(int32_t*)(create+0x2bd));
  vsTexture=(VsGetTexture)GetProcAddress(g_engine,"?TextureGet@C3D_MATERIAL@@QEAAPEAVC3DAPI_TEXTURE@@I@Z");

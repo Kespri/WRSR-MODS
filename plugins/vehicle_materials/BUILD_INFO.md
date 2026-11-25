@@ -1,9 +1,29 @@
 # Vehicle Materials – build notes
 
-TesmioLoader plugin (API 4) for WRSR 1.1.1.13 (PE stamp 0x6A8D4087), GPL v3. Build: the standard line of the root
+TesmioLoader plugin (API 4) for WRSR 1.2.0.9 (PE stamp 0x6B05A574), GPL v3. Build: the standard line of the root
 `build.bat` (`cl /O2 /MT /W3 /EHsc /LD`, kernel32.lib) compiles `vehicle_materials.cpp`; it
 includes `src/tesmio_plugin.h` and `my_plugins/tesmio_config.h` (base INI beside the DLL or in
 `plugins\`, personal overlay `user_config\vehicle_materials.ini`). User documentation: README_DE.md / README_EN.md. History newest first.
+
+## 0.4.3 (2026-11-25)
+
+- Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, image 0xAE9000). Requirement builder 0x419C10 ->
+  0x419EC0, merge helper 0x2BD720 -> 0x2BD870, `ResourceGet` 0x2C6230 -> 0x2C6380. The resource
+  manager stays at 0xA1EF20, the vehicle type fields (+0x2B8, +0x8618, +0x86CC) did not move. All
+  three prologues are unchanged.
+
+## 0.4.2 (2026-11-25)
+
+- Ported to WRSR 1.2.0.8 (PE stamp 0x6B0097B2, image 0xAE9000). Requirement builder 0x3F8C50 ->
+  0x419C10, merge helper 0x2A1840 -> 0x2BD720, `ResourceGet` 0x2AA7B0 -> 0x2C6230, resource
+  manager 0x9D4F10 -> 0xA1EF20. All three prologues are unchanged.
+- Vehicle object: the type moved from +0x294 to +0x2B8, the requirement vector from +0x85C8 to
+  +0x8618, the weight from +0x867C to +0x86CC. They are named `VEHICLE_TYPE`,
+  `VEHICLE_REQUIREMENTS` and `VEHICLE_SCALE` now and were read from the builder itself.
+- The builder still tells 1 (road), 6 (ship) and 7 (airplane) apart and has one new branch for
+  the types 8 and 10; those fall under the rail coefficients here unless `[vehicle_types]` says
+  otherwise.
+- Not run in the game yet.
 
 ## 0.4.1 (2026-11-16)
 

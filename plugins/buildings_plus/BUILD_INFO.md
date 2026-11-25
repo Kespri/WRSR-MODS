@@ -1,6 +1,6 @@
 # Buildings Plus – build notes
 
-Target: WRSR 1.1.1.9 and 1.1.1.13 (the plugin uses no game address), TesmioLoader API 4. Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD
+Target: WRSR 1.2.0.9 (the plugin uses no game address), TesmioLoader API 4. Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD
 ... /link kernel32.lib`); exports TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. Self-test: the same file with
 `/DBUILDINGS_PLUS_TEST` as an executable, `buildings_plus_test.exe <fresh scratch folder>` builds a fake
 game folder and checks generation, replacement rules, material rewrite, stamp, prune, refusal of foreign
@@ -8,6 +8,36 @@ folders, the object rename and the id catalog. `buildings_plus_test.exe --run <i
 folder>` generates the sections of a real INI from a real game folder into an out folder of your choice,
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
+
+## 0.2.0 (2026-11-25)
+
+- New: commands against the donor's building.ini - `add`, `replace`, `remove`, `insert`, the four
+  Vanilla Buildings knows. Each touches one place and leaves everything else alone, which the
+  token-family rule of `line` could not do: one new storage used to take every storage of the donor
+  with it. A block (token line plus its data lines) is one command, written with `|` between its
+  lines; an anchor is a line of the donor that stands there exactly once, and further fields that do
+  not begin with `$` are the data lines that must follow it (tells two equal token lines apart).
+  Every command is judged against the unchanged donor; one that does not fit stops the section
+  before anything on disk is touched, and the log names every failing command. Order: add,
+  replace, remove, insert, whatever the order of the rows. Code: `ParseOp`, `BlockEndOf`,
+  `CountBlock`, `PlanOps`, `ApplyOps`.
+- `line` and `strip` work as before and may be used instead; in a section that has both, the
+  commands run on the donor's lines first and the older rule then filters the outcome.
+- A block of the donor ends in front of the closing `end` as well (the commands only; the older
+  rule is unchanged).
+- The line that reports a written building ends in ", N command(s) applied". GENERATOR_VERSION 6:
+  every folder is written once more at the next start.
+- Republic Mod Manager carries the same rule a second time (`ClonePlan.cs`). The same donor and the
+  same 19 cases stand in the self-test (`TestCommands`) and in its CoreTests.
+- Verified: build free of warnings, self-test 86 checks. With `buildings_plus_test.exe --run` the
+  four buildings of the shipped INI and of the content packages Cable Resources and Salt Resources
+  were generated from the real game folder in the old and in the new spelling and compared block by
+  block: identical, storages and piles in the same order. Not run in the game yet.
+
+## 0.1.12 (2026-11-25)
+
+- Rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5 with `/DTSM_RELEASE_VERSION=0.4.5`
+  (`TsmPluginTargetVersion` export). No change to the code.
 
 ## 0.1.11 (2026-11-18)
 

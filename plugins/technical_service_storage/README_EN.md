@@ -1,8 +1,8 @@
-# 🚛 Technical Service Storage 0.3.5
+# 🚛 Technical Service Storage 0.3.7
 
 **TesmioLoader plugin for grit storages, material priorities and snowplow tanks**
 
-Extends the Technical Services window of *Workers & Resources: Soviet Republic* 1.1.1.13 with additional single-resource storages, clickable material priorities and warnings. Snowplows get a plugin-owned grit tank whose consumption, refill and return to the home depot are managed by the plugin. Together with Weather Roads the loaded material decides how much new snow a plowed road keeps off.
+Extends the Technical Services window of *Workers & Resources: Soviet Republic* 1.2.0.9 with additional single-resource storages, clickable material priorities and warnings. Snowplows get a plugin-owned grit tank whose consumption, refill and return to the home depot are managed by the plugin. Together with Weather Roads the loaded material decides how much new snow a plowed road keeps off.
 
 ---
 
@@ -29,8 +29,8 @@ Extends the Technical Services window of *Workers & Resources: Soviet Republic* 
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 - Technical Services with `$TYPE_GARBAGE_OFFICE` (internal building type 49) and snowplows with skill 35
 - For grit operation: registered grit resources and matching single-resource storages in the depot (see [Building storages and migration](#-building-storages-and-migration))
 - **Recommended:** the Localization plugin with the `technical_service_storage` text pack for translated labels; without it built-in fallback labels are used
@@ -80,7 +80,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds the INI next to itself in the package
 4. Steam updates apply from the next game start
@@ -308,6 +308,8 @@ Added storages can become part of the native savegame. Priorities and tanks live
 - Resource plugins (Resources Plus or Resources) register additional materials such as `road_salt`.
 
 ### Version compatibility
+- **0.3.7:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
+- **0.3.6:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
 - **0.3.5:** nothing changes in the game; only the log texts were tidied up
 - **0.3.4:** for WRSR 1.1.1.13; otherwise unchanged
 - **0.3.3:** reserve threshold in percent (old key still read), vehicle table 1024 (default 512), default list without `road_salt`, texts; file formats unchanged
@@ -412,5 +414,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Technical Service Storage 0.3.5  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Technical Service Storage 0.3.7  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

@@ -1,8 +1,8 @@
-# 🔬 Research Expansion 0.4.2
+# 🔬 Research Expansion 0.4.4
 
 **TesmioLoader plugin for new research and changes to the research tree**
 
-Adds your own research entries to *Workers & Resources: Soviet Republic* 1.1.1.13, hangs them onto existing research, positions their unlocks and edits Vanilla research where needed, without touching the original `research.ini`. The extended file is generated at every game start in the TesmioLoader virtual file system (VFS).
+Adds your own research entries to *Workers & Resources: Soviet Republic* 1.2.0.9, hangs them onto existing research, positions their unlocks and edits Vanilla research where needed, without touching the original `research.ini`. The extended file is generated at every game start in the TesmioLoader virtual file system (VFS).
 
 ---
 
@@ -27,8 +27,8 @@ Adds your own research entries to *Workers & Resources: Soviet Republic* 1.1.1.1
 
 ### Requirements
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader b0.3.7 or newer (API 4)
+- WRSR 1.2.0.9
+- TesmioLoader b0.4.5 or newer (API 4)
 - **Mandatory:** the Localization plugin (0.4.0 or newer), switched on. Without its service the extension is not applied. Republic Mod Manager checks that before the game starts and offers to switch Research Expansion off when Localization is missing.
 - For new research: a Localization text pack with the names and descriptions (namespace `research_expansion`); it ships with the Localization package.
 
@@ -75,7 +75,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice. Loca
 
 ```
 1. Subscribe to the Workshop item, and to the Localization package as well
-2. The TesmioLoader (b0.3.7 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds INI and fallback icon next to itself in the package
 4. Steam updates apply from the next game start
@@ -256,6 +256,8 @@ Research is part of the savegame: a new research a savegame already knows should
 Localization is mandatory. Other plugins that replace `research.ini` are not merged.
 
 ### Version compatibility
+- **0.4.4:** texts for WRSR 1.2.0.9; the plugin uses no game address and is otherwise unchanged.
+- **0.4.3:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
 - **0.4.2:** log wording only; logic and INI unchanged
 - **0.4.1:** log wording only; logic and INI unchanged
 - **0.4.0:** first published version
@@ -355,5 +357,5 @@ A: No. New research, edits of Vanilla research and the plugin settings are offer
 
 ---
 
-**Last update:** Research Expansion 0.4.2  
-**For:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Last update:** Research Expansion 0.4.4  
+**For:** WRSR 1.2.0.9 | TesmioLoader API 4

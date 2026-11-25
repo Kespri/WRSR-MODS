@@ -1,13 +1,59 @@
 # Deposits Plus – build notes
 
 Fork of the `deposits` plugin from the TesmioLoader by MaxLegend (Tesmio), GPL v3. Target:
-WRSR 1.1.1.13 (SOVIET64.exe SHA-256 `4DF5FBECC75300E3B843AE4E6426761C84AE2E989321C011C6F560BE79122125`),
+WRSR 1.2.0.9 (SOVIET64.exe SHA-256 `3EB4649C01C6A4E01F86ACE3BD8135D6359EC3774CF93E17AB69C0F1B65E6D28`),
 TesmioLoader API 4. Build: the standard line of the root `build.bat` (`cl /O2 /MT /W3 /EHsc /LD`,
 kernel32.lib) compiles `deposits_plus.cpp`; the headers `deposit_generation.h`, `deposit_country.h`,
 `deposit_visual_shader.h` and the `.inl` files are included, `third_party` holds Microsoft's DXIL
 hash helper (see below). Service name `deposits` and the savegame file `tesmio_deposits.bin`
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
+
+## 0.4.19 (2026-11-25)
+
+- Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574; engine stamp 0x6B05A4A4). 82 address constants were
+  carried by the instruction-by-instruction comparison of both builds (`my_plugins\tests\rebase.pl`);
+  code moved by -0x170 .. +0x4F0 from 0x091180 on, the float pool in `.rdata` by +0xB8.
+- Offsets inside the game object from +0xBCB8 on are 8 higher: the editor's active tool
+  +0xD4C0 -> +0xD4C8, the resource vector 0xA2B270, the tooltip buffer 0xA2C558 -> 0xA2C560.
+  Terrain (+0xF78), the resource maps (+0xFA0 / +0xFA8) and the brush cursor (+0x1120) stayed.
+- Expected bytes: the parser LEA and the two resource-map brackets carry new displacements
+  (`kParserOrig`, `kMapOpenOrig`, `kMapCloseOrig`); every other compared block is byte-identical at
+  its new address (`arraycheck.pl`).
+- Sand surface: the engine DLL of this build has the stamp 0x6B05A4A4; its code is byte-identical to
+  the previous one (31 bytes of `.rdata` differ), so the texture hooks keep their addresses.
+
+## 0.4.18 (2026-11-25)
+
+- Ported to WRSR 1.2.0.8. 89 constants shared with the upstream plugin were taken from
+  MaxLegend's port and each compared with an own measurement (`portmap.pl` with
+  `portlists\dp.map`, the "references seen" list, and the float constants read back by value).
+- Four upstream values were wrong or missing and are NOT taken over: the radius table sits eight
+  bytes too high there (it reads 134, 213, 51.2 ...; ours reads 130, 210, 50, 30, 250, 170, 150
+  at 0x95211C, 0x952270, 0x951F5C, 0x951ED4, 0x9522F0, 0x9521BC, 0x952158); `G_HITBOX_HALF` is
+  0x951BB8 (5.0), `G_ED_BUTTON` 0x9513BC (0.85); the editor's active tool moved from +0xD428 to
+  +0xD4C0 (old `mov rbx,[rdi+0xD428]` / `mov byte [rdi+0x10F0],r13b`, new 0xD4C0 / 0x1120).
+- Layout: the deposit type of a building +0x368 -> +0x370, the building type in the type
+  descriptor +0x360 -> +0x368, the resource maps +0xFA0/+0xFA8, the terrain +0xF78, the parser
+  locals 0x4C50 / 0x1E18 / 0x1E20, the sample buffer `rbp+0xC0`, the brush cursor flag 0x1120,
+  the tool's icon path +0xB5. The Rocks panel pushes R12 and R15 now (22-byte prologue).
+- The four working-vehicle gates (this fork only) were read again: 0x18FC18 (guard 0x18FC04),
+  0x1CA56A (0x1CA563), 0x402C09 (0x402BA4) and 0x69F274 (0x69F264). The eligibility test ends in
+  a near JNE now, so that site is fifteen bytes, and its descriptor register is RSI.
+- `my_plugins\tests\bytearrays.pl` compares all 23 expected byte strings with the executable at
+  the new addresses: all match. The minimap object (+4 six flags, +0x48..+0x58), the engine's
+  texture vtable slots 2, 16, 18 and 36 and text id 0x2F3 were checked and did not change. The
+  editor button drawer keeps its nine arguments (call site compared in both builds).
+- Two guards against the engine DLL (C3DDLL64.dll, PE stamp 0x6B004BD7, image 0x1F3000) were
+  re-read after a first start showed both refusing: the country border vector is still at
+  terrain+0x8A0, but the exported `C3D_TERRAIN` constructor zeroes it from +0x1F on with an XORPS
+  between the first and the other two stores (one block at +0x17 before); the sand surface checks
+  the new stamp and the device accessor in `CreateShaders` at +0x2BA with its new displacement
+  (`4C 8B 0D 3F 17 1C 00`).
+- Start on 1.2.0.8 (init and start phase, read from the loader log): every patch site accepted,
+  `country-guard=1`, four native vehicle gates installed, four brush pairs hooked, the sand
+  surface hook prepared. No world was loaded yet; the signatures of the editor and minimap
+  functions the plugin calls were not checked one by one.
 
 ## 0.4.17 (2026-11-19)
 

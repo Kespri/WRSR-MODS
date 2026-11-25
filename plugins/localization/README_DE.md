@@ -1,8 +1,8 @@
-# 🌐 Localization 0.4.0
+# 🌐 Localization 0.4.2
 
 **TesmioLoader-Plugin für eigene Texte und Übersetzungen**
 
-Fügt *Workers & Resources: Soviet Republic* 1.1.1.13 eigene Namen, Beschreibungen und Beschriftungen hinzu, ohne die originalen Sprachdateien anzufassen. Textpakete sind einfache INI-Dateien; beim Spielstart erzeugt das Plugin daraus erweiterte `soviet*.btf`-Sprachdateien im virtuellen Dateisystem (VFS) des TesmioLoaders und stellt anderen Plugins einen Übersetzungsdienst bereit. Das Paket enthält die Textpakete von Research Expansion, Technical Service Storage und das gemeinsame Paket `tesmio_lang`.
+Fügt *Workers & Resources: Soviet Republic* 1.2.0.9 eigene Namen, Beschreibungen und Beschriftungen hinzu, ohne die originalen Sprachdateien anzufassen. Textpakete sind einfache INI-Dateien; beim Spielstart erzeugt das Plugin daraus erweiterte `soviet*.btf`-Sprachdateien im virtuellen Dateisystem (VFS) des TesmioLoaders und stellt anderen Plugins einen Übersetzungsdienst bereit. Das Paket enthält die Textpakete von Research Expansion, Technical Service Storage und das gemeinsame Paket `tesmio_lang`.
 
 ---
 
@@ -27,8 +27,8 @@ Fügt *Workers & Resources: Soviet Republic* 1.1.1.13 eigene Namen, Beschreibung
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.1.1.13
-- TesmioLoader ab b0.3.7 (API 4) mit aktiviertem VFS
+- WRSR 1.2.0.9
+- TesmioLoader ab b0.4.5 (API 4) mit aktiviertem VFS
 - Mindestens ein gültiges Textpaket (drei sind im Paket enthalten)
 
 ### In drei Schritten
@@ -66,7 +66,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden,
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.3.7) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. INI und Textpakete findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -230,6 +230,8 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 - Andere Plugins, die `soviet*.btf` im VFS ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.2:** Texte für WRSR 1.2.0.9; das Plugin nutzt keine Spieladresse und ist sonst unverändert.
+- **0.4.1:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
 - **0.4.0:** erste veröffentlichte Fassung; Research Expansion verlangt `tesmio.localization >= 0.4.0`
 
 ---
@@ -333,5 +335,5 @@ A: Nein. Die beiden Schalter bietet Republic Mod Manager an; Textpakete sind Ord
 
 ---
 
-**Letzte Aktualisierung:** Localization 0.4.0  
-**Für:** WRSR 1.1.1.13 | TesmioLoader API 4
+**Letzte Aktualisierung:** Localization 0.4.2  
+**Für:** WRSR 1.2.0.9 | TesmioLoader API 4
