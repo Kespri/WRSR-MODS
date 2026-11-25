@@ -644,8 +644,13 @@ namespace TesmioAutoload
             }
         }
         bool TypedIsLink { get { return TargetPlan.ConnectionToken(TargetPlan.Token(Typed.Split('\n').FirstOrDefault() ?? "")); } }
+        // A test takes the message instead of the window: a modal box cannot be answered there.
+        internal Action<string> ErrorSink { get; set; }
         void ShowError(string text)
-        { MessageWindow.Show(FindForm(), language, language.T("note"), text, MessageWindow.Kind.Warning, DialogResult.OK); }
+        {
+            if (ErrorSink != null) { ErrorSink(text); return; }
+            MessageWindow.Show(FindForm(), language, language.T("note"), text, MessageWindow.Kind.Warning, DialogResult.OK);
+        }
         void Push(string kind, string value)
         {
             List<string> field = Field(kind);
@@ -720,8 +725,28 @@ namespace TesmioAutoload
             {
                 string row = rows[i];
                 if (lines.Any(x => x.Trim() == row)) { ShowError(language.Format("target_chain_exists", row)); return false; }
+                // The commands go to every target of the rule set, not only the one shown: where
+                // another target has the line already, the next one would land beside that copy,
+                // and no command would turn red. The files were read for the count above.
+                foreach (KeyValuePair<string, List<string>> other in otherFiles)
+                    if (other.Value != null && other.Value.Any(x => x.Trim() == row))
+                    { ShowError(language.Format("target_chain_exists_other", row, other.Key.Replace('\\', '/'))); return false; }
             }
             return true;
+        }
+        // The inserts that hang, one behind the other, on a line an earlier Replace of this
+        // editor produced. Called before that Replace is written anew: what was typed then is
+        // replaced by what is typed now, followers included. Left behind they would name a line
+        // nothing produces any more - red, and the target (or the whole building) loses everything.
+        void DropChain(string head)
+        {
+            for (int guard = insert.Count; guard >= 0 && head.Length > 0; guard--)
+            {
+                int at = insert.FindIndex(x => { string[] f = x.Split('|').Select(y => y.Trim()).ToArray(); return f.Length >= 3 && f[0] == "1" && f[1] == head && f[2].StartsWith("$", StringComparison.Ordinal); });
+                if (at < 0) return;
+                string next = insert[at].Split('|')[2].Trim();
+                insert.RemoveAt(at); head = next;
+            }
         }
         static IEnumerable<string> Chain(List<string> rows)
         { for (int i = 1; i < rows.Count; i++) yield return "1 | " + rows[i - 1] + " | " + rows[i]; }
@@ -752,7 +777,12 @@ namespace TesmioAutoload
                 string anchor = CloneAnchor(), value = anchor + " | " + (chain ? Joined(typed[0]) : String.Join(" | ", TypedLines));
                 // One replace per place: a second one for the same anchor takes the first one's row.
                 int had = replace.FindIndex(x => x == anchor || x.StartsWith(anchor + " | $", StringComparison.Ordinal));
-                if (had >= 0) replace[had] = value; else { replace.Add(value); had = replace.Count - 1; }
+                if (had >= 0)
+                {
+                    if (replace[had].Length > anchor.Length + 3) DropChain(replace[had].Substring(anchor.Length + 3).Split('|')[0].Trim());
+                    replace[had] = value;
+                }
+                else { replace.Add(value); had = replace.Count - 1; }
                 if (chain) foreach (string next in CloneChain(typed)) if (!insert.Contains(next)) insert.Add(next);
                 Recompute(); Pick("replace", had); return;
             }
@@ -776,7 +806,13 @@ namespace TesmioAutoload
             // The first line takes the place of the picked one, the others follow below it.
             string line = Picked + " | " + rows[0];
             int where = replace.FindIndex(x => x.Split('|')[0].Trim() == Picked);
-            if (where >= 0) replace[where] = line; else { replace.Add(line); where = replace.Count - 1; }
+            if (where >= 0)
+            {
+                int bar = replace[where].IndexOf('|');
+                if (bar >= 0) DropChain(replace[where].Substring(bar + 1).Trim());
+                replace[where] = line;
+            }
+            else { replace.Add(line); where = replace.Count - 1; }
             foreach (string next in Chain(rows)) if (!insert.Contains(next)) insert.Add(next);
             Recompute(); Pick("replace", where);
         }

@@ -567,6 +567,34 @@ static class UiTests
                     Check(editor.TestSpread("remove_connection",0)==1,"0.7.1: every target is checked without a box to tick - the command fits one of the two");
                     Check(editor.TestSpreadNote.Contains("1 von 2")&&editor.TestBadTargets.Count()==1&&editor.TestBadTargets.First()=="b.ini","0.7.1: the red line says the rule set reaches 1 of 2 target files, and b.ini is the marked one ["+editor.TestSpreadNote+"]");
                 }
+                // 0.7.4: two findings of the code review. A Replace with several lines that is done
+                // again takes the followers of the first try with it; and a chain is checked against
+                // every target of the rule set, not only the one shown.
+                {
+                    var one=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop.ini"},f=>one,new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                    {
+                        editor.TestSelectLine(1);editor.TestType("$AAA 1\n$BBB 2\n$CCC 3");editor.TestReplace();
+                        Check(editor.Insert.Count()==2&&!editor.TestProblems.Any(),"0.7.4: a Replace with three lines writes the replace and two chained inserts");
+                        editor.TestSelectLine(1);editor.TestType("$DDD 4\n$EEE 5");editor.TestReplace();
+                        Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $DDD 4"&&editor.Insert.Count()==1&&editor.Insert.First()=="1 | $DDD 4 | $EEE 5"&&!editor.TestProblems.Any(),"0.7.4: doing the Replace again drops the followers of the first try - nothing red is left ["+String.Join(" ; ",editor.Insert)+" // "+String.Join(",",editor.TestProblems)+"]");
+                    }
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop_clothes"},f=>one,new string[0],new string[0],new string[0],new string[0],null,null,null,new Font("Segoe UI",10),true,()=>""))
+                    {
+                        editor.TestSelectLine(1);editor.TestType("$AAA 1\n$BBB 2");editor.TestReplace();
+                        editor.TestSelectLine(1);editor.TestType("$DDD 4\n$EEE 5");editor.TestReplace();
+                        Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $DDD 4"&&editor.Insert.Count()==1&&editor.Insert.First()=="1 | $DDD 4 | $EEE 5"&&!editor.TestProblems.Any(),"0.7.4 clone editor: the same for a Buildings Plus building ["+String.Join(" ; ",editor.Replace.Concat(editor.Insert))+" // "+String.Join(",",editor.TestProblems)+"]");
+                    }
+                    var other=new List<string>{"$NAME_STR \"Other\"","$WORKERS_NEEDED 20","$LIFESPAN 1","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{@"buildings_types\a.ini",@"buildings_types\b.ini"},f=>f.EndsWith("a.ini")?one:other,new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                    {
+                        string said="";editor.ErrorSink=text=>said=text;
+                        editor.TestSelectLine(1);editor.TestType("$LIFESPAN 1\n$QUALITY 2");editor.TestInsert(true);
+                        Check(!editor.Insert.Any()&&said.Contains("buildings_types/b.ini")&&said.Contains("$LIFESPAN 1"),"0.7.4: a chain whose first line another target already has is refused, and the message names that target ["+said+"]");
+                        said="";editor.TestType("$QUALITY 2\n$LIFESPAN 1");editor.TestInsert(true);
+                        Check(editor.Insert.Count()==2&&said==""&&editor.TestSpreadNote=="","0.7.4: the last line of a chain may stand elsewhere - nothing hangs on it");
+                    }
+                }
                 // 0.7.2: several lines in the new-line box are several commands, never one glued line.
                 {
                     var plain=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","$STORAGE RESOURCE_TRANSPORT_COVERED 40","end"};

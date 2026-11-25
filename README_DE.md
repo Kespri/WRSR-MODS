@@ -56,7 +56,7 @@ und über die Original-DLL installiert (gleiche API, gleiche Logzeilen; die Änd
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.3 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.4 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
 
 ## Installation
 
