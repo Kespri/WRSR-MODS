@@ -82,6 +82,17 @@ namespace TesmioAutoload
             try { return SafeFiles.Text(path).Replace("\r\n", "\n").Split('\n').ToList(); }
             catch (Exception) { return null; }
         }
+        // The donor's building.ini line by line and unchanged - data lines, blank lines and lines
+        // that stand twice included. This is what the commands of Buildings Plus are judged
+        // against; DonorLines below is a pick list (token lines, each once) and must never
+        // stand in for it: a line the plugin finds twice would look unique.
+        public static List<string> DonorFileLines(string build, string donor)
+        {
+            string path = DonorFile(build, donor);
+            if (path == null) return null;
+            try { return SafeFiles.Text(path).Replace("\r\n", "\n").Split('\n').ToList(); }
+            catch (Exception) { return null; }
+        }
         public static List<string> DonorLines(string build, string donor)
         {
             var result = new List<string>(); string path = DonorFile(build, donor);

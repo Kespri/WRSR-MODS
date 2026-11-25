@@ -833,6 +833,10 @@ static class CoreTests
             Write(Path.Combine(types,"shop_clothes.ini"),"$TYPE_SHOP\n");
             var lines=GameBuildings.DonorLines(build,"bauxite_mine");
             Check(lines.SequenceEqual(new[]{"$NAME 26301","$TYPE_MINE_BAUXITE","$WORKERS_NEEDED 45","$PRODUCTION rawbauxite 0.50","$CONNECTION_ROAD"}));
+            // 0.7.3: the command editor needs the file itself - data lines and repeated lines included.
+            var rawDonor=GameBuildings.DonorFileLines(build,"bauxite_mine");
+            Check(rawDonor!=null&&rawDonor.Count(x=>x.Trim()=="$PRODUCTION rawbauxite 0.50")==2&&rawDonor.Contains("1 0 0")&&GameBuildings.DonorFileLines(build,"missing")==null,"the donor's file comes back unchanged: the repeated line twice, the data lines, and null for a donor that is not there");
+            Check(ClonePlan.Check(rawDonor,null,null,new[]{"$PRODUCTION rawbauxite 0.50"},null).Any&&!ClonePlan.Check(lines,null,null,new[]{"$PRODUCTION rawbauxite 0.50"},null).Any,"a line that stands twice in the donor is refused when the file is judged - the pick list would have let it through");
             Check(GameBuildings.DonorFile(build,"shop_clothes")!=null&&GameBuildings.DonorFile(build,"missing")==null&&GameBuildings.DonorFile(build,"..\\evil")==null&&GameBuildings.DonorLines(build,"missing").Count==0);
             var sets=new ReferenceSets(build,null,"en");
             Check(ReferenceSets.Known("game_donor")&&sets.Contains("game_donor","bauxite_mine")&&!sets.Contains("game_donor","nope"));

@@ -55,7 +55,7 @@ b0.4.5-rmm.2 that the Republic Mod Manager package ships and installs over the u
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.2 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.3 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
 
 ## Installing
 

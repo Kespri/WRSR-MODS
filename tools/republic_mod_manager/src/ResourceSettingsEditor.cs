@@ -508,7 +508,10 @@ namespace TesmioAutoload
             bool oldStyle=Split(item,lineField).Count>0||(stripField!=null&&Split(item,stripField).Count>0);
             if(cAdd!=null&&cReplace!=null&&cRemove!=null&&cInsert!=null&&!oldStyle)
             {
-                List<string> shown=donorLines;
+                // The file itself, not the pick list in donorLines: the plugin judges every command
+                // against the donor's building.ini with its data lines and repeated lines.
+                List<string> shown=null;
+                try{shown=GameBuildings.DonorFileLines(state.Build,donor);}catch(Exception){}
                 var commands=new TargetLinesEditor(language,new[]{donor},f=>shown,Split(item,cAdd),Split(item,cReplace),Split(item,cRemove),Split(item,cInsert),null,null,null,Font,true,()=>DonorNameLine(item,nameField));
                 commands.Changed=()=>Run(()=>
                 {
