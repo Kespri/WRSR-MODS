@@ -1130,6 +1130,13 @@ static class CoreTests
             LoaderFiles.Forget();var rsEntries=Catalog.ScanAll(rsBuild,"","",new List<string>());
             var spreads=Startup.RuleSpreads(rsBuild,Startup.Order(rsBuild,rsEntries),"");
             Check(spreads.Count==1&&spreads[0].Section=="service"&&spreads[0].Fit==1&&spreads[0].Found==2,"the start check names the one rule set that is switched on and misses a target ["+String.Join(",",spreads.Select(s=>s.Section+" "+s.Fit+"/"+s.Found))+"]");
+            // 0.7.5: the target files are kept until they change - and a change is seen.
+            Write(Path.Combine(rsGame,"media_soviet","buildings_types","b.ini"),"$NAME 2\n$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40\n$WORKERS_NEEDED 20\n$LIFESPAN 9\nend\n");
+            Check(Startup.RuleSpreads(rsBuild,Startup.Order(rsBuild,rsEntries),"").Count==0,"a target file that changed on disk is read again: the rule set fits both targets now");
+            // 0.7.5: the start check gets the Workshop folder RMM works with, like the window and the list.
+            string rsShop=Path.Combine(root,"rule-spread","shop");Write(Path.Combine(rsShop,"4711","house","building.ini"),"$NAME 3\n$WORKERS_NEEDED 5\nend\n");
+            Write(Path.Combine(rsBuild,"plugins","vanilla_buildings.ini"),"[general]\nenabled = 1\n[shop]\nenabled = 1\ntarget = 4711\\house\\building.ini\nremove = $NOT_THERE 1\n");
+            Check(Startup.RuleSpreads(rsBuild,Startup.Order(rsBuild,rsEntries),"").Count==0&&Startup.RuleSpreads(rsBuild,Startup.Order(rsBuild,rsEntries),rsShop).Count==1,"a target that only the given Workshop folder has is judged with that folder and left out without it");
             Write(Path.Combine(rsBuild,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nvanilla_buildings=0\n");
             LoaderFiles.Forget();Check(Startup.RuleSpreads(rsBuild,Startup.Order(rsBuild,rsEntries),"").Count==0,"a plugin that does not load is not checked");
         });
@@ -1531,6 +1538,12 @@ static class CoreTests
             Check(o18.Any&&!text(o18).Contains("$AAA 1"),"one command that does not fit stops all of them");
             TargetOutcome o19=plan(new[]{"$AAA 1","$BBB 2"},new[]{"$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30"},new[]{"$TYPE_SHOP"},new[]{"0 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $CCC 3","1 | $CCC 3 | $DDD 4"});
             Check(!o19.Any&&!text(o19).Contains("$TYPE_SHOP")&&text(o19).Contains("$NAME 2020\n$WORKERS_NEEDED 30\n$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$CCC 3\n$DDD 4\n$STORAGE_FUEL")&&text(o19).Contains("$AAA 1\n$BBB 2\nend\n"),"all four kinds together, adds in their order");
+            TargetOutcome o20=plan(none,new[]{"$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30"},new[]{"$WORKERS_NEEDED 20"},none);
+            Check(o20.Any&&problem(o20)=="clone_problem_taken"&&ClonePlan.Result(o20,donor).Count==n,"a second command on the same block is refused, not passed over ["+problem(o20)+"]");
+            TargetOutcome o21=plan(new[]{"$RESOURCE_VISUALIZATION 3 | position 7 0 7","$RESOURCE_VISUALIZATION 3 | position 8 0 8"},none,none,new[]{"1 | $RESOURCE_VISUALIZATION 3 | position 8 0 8 | $XXX 1"});
+            Check(!o21.Any&&text(o21).Contains("position 7 0 7\n$RESOURCE_VISUALIZATION 3\nposition 8 0 8\n$XXX 1\nend\n"),"a data line tells two blocks apart that earlier commands write, too ["+problem(o21)+"]");
+            TargetOutcome o22=plan(new[]{"$RESOURCE_VISUALIZATION 3 | position 7 0 7","$RESOURCE_VISUALIZATION 3 | position 8 0 8"},none,none,new[]{"1 | $RESOURCE_VISUALIZATION 3 | $XXX 1"});
+            Check(o22.Any&&problem(o22)=="clone_problem_made_many","an anchor two earlier commands write is refused until a data line says which ["+problem(o22)+"]");
             // The name field and the storage numbers, which only the editor shows.
             var named=ClonePlan.Named(ClonePlan.Result(o3,donor),"$NAME_STR \"Pharmacy\"");
             Check(named[0].Text=="$NAME_STR \"Pharmacy\""&&!named.Any(x=>x.Text=="$NAME 2020")&&named.Count==n,"the name field takes the donor's own name line out and stands on top");

@@ -167,7 +167,7 @@ namespace TesmioAutoload
                     string name=section.Trim();
                     if(name.Length==0||reserved.Any(r=>r.Equals(name,StringComparison.OrdinalIgnoreCase)))continue;
                     if((ini.Get(name,"enabled")??"1").Trim()=="0")continue;
-                    RuleSpread spread=TargetPlan.Spread(ini.GetAll(name,"target"),file=>GameBuildings.TargetLines(root,workshopRoot,file),
+                    RuleSpread spread=TargetPlan.Spread(ini.GetAll(name,"target"),file=>GameBuildings.TargetLinesKept(root,workshopRoot,file),
                         ini.GetAll(name,"add"),ini.GetAll(name,"replace"),ini.GetAll(name,"remove"),ini.GetAll(name,"insert"),
                         ini.GetAll(name,"add_connection"),ini.GetAll(name,"replace_connection"),ini.GetAll(name,"remove_connection"));
                     if(!spread.Trouble)continue;

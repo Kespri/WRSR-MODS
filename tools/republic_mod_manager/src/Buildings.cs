@@ -82,6 +82,28 @@ namespace TesmioAutoload
             try { return SafeFiles.Text(path).Replace("\r\n", "\n").Split('\n').ToList(); }
             catch (Exception) { return null; }
         }
+        // TargetLines, kept until the file changes. The list of rule sets and the start check ask
+        // for every target of every rule set each time they are built - with 15 rule sets of 20
+        // targets that was 300 file reads per click. Keyed by the resolved path and checked by
+        // size and write time; every caller gets a list of its own.
+        sealed class KeptFile { public long Size, Stamp; public List<string> Lines; }
+        static readonly Dictionary<string, KeptFile> kept = new Dictionary<string, KeptFile>(StringComparer.OrdinalIgnoreCase);
+        public static List<string> TargetLinesKept(string build, string workshopRoot, string target)
+        {
+            string path = TargetFile(build, workshopRoot, target);
+            if (path == null) return null;
+            try
+            {
+                var info = new FileInfo(path);
+                long size = info.Length, stamp = info.LastWriteTimeUtc.Ticks;
+                KeptFile have;
+                lock (kept) { if (kept.TryGetValue(path, out have) && have.Size == size && have.Stamp == stamp) return new List<string>(have.Lines); }
+                List<string> lines = SafeFiles.Text(path).Replace("\r\n", "\n").Split('\n').ToList();
+                lock (kept) { if (kept.Count > 2000) kept.Clear(); kept[path] = new KeptFile { Size = size, Stamp = stamp, Lines = lines }; }
+                return new List<string>(lines);
+            }
+            catch (Exception) { return null; }
+        }
         // The donor's building.ini line by line and unchanged - data lines, blank lines and lines
         // that stand twice included. This is what the commands of Buildings Plus are judged
         // against; DonorLines below is a pick list (token lines, each once) and must never

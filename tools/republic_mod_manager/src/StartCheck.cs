@@ -14,7 +14,9 @@ namespace TesmioAutoload
         readonly Language language;
         public string Jump="";                                // root of the entry the user clicked
 
-        public StartCheckWindow(Language language,string build,List<CatalogEntry> entries,List<SaveGame> saves,string lastSeen,Font font,Icon icon)
+        // workshopRoot: the Workshop folder RMM works with, so a target file is found here exactly
+        // where the lines window and the list of rule sets find it.
+        public StartCheckWindow(Language language,string build,List<CatalogEntry> entries,List<SaveGame> saves,string lastSeen,Font font,Icon icon,string workshopRoot="")
         {
             this.language=language;
             Text=language.T("startcheck"); Font=font; Icon=icon; Size=new Size(1080,760); MinimumSize=new Size(820,560);
@@ -65,7 +67,7 @@ namespace TesmioAutoload
             // 0.7.1: a rule set of Vanilla Buildings that does not fit every target. The game starts
             // all the same - the rule set just changes nothing there - so this is amber, not red.
             CatalogEntry rules=list.FirstOrDefault(e=>e.Key.Length>0&&PluginScan.SameKey(e.Key,"vanilla_buildings"));
-            foreach(RuleSpread spread in Startup.RuleSpreads(build,steps,""))
+            foreach(RuleSpread spread in Startup.RuleSpreads(build,steps,workshopRoot??""))
             { Line(trouble,language.Format("startcheck_rule_spread",spread.Plugin,spread.Section,spread.Fit,spread.Found,spread.Bad[0]),Theme.Amber,rules==null?"":rules.Root); any=true; }
             foreach(CatalogEntry entry in list.Where(e=>e.Updated).OrderBy(e=>e.Name,StringComparer.CurrentCultureIgnoreCase))
             { Line(trouble,language.Format("startcheck_update_row",entry.Name,entry.PreviousVersion,entry.Version),Theme.Amber,entry.Root); any=true; }

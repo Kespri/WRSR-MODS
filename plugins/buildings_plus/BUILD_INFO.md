@@ -9,6 +9,20 @@ folder>` generates the sections of a real INI from a real game folder into an ou
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
 
+## 0.2.1 (2026-11-25)
+
+- Two findings of a code review of the command rule, both in `PlanOps`:
+  - A second replace or remove of a block that an earlier command of the section already
+    replaces or removes is refused ("an earlier command of this section already replaces or
+    removes this line"). `ApplyOps` took the first and passed the second over without a word,
+    while the log counted it as applied.
+  - An insert whose anchor is not in the donor hangs on the block of an earlier command only when
+    that block begins with EVERY field of the anchor (data lines included), and exactly one
+    earlier command may match; two give "earlier commands write this line N times". Before, the
+    first command whose block began with the same first line was taken.
+- Three new self-test cases (89 checks); the same three stand in Republic Mod Manager's CoreTests
+  for `ClonePlan`. A valid section gives the same file as before, so the generator version stays.
+
 ## 0.2.0 (2026-11-25)
 
 - New: commands against the donor's building.ini - `add`, `replace`, `remove`, `insert`, the four

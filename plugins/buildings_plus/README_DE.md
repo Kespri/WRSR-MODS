@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.0
+# 🏭 Buildings Plus 0.2.1
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -180,7 +180,8 @@ remove = $RESOURCE_VISUALIZATION 2 | position -78.7332 0.0 -15.8727
 
 **Was du noch wissen musst.**
 - Lager zählen ab 0, in der Reihenfolge, in der sie in der fertigen Datei stehen, und eine Warenanzeige (`$RESOURCE_VISUALIZATION`) nennt die Nummer ihres Lagers. Setz ein neues Lager deshalb mit Einfügen dorthin, wo es hingehört. Wasser- und Abwasserlager gehören ans Ende.
-- Ein Einfügen darf sich auch an eine Zeile hängen, die ein früherer Befehl desselben Abschnitts schreibt.
+- Ein Einfügen darf sich auch an eine Zeile hängen, die ein früherer Befehl desselben Abschnitts schreibt. Schreiben zwei frühere Befehle dieselbe Zeile, hängst du auch hier ihre Datenzeilen als weitere Felder an, damit klar ist, welche gemeint ist.
+- Je Stelle gilt ein Befehl: Eine Zeile, die schon ein Befehl ersetzt oder entfernt, nimmt kein zweites Ersetzen oder Entfernen an.
 - Das Plugin nimmt die Befehle in der Reihenfolge Anhängen, Ersetzen, Entfernen, Einfügen, egal wie sie in der Datei stehen.
 - Ein Abschnitt gilt ganz oder gar nicht: Passt ein einziger Befehl nicht zum Spender, wird das Gebäude nicht geschrieben. Das Protokoll nennt jeden Befehl, der nicht passt.
 
@@ -282,6 +283,7 @@ Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildin
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel, Resources Plus oder Resources). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.2.1:** Zwei Befehle auf dieselbe Stelle werden abgewiesen statt still übergangen. Ein Einfügen hinter einer Zeile, die ein früherer Befehl schreibt, findet sie auch über ihre Datenzeilen.
 - **0.2.0:** Gebäude beschreibst du jetzt mit Befehlen – Anhängen, Ersetzen, Entfernen, Einfügen. Jeder fasst genau eine Stelle der Spenderdatei an und lässt alles andere stehen; so setzt du zum Beispiel ein einzelnes Lager hinter ein vorhandenes. Die ältere Schreibweise mit `line` und `strip` gilt weiter. Für WRSR 1.2.0.9.
 - **0.1.12:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
 - **0.1.11:** Aus dem Workshop geladen, liest das Plugin jetzt `tesmioloader\plugins\buildings_plus.ini`, wenn es sie gibt (dorthin schreibt Republic Mod Manager), sonst die INI neben seiner DLL. Die vergebenen Nummern (`buildings_plus.ids.ini`) stehen immer in `tesmioloader\plugins` und nie im Workshop-Ordner, den Steam bei jedem Update überschreibt
@@ -398,5 +400,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.2.0  
+**Letzte Aktualisierung:** Buildings Plus 0.2.1  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

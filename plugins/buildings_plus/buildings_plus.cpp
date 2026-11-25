@@ -89,7 +89,7 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.2.0"
+#define PLUGIN_VERSION    "0.2.1"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
@@ -1049,6 +1049,15 @@ static bool PlanOps(const Decl& d, const std::vector<std::string>& lines, std::v
                     for (size_t k = 0; k < op.fresh.size() && same; k++) same = TrimCopy(lines[op.at + k]) == op.fresh[k];
                     if (same) op.problem = "old and new are the same";
                 }
+                // One block, one command: a second replace or remove of the same block would
+                // be passed over without a word when the commands are applied.
+                if (op.problem.empty() && op.kind != OP_INSERT)
+                    for (size_t i = 0; i < oi; i++)
+                    {
+                        const CloneOp& other = (*ops)[i];
+                        if (other.problem.empty() && other.at == op.at && (other.kind == OP_REPLACE || other.kind == OP_REMOVE))
+                        { op.problem = "an earlier command of this section already replaces or removes this line"; break; }
+                    }
             }
             else if (count > 1)
             {
@@ -1058,13 +1067,26 @@ static bool PlanOps(const Decl& d, const std::vector<std::string>& lines, std::v
             else
             {
                 // Not in the donor: an earlier add, replace or insert of this section may produce it.
+                // The block that command writes has to begin with every field of the anchor, data
+                // lines included - and exactly one earlier command may do so, as in the donor.
+                int made = 0;
                 if (op.kind == OP_INSERT)
-                    for (size_t i = 0; i < oi && op.anchorOp < 0; i++)
+                    for (size_t i = 0; i < oi; i++)
                     {
                         const CloneOp& other = (*ops)[i];
-                        if (other.problem.empty() && !other.fresh.empty() && other.fresh[0] == op.anchor[0]) op.anchorOp = (int)i;
+                        if (!other.problem.empty() || other.fresh.size() < op.anchor.size()) continue;
+                        bool begins = true;
+                        for (size_t k = 0; k < op.anchor.size() && begins; k++) begins = other.fresh[k] == op.anchor[k];
+                        if (!begins) continue;
+                        if (made++ == 0) op.anchorOp = (int)i;
                     }
-                if (op.anchorOp < 0) op.problem = "the line is not in the donor";
+                if (made > 1)
+                {
+                    op.anchorOp = -1;
+                    _snprintf_s(buf, sizeof(buf), _TRUNCATE, "earlier commands write this line %d times - add its data lines as further fields to tell them apart", made);
+                    op.problem = buf;
+                }
+                else if (op.anchorOp < 0) op.problem = "the line is not in the donor";
             }
         }
         if (!op.problem.empty()) good = false;
@@ -2458,6 +2480,13 @@ static void TestCommands()
     r = RunCommands("$AAA 1", "$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30", "$TYPE_SHOP", "0 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $CCC 3", "1 | $CCC 3 | $DDD 4", "$BBB 2");
     Check(r.fits && !Has(r.text, "$TYPE_SHOP") && Has(r.text, "$NAME 2020\n$WORKERS_NEEDED 30\n$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$CCC 3\n$DDD 4\n$STORAGE_FUEL")
           && Has(r.text, "$AAA 1\n$BBB 2\nend\n"), "commands: all four kinds together, adds in their order");
+    r = RunCommands(NULL, "$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30", "$WORKERS_NEEDED 20", NULL);
+    Check(!r.fits && Has(r.problem, "already replaces or removes") && r.lines == n, "commands: a second command on the same block is refused, not passed over");
+    r = RunCommands("$RESOURCE_VISUALIZATION 3 | position 7 0 7", NULL, NULL, "1 | $RESOURCE_VISUALIZATION 3 | position 8 0 8 | $XXX 1", NULL, "$RESOURCE_VISUALIZATION 3 | position 8 0 8");
+    Check(r.fits && Has(r.text, "position 7 0 7\n$RESOURCE_VISUALIZATION 3\nposition 8 0 8\n$XXX 1\nend\n"),
+          "commands: a data line tells two blocks apart that earlier commands write, too");
+    r = RunCommands("$RESOURCE_VISUALIZATION 3 | position 7 0 7", NULL, NULL, "1 | $RESOURCE_VISUALIZATION 3 | $XXX 1", NULL, "$RESOURCE_VISUALIZATION 3 | position 8 0 8");
+    Check(!r.fits && Has(r.problem, "write this line 2 times"), "commands: an anchor two earlier commands write is refused until a data line says which");
 }
 
 int wmain(int argc, wchar_t** argv)

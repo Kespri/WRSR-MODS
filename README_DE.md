@@ -36,7 +36,7 @@ Diese drei reisen im Paket des Republic Mod Manager mit:
 
 | Plugin | Version | Was es macht |
 |---|---|---|
-| [Buildings Plus](plugins/buildings_plus) | 0.2.0 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
+| [Buildings Plus](plugins/buildings_plus) | 0.2.1 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
 | [Resources Plus](plugins/resources_plus) | 0.1.7 | Eigene Ressourcen aus `plugins\resources_plus.ini`, Fork von resources: behebt den Absturz beim Beenden, übernimmt einmal die Liste des Originals, Namen je Spielsprache, pausiert, solange das Original geladen ist |
 | [Needs Plus](plugins/needs_plus) | 0.1.5 | Eigene Bürgerbedürfnisse aus `plugins\needs_plus.ini`, Fork von needs: übernimmt einmal die Liste des Originals, doppelte Namen abgewiesen, pausiert, solange das Original geladen ist |
 
@@ -56,7 +56,7 @@ und über die Original-DLL installiert (gleiche API, gleiche Logzeilen; die Änd
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.4 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.5 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
 
 ## Installation
 

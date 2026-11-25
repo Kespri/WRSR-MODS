@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.0
+# 🏭 Buildings Plus 0.2.1
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
@@ -180,7 +180,8 @@ remove = $RESOURCE_VISUALIZATION 2 | position -78.7332 0.0 -15.8727
 
 **What else you need to know.**
 - Storages count from 0 in the order they stand in the finished file, and a goods display (`$RESOURCE_VISUALIZATION`) names the number of its storage. So put a new storage where it belongs with Insert. Water and sewage storages go last.
-- An insert may also hang on a line that an earlier command of the same section writes.
+- An insert may also hang on a line that an earlier command of the same section writes. If two earlier commands write the same line, add its data lines as further fields here as well to say which one is meant.
+- One command per place: a line that a command already replaces or removes takes no second replace or remove.
 - The plugin takes the commands in the order add, replace, remove, insert, whatever their order in the file.
 - A section is all or nothing: one command that does not fit the donor and the building is not written. The log names every command that failed.
 
@@ -282,6 +283,7 @@ A Workshop item without a DLL of its own can bring buildings along (`[content] b
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game, Resources Plus or Resources). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.2.1:** two commands on the same place are refused instead of silently passed over. An insert behind a line an earlier command writes finds it by its data lines too.
 - **0.2.0:** buildings are now described with commands - add, replace, remove, insert. Each touches exactly one place of the donor file and leaves everything else alone, so a single storage can be put behind an existing one. The older way with `line` and `strip` still works. For WRSR 1.2.0.9.
 - **0.1.12:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
 - **0.1.11:** loaded from the Workshop, the plugin now reads `tesmioloader\plugins\buildings_plus.ini` when it exists (that is where Republic Mod Manager writes), otherwise the INI next to its DLL. The assigned numbers (`buildings_plus.ids.ini`) always live in `tesmioloader\plugins` and never in the Workshop folder, which Steam overwrites with every update
@@ -398,5 +400,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.2.0  
+**Last update:** Buildings Plus 0.2.1  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

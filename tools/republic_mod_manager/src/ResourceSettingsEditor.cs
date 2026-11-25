@@ -597,7 +597,7 @@ namespace TesmioAutoload
             string root=resourceSession.Build;string shop=state.WorkshopRoot;
             try
             {
-                return TargetPlan.Spread(Split(item,targetField),file=>GameBuildings.TargetLines(root,shop,file),
+                return TargetPlan.Spread(Split(item,targetField),file=>GameBuildings.TargetLinesKept(root,shop,file),
                     Split(item,addField),Split(item,replaceField),Split(item,removeField),Split(item,insertField),
                     Split(item,localSpec.FieldById(card.EditorAddLink)),Split(item,localSpec.FieldById(card.EditorReplaceLink)),Split(item,localSpec.FieldById(card.EditorRemoveLink)));
             }

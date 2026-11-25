@@ -36,7 +36,7 @@ These three travel with the Republic Mod Manager package:
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [Buildings Plus](plugins/buildings_plus) | 0.2.0 | New buildings from a declaration: donor building plus commands that append, replace, remove or insert lines, generated at game start |
+| [Buildings Plus](plugins/buildings_plus) | 0.2.1 | New buildings from a declaration: donor building plus commands that append, replace, remove or insert lines, generated at game start |
 | [Resources Plus](plugins/resources_plus) | 0.1.7 | Own resources from `plugins\resources_plus.ini`, fork of resources: fixes the crash on exit, takes over the list of the original once, names per game language, pauses while the original is loaded |
 | [Needs Plus](plugins/needs_plus) | 0.1.5 | Own citizen needs from `plugins\needs_plus.ini`, fork of needs: takes over the list of the original once, duplicate names refused, pauses while the original is loaded |
 
@@ -55,7 +55,7 @@ b0.4.5-rmm.2 that the Republic Mod Manager package ships and installs over the u
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.4 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.5 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
 
 ## Installing
 

@@ -12,7 +12,8 @@ namespace TesmioAutoload
     //
     // The rule, in full, and every command is judged against the UNCHANGED donor:
     //   add     = <block>                       in front of the closing "end"; must not be there yet
-    //   replace = <old> | <block>               old exactly once, old and new must differ
+    //   replace = <old> | <block>               old exactly once, old and new must differ; one
+    //                                           replace or remove per block
     //   remove  = <old>                         exactly once
     //   insert  = 0|1 | <anchor> | <block>      anchor exactly once, or produced by an EARLIER
     //                                           command of the section; "end" = the closing line
@@ -145,17 +146,33 @@ namespace TesmioAutoload
                         for (int k = 0; k < op.FreshLines.Count && same; k++) same = lines[op.At + k].Trim() == op.FreshLines[k];
                         if (same) op.Problem = "target_problem_same";
                     }
+                    // One block, one command: a second replace or remove of the same block would
+                    // be passed over without a word when the commands are applied.
+                    if (op.Problem.Length == 0 && op.Kind != "insert")
+                        for (int i = 0; i < oi; i++)
+                        {
+                            TargetCommand other = outcome.Commands[i];
+                            if (other.Problem.Length == 0 && other.At == op.At && (other.Kind == "replace" || other.Kind == "remove"))
+                            { op.Problem = "clone_problem_taken"; break; }
+                        }
                 }
                 else if (count > 1) op.Problem = Msg.Key("clone_problem_many", count);
                 else
                 {
+                    // The block an earlier command writes has to begin with every field of the
+                    // anchor, data lines included - and exactly one earlier command may do so.
+                    int made = 0;
                     if (op.Kind == "insert")
-                        for (int i = 0; i < oi && op.AnchorOp < 0; i++)
+                        for (int i = 0; i < oi; i++)
                         {
                             TargetCommand other = outcome.Commands[i];
-                            if (other.Problem.Length == 0 && other.FreshLines.Count > 0 && other.FreshLines[0] == op.AnchorLines[0]) { op.AnchorOp = i; op.FromOwn = true; }
+                            if (other.Problem.Length > 0 || other.FreshLines.Count < op.AnchorLines.Count) continue;
+                            if (!other.FreshLines.Take(op.AnchorLines.Count).SequenceEqual(op.AnchorLines)) continue;
+                            if (made++ == 0) op.AnchorOp = i;
                         }
-                    if (op.AnchorOp < 0) op.Problem = "target_problem_missing";
+                    if (made > 1) { op.AnchorOp = -1; op.Problem = Msg.Key("clone_problem_made_many", made); }
+                    else if (op.AnchorOp < 0) op.Problem = "target_problem_missing";
+                    else op.FromOwn = true;
                 }
             }
             return outcome;
