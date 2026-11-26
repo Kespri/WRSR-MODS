@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.1
+# 🏭 Buildings Plus 0.2.3
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -283,6 +283,8 @@ Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildin
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel, Resources Plus oder Resources). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.2.3:** Fehler behoben: Eine Datenzeile, die mit einem Minus beginnt (zum Beispiel der Punkt `-5.2 4.4` einer Fläche oder eines Anschlusses), gehört jetzt zu ihrer Zeile darüber. Vorher blieb sie beim Ersetzen oder Entfernen stehen. Alle Gebäude werden beim nächsten Spielstart einmal neu erzeugt.
+- **0.2.2:** Spielgebäude, deren Modell oder Material anders heißt als das Gebäude selbst, lassen sich jetzt als Spender nehmen (zum Beispiel das Schotterwerk `gravel_processing` und die Ziegelei `brick_factory`). Vorher brach das Plugin dort mit „no material“ ab.
 - **0.2.1:** Zwei Befehle auf dieselbe Stelle werden abgewiesen statt still übergangen. Ein Einfügen hinter einer Zeile, die ein früherer Befehl schreibt, findet sie auch über ihre Datenzeilen.
 - **0.2.0:** Gebäude beschreibst du jetzt mit Befehlen – Anhängen, Ersetzen, Entfernen, Einfügen. Jeder fasst genau eine Stelle der Spenderdatei an und lässt alles andere stehen; so setzt du zum Beispiel ein einzelnes Lager hinter ein vorhandenes. Die ältere Schreibweise mit `line` und `strip` gilt weiter. Für WRSR 1.2.0.9.
 - **0.1.12:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
@@ -400,5 +402,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.2.1  
+**Letzte Aktualisierung:** Buildings Plus 0.2.3  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

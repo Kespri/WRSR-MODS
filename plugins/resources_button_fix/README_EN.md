@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 0.4.5
+# 🧰 Resources Button Fix 0.4.6
 
 **TesmioLoader plugin for compact tool grids in the terrain editor**
 
@@ -123,8 +123,9 @@ debug = 0
 enabled = 1
 ; resource pairs beside each other per block (1 to 32)
 columns_per_block = 6
-; blocks below each other (1 to 4); capacity = columns x blocks
-maximum_blocks = 2
+; at most this many blocks below each other (1 to 4); capacity = columns x blocks.
+; Only as many are drawn as the tools need.
+maximum_blocks = 4
 ; auto or a fixed share of the original size 0.25 to 1.00
 button_scale = auto
 ; distance within the row and between paint and erase row, 1.00 = normal
@@ -196,7 +197,7 @@ The DLL checks these limits on every read. A value outside rejects the whole fil
 |---|---|---|
 | `enabled`, `debug`, `expand_window` | exactly 0 or 1 | 1 / 0 / 1 |
 | `columns_per_block` | 1 to 32 | 6 |
-| `maximum_blocks` | 1 to 4 | 2 |
+| `maximum_blocks` | 1 to 4 | 4 |
 | `blocks` | 1 or 2 | 2 |
 | `button_scale` | `auto` or 0.25 to 1.00 | auto |
 | `horizontal_spacing`, `vertical_spacing` | 0.50 to 2.00 | 1.00 |
@@ -240,6 +241,7 @@ The file is checked as a complete new configuration set. If only one line is inv
 The plugin changes neither game files nor savegames; it only arranges buttons in the memory of the running game.
 
 ### Version compatibility
+- **0.4.6:** `maximum_blocks` is 4 now instead of 2. With content packages there are soon more than 12 brushes; the thirteenth used to sit far beside the window. Still only as many blocks are drawn as needed.
 - **0.4.5:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
 - **0.4.4:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
 - **0.4.3:** if a value is missing from the INI, the same default as in the shipped INI now applies. Before, three compiled defaults differed: columns per block and button size in the Resources window, gap to the Brush in the Rocks/Gravel window. Log texts tidied as well; with a complete INI nothing changes in the game
@@ -336,5 +338,5 @@ A: No. Republic Mod Manager shows every setting with a description and checks th
 
 ---
 
-**Last update:** Resources Button Fix 0.4.5  
+**Last update:** Resources Button Fix 0.4.6  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

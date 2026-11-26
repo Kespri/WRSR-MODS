@@ -3,6 +3,14 @@
 Target: WRSR 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4. Build: MSVC x64, `/std:c++17 /O2 /MT /W3 /EHsc /LD`,
 kernel32.lib only. Workshop package: `My Plugins\resources_button_fix` (local_copy). History newest first.
 
+## 0.4.6 (2026-11-26)
+
+- Default of `maximum_blocks` raised from 2 to 4 (built-in default and shipped INI). Capacity was
+  12 pairs; the base game brings 5, Deposits Plus 4 and four content packages one each, so the
+  thirteenth pair ("Resources capacity exceeded at pair 13") kept its original position far right of
+  the window. `blocks` is still the number the tools need, capped by the setting, so nothing changes
+  for a game with twelve pairs or fewer. No code change beyond the default.
+
 ## 0.4.5 (2026-11-25)
 
 - Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, image 0x00AE9000). Button drawer 0x3A12F0 ->

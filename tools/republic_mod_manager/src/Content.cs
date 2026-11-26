@@ -253,6 +253,8 @@ namespace TesmioAutoload
                 if(Provided&&found.Length>0&&RecordedTargets.TryGetValue(key,out recorded)&&recorded.Length>0&&!recorded.Equals(found,StringComparison.OrdinalIgnoreCase))
                     Notes.Add(Msg.Key("content_target_changed",key,recorded,found));
             }
+            // 0.7.6: said on the page, because the switch alone looks finished.
+            if(Incomplete)Notes.Add(Msg.Key("content_incomplete"));
             Watch();
         }
         void Watch()
@@ -298,15 +300,44 @@ namespace TesmioAutoload
                 return false;
             }
         }
-        public bool NeedsWrite{get{return PendingOn!=Provided||(PendingOn&&(UpdatePending||TargetChanged));}}
+        // 0.7.6: a fragment with entries whose target plugin exists, but that no editor took in at
+        // the last save - the page of that plugin could not be opened then. The package is not
+        // complete, and the next save has to write it again.
+        public bool Incomplete
+        {
+            get
+            {
+                if(!Provided)return false;
+                foreach(var pair in Targets)
+                {
+                    string fragment;
+                    if(pair.Value.Length==0||!Package.ContentFragments.TryGetValue(pair.Key,out fragment))continue;
+                    if(ContentTargets.IdsOf(pair.Key,fragment).Count==0)continue;
+                    if(!Added.ContainsKey(pair.Key)&&!Skipped.ContainsKey(pair.Key))return true;
+                }
+                return false;
+            }
+        }
+        // 0.7.6: gives the INI a target plugin ships in its Workshop package ("" when it has
+        // none): what the plugin reads as long as nothing has written plugins\<name>.ini. Set by
+        // whoever commits; the deposit numbers of that INI are taken like any other.
+        public Func<string,string> ShippedIni;
+        string Shipped(string plugin){try{return ShippedIni==null?"":(ShippedIni(plugin)??"");}catch(Exception){return "";}}
+        public bool NeedsWrite{get{return PendingOn!=Provided||(PendingOn&&(UpdatePending||TargetChanged||Incomplete));}}
         public void AssertUnchanged(){foreach(var pair in Before)if(SafeFiles.HashFile(pair.Key)!=pair.Value)throw new IOException(Msg.Key("err_datei_inzwischen_geaendert_neu",pair.Key));}
         // Deposit types must be unique among everything the deposits plugin reads: the fragment
         // keeps its own numbers when they are free, a taken or missing one becomes the next free
         // number (10..127), and a number once assigned stays with its section across updates.
-        internal string AssignDepositTypes(string text,string plugin)
+        internal string AssignDepositTypes(string text,string plugin){return AssignDepositTypes(text,plugin,null);}
+        // repaired: the fragments of other packages that RepairDepositTypes renumbered, by package id.
+        internal string AssignDepositTypes(string text,string plugin,Dictionary<string,string> repaired)
         {
             LooseIni doc;try{doc=new LooseIni(text);}catch(Exception){return text;}
             var taken=new HashSet<int>();var own=new HashSet<string>(doc.SectionNames().Select(x=>x.Trim()),StringComparer.OrdinalIgnoreCase);
+            // 0.7.6: the deposits of the plugin's own package INI take numbers as well (copper, sand,
+            // clay and gas of Deposits Plus have 10 to 13). Without them a package got 10, the page of
+            // the plugin refused to open over the double number, and no deposit of any package arrived.
+            foreach(int t in TypesOf(Shipped(plugin),own))taken.Add(t);
             string effective=SafeFiles.Child(Build,"plugins\\"+plugin+".ini");
             // The effective INI may already carry this package's sections from the last time; their
             // numbers are not "taken by somebody else".
@@ -314,7 +345,8 @@ namespace TesmioAutoload
             foreach(ContentFragment other in ContentLayer.Fragments(Build,plugin))
             {
                 if(other.PackageId.Equals(Package.Id,StringComparison.OrdinalIgnoreCase))continue;
-                try{var o=new LooseIni(other.Text);foreach(string s in o.SectionNames()){int t;if(Int32.TryParse((o.Get(s,"type")??"").Trim(),out t))taken.Add(t);}}catch(Exception){}
+                string otherText;if(repaired==null||!repaired.TryGetValue(other.PackageId,out otherText))otherText=other.Text;
+                foreach(int t in TypesOf(otherText,null))taken.Add(t);
             }
             var previous=new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
             string stored=Path.Combine(StateDir,"deposits.ini");
@@ -331,6 +363,36 @@ namespace TesmioAutoload
                 doc.Remove(section,"component");doc.Set(section,"map","auto");
             }
             return doc.Render();
+        }
+        // The deposit type numbers an INI text carries; sections named in `skip` are left out.
+        static List<int> TypesOf(string text,HashSet<string> skip)
+        {
+            var found=new List<int>();if(String.IsNullOrEmpty(text))return found;
+            try{var doc=new LooseIni(text);foreach(string s in doc.SectionNames()){if(skip!=null&&skip.Contains(s.Trim()))continue;int t;if(Int32.TryParse((doc.Get(s,"type")??"").Trim(),out t))found.Add(t);}}catch(Exception){}
+            return found;
+        }
+        // 0.7.6: the staged deposit fragments of the OTHER provided packages, renumbered where a
+        // number is taken by the plugin's own INI or twice among them - state files written before
+        // 0.7.6 carry such numbers, and one of them is enough to keep the plugin's page shut. A
+        // number that is free stays. Returns package id -> new fragment text for the ones that change.
+        internal Dictionary<string,string> RepairDepositTypes(string plugin)
+        {
+            var changed=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+            var taken=new HashSet<int>(TypesOf(Shipped(plugin),null));
+            foreach(ContentFragment other in ContentLayer.Fragments(Build,plugin))
+            {
+                if(other.PackageId.Equals(Package.Id,StringComparison.OrdinalIgnoreCase))continue;
+                LooseIni doc;try{doc=new LooseIni(other.Text);}catch(Exception){continue;}
+                bool touched=false;
+                foreach(string name in ContentTargets.IdsOf("deposits",other.Text))
+                {
+                    int have;bool valid=Int32.TryParse((doc.Get(name,"type")??"").Trim(),out have)&&have>=10&&have<=127&&!taken.Contains(have);
+                    if(!valid){have=10;while(have<=127&&taken.Contains(have))have++;if(have>127)throw new FormatException(Msg.Key("err_keine_freie_vorkommensnummer",name));doc.Set(name,"type",have.ToString());touched=true;}
+                    taken.Add(have);
+                }
+                if(touched)changed[other.PackageId]=doc.Render();
+            }
+            return changed;
         }
         // 0.4.87: ids of this package that a target plugin already knows from somewhere else -
         // the player's own entry, the plugin's shipped INI, another package. Those never lose:
@@ -387,7 +449,14 @@ namespace TesmioAutoload
                 foreach(var pair in Package.ContentFragments)
                 {
                     string text=pair.Value;string plugin;
-                    if(pair.Key=="deposits"&&Targets.TryGetValue("deposits",out plugin)&&plugin.Length>0)text=AssignDepositTypes(text,plugin);
+                    if(pair.Key=="deposits"&&Targets.TryGetValue("deposits",out plugin)&&plugin.Length>0)
+                    {
+                        // The other packages' numbers are put right in the same transaction: the
+                        // plugin's page reads every fragment and stays shut over one double number.
+                        Dictionary<string,string> repaired=RepairDepositTypes(plugin);
+                        foreach(var fix in repaired)writes[Path.Combine(ContentTargets.StateDir(Build,fix.Key),"deposits.ini")]=SafeFiles.Utf8.GetBytes(fix.Value);
+                        text=AssignDepositTypes(text,plugin,repaired);
+                    }
                     writes[Path.Combine(StateDir,pair.Key+".ini")]=SafeFiles.Utf8.GetBytes(text);
                 }
                 // A file that was already in the vfs before this package is somebody else's - it is

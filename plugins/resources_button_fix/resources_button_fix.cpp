@@ -32,7 +32,7 @@
 #include <string>
 
 #define PLUGIN_INI "plugins\\resources_button_fix.ini"
-#define PLUGIN_VERSION "0.4.5"
+#define PLUGIN_VERSION "0.4.6"
 #define PLUGIN_LOG_NAME "tesmioloader.resources_button_fix.log"
 
 static const size_t MAX_INI_BYTES = 16u * 1024u * 1024u;
@@ -160,7 +160,7 @@ static bool g_bound;
 // together. A ScaleSetting of { 1, x } is "button_scale = auto"; its value is
 // not read while automatic is set.
 static const ResourcesConfig kDefaultResources = {
-    1, 6, 2, { 1, 1.00f }, 1.00f, 1.00f, 0.35f,
+    1, 6, 4, { 1, 1.00f }, 1.00f, 1.00f, 0.35f,
     10.00f, 40.00f, 0.00f, 0.00f,
     1, 1, 0.00f, 0.00f
 };

@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 0.4.5
+# 🧰 Resources Button Fix 0.4.6
 
 **TesmioLoader-Plugin für kompakte Werkzeugraster im Geländeeditor**
 
@@ -123,8 +123,9 @@ debug = 0
 enabled = 1
 ; Ressourcenpaare nebeneinander je Block (1 bis 32)
 columns_per_block = 6
-; Blöcke untereinander (1 bis 4); Kapazität = Spalten × Blöcke
-maximum_blocks = 2
+; Höchstens so viele Blöcke untereinander (1 bis 4); Kapazität = Spalten × Blöcke.
+; Gezeichnet werden nur so viele, wie die Werkzeuge brauchen.
+maximum_blocks = 4
 ; auto oder fester Anteil der Originalgröße 0.25 bis 1.00
 button_scale = auto
 ; Abstand in der Reihe und zwischen Malen- und Löschen-Reihe, 1.00 = normal
@@ -196,7 +197,7 @@ Die DLL prüft diese Grenzen bei jedem Einlesen. Ein Wert außerhalb lehnt die g
 |---|---|---|
 | `enabled`, `debug`, `expand_window` | genau 0 oder 1 | 1 / 0 / 1 |
 | `columns_per_block` | 1 bis 32 | 6 |
-| `maximum_blocks` | 1 bis 4 | 2 |
+| `maximum_blocks` | 1 bis 4 | 4 |
 | `blocks` | 1 oder 2 | 2 |
 | `button_scale` | `auto` oder 0.25 bis 1.00 | auto |
 | `horizontal_spacing`, `vertical_spacing` | 0.50 bis 2.00 | 1.00 |
@@ -240,6 +241,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
+- **0.4.6:** `maximum_blocks` steht jetzt auf 4 statt 2. Mit Inhaltspaketen kommen schnell mehr als 12 Pinsel zusammen; der dreizehnte lag sonst weit neben dem Fenster. Gezeichnet werden weiter nur so viele Blöcke wie nötig.
 - **0.4.5:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
 - **0.4.4:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.4.3:** Fehlt ein Wert in der INI, gilt jetzt derselbe Standard wie in der mitgelieferten INI. Vorher wichen drei eingebaute Standards ab: Spalten je Block und Schaltflächengröße im Fenster Resources, Abstand zum Pinsel im Fenster Rocks/Gravel. Dazu aufgeräumte Log-Texte; mit vollständiger INI ändert sich im Spiel nichts
@@ -336,5 +338,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung und prü
 
 ---
 
-**Letzte Aktualisierung:** Resources Button Fix 0.4.5  
+**Letzte Aktualisierung:** Resources Button Fix 0.4.6  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

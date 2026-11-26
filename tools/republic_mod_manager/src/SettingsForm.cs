@@ -66,7 +66,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.7.5  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.7.7  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -386,7 +386,7 @@ namespace TesmioAutoload
                 {
                     // 0.4.80: no DLL, no editor - one switch that provides or removes the package's
                     // fragments and assets, and a page that says what it carries and where it goes.
-                    contentSession=new ContentSession(package,state.Build); description.Text=language.T("content_package_short");
+                    contentSession=new ContentSession(package,state.Build){ShippedIni=ShippedIniFor}; description.Text=language.T("content_package_short");
                     BuildContentPage(); ShowSwitch(true,language.T("content_switch_note")); switchLabel.Text=language.T("content_switch"); SyncActivation(); SetActions(true); UpdateLoadPath();
                     foreach(string note in contentSession.Notes) Report(entry.Name+": "+language.Localize(note));
                     SaveView(); UpdateStatus(); return;
@@ -663,6 +663,22 @@ namespace TesmioAutoload
         { CatalogEntry entry=entries.FirstOrDefault(x=>x.Root.Equals(target.Entry.Root,StringComparison.OrdinalIgnoreCase))??target.Entry; ShowEntry(entry); FilterList(); }
         // 0.4.80: the keyed editor of a target plugin for a content package - a local schema
         // (settings_schemas) or a Workshop package with its own editor schema (Deposits Plus).
+        // 0.7.6: the INI a target plugin ships in its Workshop package - what it reads as long as
+        // nothing has written plugins\<name>.ini. "" for a plugin that has a local schema or none.
+        string ShippedIniFor(string plugin)
+        {
+            foreach(CatalogEntry e in entries)
+            {
+                try
+                {
+                    if(e.LocalEditor||e.Kind!="plugin"||e.Installed||!e.Target.Equals(plugin,StringComparison.OrdinalIgnoreCase))continue;
+                    Package package=Package.Load(e.Root);
+                    if(package.DefaultsBytes!=null&&package.DefaultsBytes.Length>0)return SafeFiles.Decode(package.DefaultsBytes);
+                }
+                catch(Exception){}
+            }
+            return "";
+        }
         LocalResourceSession SessionFor(string plugin)
         {
             foreach(CatalogEntry e in entries)

@@ -55,7 +55,7 @@ namespace TesmioAutoload
                     {
                         // A provided content package whose fragments or assets changed in the Workshop.
                         var content = new ContentSession(Package.Load(e.Root), build);
-                        e.Updated = content.UpdatePending; e.PreviousVersion = content.ProvidedVersion;
+                        e.Updated = content.UpdatePending || content.Incomplete; e.PreviousVersion = content.ProvidedVersion;
                         if (e.Updated) result.Add(e.Name + (content.ProvidedVersion.Length > 0 && content.ProvidedVersion != e.Version ? " (" + content.ProvidedVersion + " -> " + e.Version + ")" : ""));
                         continue;
                     }

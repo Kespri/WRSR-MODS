@@ -626,6 +626,43 @@ static class CoreTests
             Check(doc.HasSection("modify:bauxite_study")&&doc.GetAll("modify:bauxite_study","add").SequenceEqual(new[]{"$UNLOCK_TOOLS crane"})&&doc.Get("modify:engineering_1","enabled")=="1"&&!doc.HasSection("modify:faculty_geology")&&text.Contains("$RESEARCH quartz_smasher")&&text.Contains("+faculty_geology")&&doc.Get("general","debug")=="0");
             re.Unsuppress("faculty_geology");Check(re.Items().Count==3&&re.Items().Any(x=>x.Id=="bauxite_study"&&x.Owned));re.Commit(NoGame);var reopened=new LocalResourceSession(spec,reBuild);Check(reopened.Items().Count==3&&new LooseIni(SafeFiles.Text(reopened.LocalIni)).HasSection("modify:bauxite_study"));});
 
+        // 0.7.6: Deposits Plus from the Workshop reads the INI of its package as long as nothing has
+        // written plugins\deposits_plus.ini - its own deposits (10..13) take numbers too. Without
+        // them the first package got 10, the plugin's page refused to open over the double number,
+        // and the deposits of EVERY package were left out without a word.
+        Test("deposit numbers of content packages keep clear of the plugin's own package INI (0.7.6)",()=>
+        {
+            Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("deposit number check "+n+" failed");};
+            string pkgA=Path.Combine(root,"content","dep_a"),pkgB=Path.Combine(root,"content","dep_b");
+            foreach(var x in new[]{new{Dir=pkgA,Id="example.dep_a",Name="aaa_ore"},new{Dir=pkgB,Id="example.dep_b",Name="bbb_ore"}})
+            {
+                Write(Path.Combine(x.Dir,"soviet.mod.ini"),"[mod]\nid="+x.Id+"\nname="+x.Name+"\nversion=1.0\nenabled=1\n[content]\ndeposits=tesmio\\deposits.ini\n");
+                Write(Path.Combine(x.Dir,"tesmio","deposits.ini"),"["+x.Name+"]\ntoken = $TYPE_MINE_"+x.Name.ToUpperInvariant()+"\nmap = auto\nradius = ore\nicon = "+x.Name+"\nminimap = 1\neditor = "+x.Name+"\n");
+            }
+            string build=MakeBuild(root,"content-types");
+            File.WriteAllBytes(Path.Combine(build,"plugins","deposits.dll"),p.Dll);Write(Path.Combine(build,"plugins","deposits.ini"),"[deposits]\ncode_patch = 1\nminimap = 1\neditor = 1\n");
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\ndeposits=1\n");
+            string shipped="[copper]\ntype = 10\n[sand]\ntype = 11\n[clay]\ntype = 12\n[gas]\ntype = 13\n";
+            Func<string,LocalResourceSession> sessions=plugin=>plugin=="deposits"?new LocalResourceSession(depositsSpec,build):null;
+            // The page of the plugin cannot be opened: the package counts as provided, but not as complete.
+            var a=new ContentSession(Package.Load(pkgA),build){ShippedIni=plugin=>shipped};a.PendingOn=true;a.Commit(NoGame,plugin=>null);
+            string stateA=Path.Combine(a.StateDir,"deposits.ini");
+            C(1,new LooseIni(SafeFiles.Text(stateA)).Get("aaa_ore","type")=="14");
+            var aAgain=new ContentSession(Package.Load(pkgA),build){ShippedIni=plugin=>shipped};
+            C(2,aAgain.Provided&&aAgain.Incomplete&&aAgain.NeedsWrite&&aAgain.Notes.Any(n=>Msg.KeyOf(n)=="content_incomplete"));
+            // A state file an older RMM wrote: the number of the plugin's own copper.
+            File.WriteAllText(stateA,SafeFiles.Text(stateA).Replace("type = 14","type = 10"),SafeFiles.Utf8);
+            var b=new ContentSession(Package.Load(pkgB),build){ShippedIni=plugin=>shipped};b.PendingOn=true;b.Commit(NoGame,sessions);
+            C(3,new LooseIni(SafeFiles.Text(stateA)).Get("aaa_ore","type")=="14");
+            C(4,new LooseIni(SafeFiles.Text(Path.Combine(b.StateDir,"deposits.ini"))).Get("bbb_ore","type")=="15");
+            var eff=new LooseIni(SafeFiles.Text(Path.Combine(build,"plugins","deposits.ini")));
+            C(5,eff.Get("aaa_ore","type")=="14"&&eff.Get("bbb_ore","type")=="15");
+            C(6,!new ContentSession(Package.Load(pkgB),build){ShippedIni=plugin=>shipped}.Incomplete);
+            // The first package is written again and is complete then.
+            var aFix=new ContentSession(Package.Load(pkgA),build){ShippedIni=plugin=>shipped};C(7,aFix.Incomplete);aFix.Commit(NoGame,sessions);
+            var aDone=new ContentSession(Package.Load(pkgA),build){ShippedIni=plugin=>shipped};
+            C(8,!aDone.Incomplete&&!aDone.NeedsWrite&&new LooseIni(SafeFiles.Text(stateA)).Get("aaa_ore","type")=="14");
+        });
         // 0.4.80: content packages - fragments merged into the target editors as originals, assets
         // copied into the vfs, all of it taken back when the package is switched off.
         Test("a content package is provided through the target editors, updated and removed again (0.4.80)",()=>
@@ -1536,6 +1573,16 @@ static class CoreTests
             Check(!o17.Any&&ClonePlan.Result(o17,donor).Count==n-1&&text(o17).Contains("19 0 26\nend\n"),"a block never swallows the closing end");
             TargetOutcome o18=plan(new[]{"$AAA 1"},none,new[]{"$NOT_THERE 1"},none);
             Check(o18.Any&&!text(o18).Contains("$AAA 1"),"one command that does not fit stops all of them");
+            var minus=("$TYPE_MINE_GRAVEL\n$CONNECTIONS_ROAD_DEAD_SQUARE\n-5.2  4.4\n9.4  -7.2\n\n$CONNECTION_ROAD_DEAD\n-5.7 0.0 -0.1\n-------\n"
+                +"-$CONNECTION_ROAD_DEAD\n--2.9 0.0 2.1\n$HEATING_DISABLE\nend").Split('\n').ToList();
+            int minusCount=minus.Count;
+            Func<TargetOutcome,string> mtext=o=>String.Join("\n",ClonePlan.Result(o,minus).Select(x=>x.Text))+"\n";
+            TargetOutcome m1=ClonePlan.Check(minus,none,new[]{"$CONNECTIONS_ROAD_DEAD_SQUARE | $CONNECTIONS_ROAD_DEAD_SQUARE | -5.2 -7.2 | 11.0 17.0"},none,none);
+            Check(!m1.Any&&ClonePlan.Result(m1,minus).Count==minusCount&&mtext(m1).Contains("$CONNECTIONS_ROAD_DEAD_SQUARE\n-5.2 -7.2\n11.0 17.0\n\n$CONNECTION_ROAD_DEAD\n")&&!mtext(m1).Contains("9.4  -7.2"),"a data line that begins with a minus sign goes with its token");
+            TargetOutcome m2=ClonePlan.Check(minus,none,none,none,new[]{"1 | $CONNECTIONS_ROAD_DEAD_SQUARE | $XXX 1"});
+            Check(!m2.Any&&mtext(m2).Contains("-5.2  4.4\n9.4  -7.2\n$XXX 1\n\n$CONNECTION_ROAD_DEAD\n"),"behind a block means behind its last point, negative or not");
+            TargetOutcome m3=ClonePlan.Check(minus,none,none,new[]{"$CONNECTION_ROAD_DEAD"},none);
+            Check(!m3.Any&&ClonePlan.Result(m3,minus).Count==minusCount-2&&mtext(m3).Contains("9.4  -7.2\n\n-------\n-$CONNECTION_ROAD_DEAD\n--2.9 0.0 2.1\n$HEATING_DISABLE\n"),"a row of dashes and a switched-off line still end a block");
             TargetOutcome o19=plan(new[]{"$AAA 1","$BBB 2"},new[]{"$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30"},new[]{"$TYPE_SHOP"},new[]{"0 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $CCC 3","1 | $CCC 3 | $DDD 4"});
             Check(!o19.Any&&!text(o19).Contains("$TYPE_SHOP")&&text(o19).Contains("$NAME 2020\n$WORKERS_NEEDED 30\n$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$CCC 3\n$DDD 4\n$STORAGE_FUEL")&&text(o19).Contains("$AAA 1\n$BBB 2\nend\n"),"all four kinds together, adds in their order");
             TargetOutcome o20=plan(none,new[]{"$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30"},new[]{"$WORKERS_NEEDED 20"},none);

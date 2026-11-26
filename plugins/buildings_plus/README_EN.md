@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.1
+# 🏭 Buildings Plus 0.2.3
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
@@ -283,6 +283,8 @@ A Workshop item without a DLL of its own can bring buildings along (`[content] b
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game, Resources Plus or Resources). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.2.3:** bug fixed: a data line that begins with a minus sign (for example the point `-5.2 4.4` of an area or a connection) now belongs to the line above it. It used to stay behind when that line was replaced or removed. All buildings are generated once more at the next game start.
+- **0.2.2:** game buildings whose model or material has another name than the building itself can be donors now (for example the gravel processing plant `gravel_processing` and the brick factory `brick_factory`). The plugin used to stop there with "no material".
 - **0.2.1:** two commands on the same place are refused instead of silently passed over. An insert behind a line an earlier command writes finds it by its data lines too.
 - **0.2.0:** buildings are now described with commands - add, replace, remove, insert. Each touches exactly one place of the donor file and leaves everything else alone, so a single storage can be put behind an existing one. The older way with `line` and `strip` still works. For WRSR 1.2.0.9.
 - **0.1.12:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
@@ -400,5 +402,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.2.1  
+**Last update:** Buildings Plus 0.2.3  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

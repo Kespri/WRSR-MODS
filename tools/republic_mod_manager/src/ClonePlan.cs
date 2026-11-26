@@ -34,7 +34,7 @@ namespace TesmioAutoload
             while (end + 1 < lines.Count && DonorPlan.FirstToken(lines[end + 1]).Length == 0)
             {
                 string bare = (lines[end + 1] ?? "").Trim();
-                if (bare.Length == 0 || bare[0] == '-' || bare[0] == ';' || bare == "end") break;
+                if (DonorPlan.EndsBlock(bare)) break;
                 end++;
             }
             return end;
@@ -47,7 +47,7 @@ namespace TesmioAutoload
             {
                 if (DonorPlan.FirstToken(lines[i]).Length > 0) return BlockEnd(lines, i) >= at ? i : at;
                 string bare = (lines[i] ?? "").Trim();
-                if (bare.Length == 0 || bare[0] == '-' || bare[0] == ';' || bare == "end") break;
+                if (DonorPlan.EndsBlock(bare)) break;
             }
             return at;
         }
@@ -232,7 +232,7 @@ namespace TesmioAutoload
                 else if (dropping)
                 {
                     string bare = line.Text.Trim();
-                    if (bare.Length == 0 || bare[0] == '-' || bare[0] == ';') dropping = false;
+                    if (DonorPlan.EndsBlock(bare)) dropping = false;
                 }
                 if (!dropping) made.Add(line);
             }

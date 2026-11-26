@@ -34,6 +34,8 @@
 // WHAT IS COPIED AND WHAT IS REWRITTEN
 //
 //   media_soviet\buildings\<donor>.nmf          -> <item>\<object>\model.nmf
+//     (mesh and materials are the ones buildings\buildingtypes.ini names for the
+//      type; <donor>.nmf / .mtl / _e.mtl only when it names none - FindDonorArt)
 //   media_soviet\buildings_types\<donor>.bbox   -> <item>\<object>\building.bbox
 //   media_soviet\buildings_types\<donor>.fire   -> <item>\<object>\building.fire
 //   media_soviet\editor\tool_<donor>.png        -> <item>\<object>\imagegui.png
@@ -89,12 +91,12 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.2.1"
+#define PLUGIN_VERSION    "0.2.3"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
 #define STAMP_MARK        "buildings_plus generated this folder"
-#define GENERATOR_VERSION 6
+#define GENERATOR_VERSION 7
 // A Workshop donor is looked for here first, then in media_soviet\workshop_wip.
 #define WRSR_APP_ID       L"784150"
 #define MAX_DECLS         256
@@ -853,6 +855,69 @@ static int RescueReferences(const Decl& d, const std::wstring& cloneItem, const 
 // $TEXTURE_MTL resolves next to the .mtl file; in a Workshop item that folder
 // is the mod's own and the textures are not found. Each such line becomes
 // `$TEXTURE <slot> buildings/<path>`, which resolves against media_soviet.
+// The mesh and the materials the game itself draws one of its building types
+// with, as media_soviet\buildings\buildingtypes.ini names them:
+//
+//   $TYPE gravel_processing
+//    MODEL buildings/gravel_processing_new.nmf
+//    MATERIAL buildings/gravel_industry.mtl
+//    MATERIALEMISSIVE buildings/gravel_industry_e.mtl
+//
+// A type is not always called like its files - about a quarter of the game's
+// types use a mesh of another name and more than half a shared material, so
+// "<donor>.nmf" and "<donor>.mtl" cannot be taken for granted. What the list
+// says wins; a type it does not have, or a MODEL / MATERIAL line it does not
+// carry, falls back to buildings\<donor>.nmf / .mtl, and only a type the list
+// does not have at all gets buildings\<donor>_e.mtl as its emissive material
+// (a listed type without MATERIALEMISSIVE has none, whatever files lie there).
+// The list is read once per game folder.
+struct DonorArt { std::wstring model, material, emissive; };
+static std::wstring g_artListOf;
+static std::vector<std::string> g_artList;
+static std::wstring MediaPath(const std::string& relative)
+{
+    std::string r = TrimCopy(relative);
+    if (r.empty() || r.find("..") != std::string::npos || r.find(':') != std::string::npos || r[0] == '/' || r[0] == '\\') return L"";
+    for (size_t i = 0; i < r.size(); i++) if (r[i] == '/') r[i] = '\\';
+    return g_media + L"\\" + Wide(r);
+}
+static DonorArt FindDonorArt(const std::wstring& donor)
+{
+    DonorArt art;
+    art.model = g_media + L"\\buildings\\" + donor + L".nmf";
+    art.material = g_media + L"\\buildings\\" + donor + L".mtl";
+    art.emissive = g_media + L"\\buildings\\" + donor + L"_e.mtl";
+    if (g_artListOf != g_media)
+    {
+        std::string text;
+        g_artList.clear();
+        if (ReadTextFile(g_media + L"\\buildings\\buildingtypes.ini", &text)) g_artList = SplitLines(text);
+        g_artListOf = g_media;
+    }
+    std::string want = Narrow(donor);
+    bool inside = false;
+    for (size_t i = 0; i < g_artList.size(); i++)
+    {
+        std::string s = TrimCopy(g_artList[i]);
+        size_t gap = s.find_first_of(" \t");
+        std::string key = gap == std::string::npos ? s : s.substr(0, gap);
+        std::string value = gap == std::string::npos ? "" : TrimCopy(s.substr(gap));
+        if (key == "$TYPE")
+        {
+            if (inside) break;
+            inside = _stricmp(value.c_str(), want.c_str()) == 0;
+            if (inside) art.emissive.clear();
+            continue;
+        }
+        if (!inside) continue;
+        std::wstring path;
+        if (key == "MODEL") { path = MediaPath(value); if (!path.empty()) art.model = path; }
+        else if (key == "MATERIAL") { path = MediaPath(value); if (!path.empty()) art.material = path; }
+        else if (key == "MATERIALEMISSIVE") { path = MediaPath(value); if (!path.empty()) art.emissive = path; }
+    }
+    return art;
+}
+
 static bool RewriteMaterial(const std::wstring& src, const std::wstring& dst, int* rewritten)
 {
     *rewritten = 0;
@@ -975,6 +1040,17 @@ static void ParseOp(int kind, const std::string& value, CloneOp* op)
     else if (!BeginsToken(op->fresh[0])) op->problem = "the new line must begin with a $TOKEN";
 }
 
+// A trimmed line that ends the block above it: a blank line, a comment, a
+// separator ("-------", or a line the author switched off with a leading "-")
+// or the closing "end". A data line may begin with a minus sign: "-5.2 4.4" is
+// a point of a connection, not a separator.
+static bool EndsBlock(const std::string& bare)
+{
+    if (bare.empty() || bare[0] == ';' || bare == "end") return true;
+    if (bare[0] != '-') return false;
+    return !(bare.size() > 1 && ((bare[1] >= '0' && bare[1] <= '9') || bare[1] == '.'));
+}
+
 // The last line of the block that starts at `at`: lines without a token of
 // their own belong to the token above them until a blank line, a separator, a
 // comment or the closing "end".
@@ -984,7 +1060,7 @@ static int BlockEndOf(const std::vector<std::string>& lines, int at)
     while (end + 1 < (int)lines.size() && FirstToken(lines[end + 1]).empty())
     {
         std::string bare = TrimCopy(lines[end + 1]);
-        if (bare.empty() || bare[0] == '-' || bare[0] == ';' || bare == "end") break;
+        if (EndsBlock(bare)) break;
         end++;
     }
     return end;
@@ -1201,7 +1277,7 @@ static bool WriteBuildingIni(const Decl& d, const std::wstring& donorIni, const 
             // points of a $CONNECTION_*, the placement of a $RESOURCE_VISUALIZATION.
             // They go with the token; a blank or separator line ends the block.
             std::string bare = TrimCopy(lines[i]);
-            if (!bare.empty() && bare[0] != '-' && bare[0] != ';') { (*dropped)++; if (g_verbose) Info("dropped donor line: %s", lines[i].c_str()); continue; }
+            if (!EndsBlock(bare)) { (*dropped)++; if (g_verbose) Info("dropped donor line: %s", lines[i].c_str()); continue; }
             dropping = false;
         }
         out += lines[i] + "\r\n";
@@ -1397,10 +1473,11 @@ static unsigned long long DeclHash(const Decl& d)
         return h;
     }
     std::wstring donor = Wide(d.donor);
+    DonorArt art = FindDonorArt(donor);
     h = HashFileStamp(h, g_media + L"\\buildings_types\\" + donor + L".ini");
-    h = HashFileStamp(h, g_media + L"\\buildings\\" + donor + L".mtl");
-    h = HashFileStamp(h, g_media + L"\\buildings\\" + donor + L"_e.mtl");
-    h = HashFileStamp(h, g_media + L"\\buildings\\" + donor + L".nmf");
+    h = HashFileStamp(h, art.material);
+    if (!art.emissive.empty()) h = HashFileStamp(h, art.emissive);
+    h = HashFileStamp(h, art.model);
     return h;
 }
 
@@ -1586,7 +1663,8 @@ static GenResult GenerateCore(const Decl& d)
         return GEN_GENERATED;
     }
 
-    ok &= CopyAsset(g_media + L"\\buildings\\" + donor + L".nmf", obj + L"\\model.nmf", true, "mesh");
+    DonorArt art = FindDonorArt(donor);
+    ok &= CopyAsset(art.model, obj + L"\\model.nmf", true, "mesh");
     ok &= CopyAsset(g_media + L"\\buildings_types\\" + donor + L".bbox", obj + L"\\building.bbox", false, "collision box");
     ok &= CopyAsset(g_media + L"\\buildings_types\\" + donor + L".fire", obj + L"\\building.fire", false, "fire points");
     std::wstring icon = g_media + L"\\editor\\tool_" + donor + L".png";
@@ -1594,13 +1672,13 @@ static GenResult GenerateCore(const Decl& d)
     CopyAsset(icon, item + L"\\previewimage.png", false, "preview image");
 
     int rewrote = 0, rewroteE = 0;
-    std::wstring mtl = g_media + L"\\buildings\\" + donor + L".mtl";
+    std::wstring mtl = art.material;
     if (FileExists(mtl)) ok &= RewriteMaterial(mtl, item + L"\\material.mtl", &rewrote);
     else { Error("[%s] no material %s", d.section.c_str(), Narrow(mtl).c_str()); ok = false; }
 
     bool emissive = false;
-    std::wstring mtlE = g_media + L"\\buildings\\" + donor + L"_e.mtl";
-    if (FileExists(mtlE)) { emissive = RewriteMaterial(mtlE, item + L"\\material_e.mtl", &rewroteE); ok &= emissive; }
+    std::wstring mtlE = art.emissive;
+    if (!mtlE.empty() && FileExists(mtlE)) { emissive = RewriteMaterial(mtlE, item + L"\\material_e.mtl", &rewroteE); ok &= emissive; }
 
     ok &= WriteWorkshopConfig(d, item + L"\\workshopconfig.ini");
     ok &= WriteRenderConfig(d, obj + L"\\renderconfig.ini", emissive);
@@ -2411,6 +2489,7 @@ static const char* const kCommandDonor =
     "$RESOURCE_VISUALIZATION 2\nposition 1 0 1\nrotation 0.0\n\n$RESOURCE_VISUALIZATION 2\nposition 2 0 2\nrotation 0.0\n\n"
     "$CONNECTION_ROAD\n19 0 38\n19 0 26\n$PARTICLE smoke 1 2 3 1 1\nend\n";
 struct CommandRun { bool fits; std::string problem; std::string text; int lines; };
+static const char* g_commandDonor = NULL;
 static CommandRun RunCommands(const char* add, const char* replace, const char* remove, const char* insert, const char* insert2 = NULL, const char* add2 = NULL)
 {
     Decl d;
@@ -2420,7 +2499,7 @@ static CommandRun RunCommands(const char* add, const char* replace, const char* 
     if (remove) d.removes.push_back(remove);
     if (insert) d.inserts.push_back(insert);
     if (insert2) d.inserts.push_back(insert2);
-    std::vector<std::string> lines = SplitLines(kCommandDonor);
+    std::vector<std::string> lines = SplitLines(g_commandDonor ? g_commandDonor : kCommandDonor);
     std::vector<CloneOp> ops;
     CommandRun run;
     run.fits = PlanOps(d, lines, &ops);
@@ -2477,6 +2556,23 @@ static void TestCommands()
     Check(r.fits && r.lines == n - 1 && Has(r.text, "19 0 26\nend\n"), "commands: a block never swallows the closing end");
     r = RunCommands("$AAA 1", NULL, "$NOT_THERE 1", NULL);
     Check(!r.fits && !Has(r.text, "$AAA 1"), "commands: one command that does not fit stops all of them");
+    // Points with a negative first number are data lines, a row of dashes and a
+    // line switched off with a leading "-" are not (the small gravel quarry of
+    // the game has all three).
+    static const char* const kMinusDonor =
+        "$TYPE_MINE_GRAVEL\n$CONNECTIONS_ROAD_DEAD_SQUARE\n-5.2  4.4\n9.4  -7.2\n\n$CONNECTION_ROAD_DEAD\n-5.7 0.0 -0.1\n-------\n"
+        "-$CONNECTION_ROAD_DEAD\n--2.9 0.0 2.1\n$HEATING_DISABLE\nend\n";
+    const int m = (int)SplitLines(kMinusDonor).size();
+    g_commandDonor = kMinusDonor;
+    r = RunCommands(NULL, "$CONNECTIONS_ROAD_DEAD_SQUARE | $CONNECTIONS_ROAD_DEAD_SQUARE | -5.2 -7.2 | 11.0 17.0", NULL, NULL);
+    Check(r.fits && r.lines == m && Has(r.text, "$CONNECTIONS_ROAD_DEAD_SQUARE\n-5.2 -7.2\n11.0 17.0\n\n$CONNECTION_ROAD_DEAD\n") && !Has(r.text, "9.4  -7.2"),
+          "commands: a data line that begins with a minus sign goes with its token");
+    r = RunCommands(NULL, NULL, NULL, "1 | $CONNECTIONS_ROAD_DEAD_SQUARE | $XXX 1");
+    Check(r.fits && Has(r.text, "-5.2  4.4\n9.4  -7.2\n$XXX 1\n\n$CONNECTION_ROAD_DEAD\n"), "commands: behind a block means behind its last point, negative or not");
+    r = RunCommands(NULL, NULL, "$CONNECTION_ROAD_DEAD", NULL);
+    Check(r.fits && r.lines == m - 2 && Has(r.text, "9.4  -7.2\n\n-------\n-$CONNECTION_ROAD_DEAD\n--2.9 0.0 2.1\n$HEATING_DISABLE\n"),
+          "commands: a row of dashes and a switched-off line still end a block");
+    g_commandDonor = NULL;
     r = RunCommands("$AAA 1", "$WORKERS_NEEDED 20 | $WORKERS_NEEDED 30", "$TYPE_SHOP", "0 | $STORAGE_FUEL RESOURCE_TRANSPORT_OIL 40 | $CCC 3", "1 | $CCC 3 | $DDD 4", "$BBB 2");
     Check(r.fits && !Has(r.text, "$TYPE_SHOP") && Has(r.text, "$NAME 2020\n$WORKERS_NEEDED 30\n$STORAGE RESOURCE_TRANSPORT_COVERED 40\n$CCC 3\n$DDD 4\n$STORAGE_FUEL")
           && Has(r.text, "$AAA 1\n$BBB 2\nend\n"), "commands: all four kinds together, adds in their order");
@@ -2856,6 +2952,41 @@ int wmain(int argc, wchar_t** argv)
           "a reference the donor item does not have is reported even when nothing else could be fetched");
 
     TestCommands();
+
+    // A type whose files are not called like it: the game's own list of building
+    // types says which mesh and which material it draws. Written last, so the
+    // donors of the tests above keep running on the fallback names.
+    Put(media + L"\\buildings\\buildingtypes.ini",
+        "$TYPE donor_mine\n MODEL buildings/donor_mine.nmf\n MATERIAL buildings/donor_mine.mtl\n MATERIALEMISSIVE buildings/donor_mine_e.mtl\n"
+        "$TYPE donor_plant\n MODEL buildings/plant_new.nmf\n MATERIAL buildings/shared_industry.mtl\n LIFE 4000.000000\n"
+        "$TYPE donor_evil\n MODEL ../secret.nmf\n MATERIAL buildings/shared_industry.mtl\n");
+    Put(media + L"\\buildings_types\\donor_plant.ini", "$NAME 1\n$TYPE_FACTORY\n$WORKERS_NEEDED 10\nend\n");
+    Put(media + L"\\buildings_types\\donor_plant.bbox", "bbox");
+    Put(media + L"\\buildings_types\\donor_plant.fire", "fire");
+    Put(media + L"\\buildings\\donor_plant.nmf", "old mesh");
+    Put(media + L"\\buildings\\plant_new.nmf", "new mesh");
+    Put(media + L"\\buildings\\shared_industry.mtl", "$TEXTURE_MTL 0 shared.dds\n");
+    Put(media + L"\\buildings\\donor_plant_e.mtl", "$TEXTURE_MTL 0 unused_e.dds\n");
+    Put(media + L"\\editor\\tool_donor_plant.png", "png");
+    g_artListOf.clear();
+    g_warnings = 0; g_errors = 0;
+    Run("[buildings_plus]\nenabled = 1\n\n[plant]\nid = 9400000080\ndonor = donor_plant\nobject = Plant\nname = Plant\n", "test");
+    {
+        std::string mesh, mat, render;
+        std::wstring plant = media + L"\\workshop_wip\\9400000080";
+        Check(g_errors == 0 && ReadTextFile(plant + L"\\Plant\\model.nmf", &mesh) && mesh == "new mesh",
+              "a donor whose mesh has another name is cloned from the mesh the game's type list names");
+        Check(ReadTextFile(plant + L"\\material.mtl", &mat) && Has(mat, "$TEXTURE 0 buildings/shared.dds"),
+              "and from the material that list names");
+        Check(!FileExists(plant + L"\\material_e.mtl") && ReadTextFile(plant + L"\\Plant\\renderconfig.ini", &render) && !Has(render, "MATERIALEMISSIVE"),
+              "a listed type without MATERIALEMISSIVE gets none, whatever _e.mtl lies in the folder");
+        DonorArt evil = FindDonorArt(L"donor_evil");
+        Check(Has(Narrow(evil.model), "buildings\\donor_evil.nmf") && Has(Narrow(evil.material), "shared_industry.mtl"),
+              "a path that leaves media_soviet is not followed - the fallback name stays");
+        DonorArt none = FindDonorArt(L"not_listed");
+        Check(Has(Narrow(none.model), "buildings\\not_listed.nmf") && Has(Narrow(none.emissive), "not_listed_e.mtl"),
+              "a type the list does not have keeps the three fallback names");
+    }
 
     printf(g_failed ? "RESULT %d check(s) FAILED\n" : "RESULT all buildings_plus self-tests passed\n", g_failed);
     return g_failed ? 1 : 0;

@@ -38,6 +38,16 @@ namespace TesmioAutoload
 
     public static class DonorPlan
     {
+        // A trimmed line that ends the block above it: a blank line, a comment, a separator
+        // ("-------", or a line switched off with a leading "-") or the closing "end". A data
+        // line may begin with a minus sign: "-5.2 4.4" is a point, not a separator. The same
+        // rule as EndsBlock in the plugin.
+        public static bool EndsBlock(string bare)
+        {
+            if (bare.Length == 0 || bare[0] == ';' || bare == "end") return true;
+            if (bare[0] != '-') return false;
+            return !(bare.Length > 1 && ((bare[1] >= '0' && bare[1] <= '9') || bare[1] == '.'));
+        }
         public static string FirstToken(string line)
         {
             if (line == null) return "";
@@ -100,7 +110,7 @@ namespace TesmioAutoload
                 {
                     // Data lines follow their token. A blank line, a separator or a comment ends the block.
                     string bare = line.Trim();
-                    if (bare.Length == 0 || bare[0] == '-' || bare[0] == ';') blame = "";
+                    if (EndsBlock(bare)) blame = "";
                 }
                 if (blame.Length > 0) { entry.Dropped = true; entry.DroppedBy = blame; }
                 outcome.Donor.Add(entry);

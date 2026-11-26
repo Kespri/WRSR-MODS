@@ -25,7 +25,7 @@ textures or models here - those come with the Workshop packages.
 | [Deposits Plus](plugins/deposits_plus) | 0.4.19 | New deposit types, natural generation, sandy meadow, working vehicles |
 | [Localization](plugins/localization) | 0.4.2 | Translation service: text packs become extended language files |
 | [Research Expansion](plugins/research_expansion) | 0.4.4 | New research and changes to the research tree |
-| [Resources Button Fix](plugins/resources_button_fix) | 0.4.5 | Compact tool grids in the terrain editor |
+| [Resources Button Fix](plugins/resources_button_fix) | 0.4.6 | Compact tool grids in the terrain editor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.7 | Grit storages, material priorities and snowplow tanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.3 | Row spacing in the customs house, text wrapping in info windows |
 | [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.7 | Temporary changes to building files without touching the originals |
@@ -36,7 +36,7 @@ These three travel with the Republic Mod Manager package:
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [Buildings Plus](plugins/buildings_plus) | 0.2.1 | New buildings from a declaration: donor building plus commands that append, replace, remove or insert lines, generated at game start |
+| [Buildings Plus](plugins/buildings_plus) | 0.2.3 | New buildings from a declaration: donor building plus commands that append, replace, remove or insert lines, generated at game start |
 | [Resources Plus](plugins/resources_plus) | 0.1.7 | Own resources from `plugins\resources_plus.ini`, fork of resources: fixes the crash on exit, takes over the list of the original once, names per game language, pauses while the original is loaded |
 | [Needs Plus](plugins/needs_plus) | 0.1.5 | Own citizen needs from `plugins\needs_plus.ini`, fork of needs: takes over the list of the original once, duplicate names refused, pauses while the original is loaded |
 
@@ -55,7 +55,7 @@ b0.4.5-rmm.2 that the Republic Mod Manager package ships and installs over the u
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.5 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.7 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
 
 ## Installing
 

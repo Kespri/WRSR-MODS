@@ -272,7 +272,7 @@ namespace TesmioAutoload
             while (end + 1 < lines.Count && DonorPlan.FirstToken(lines[end + 1]).Length == 0)
             {
                 string bare = (lines[end + 1] ?? "").Trim();
-                if (bare.Length == 0 || bare[0] == '-' || bare[0] == ';') break;
+                if (DonorPlan.EndsBlock(bare)) break;
                 end++;
             }
             return end;

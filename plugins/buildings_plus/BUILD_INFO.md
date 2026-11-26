@@ -9,6 +9,33 @@ folder>` generates the sections of a real INI from a real game folder into an ou
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
 
+## 0.2.3 (2026-11-26)
+
+- A block ended at the first data line that began with `-`: `BlockEndOf` and the older `line` path took
+  every such line for a separator. The points of a connection or of `$CONNECTIONS_ROAD_DEAD_SQUARE`
+  often begin with a negative number (`-5.2  4.4`), so a `replace` or `remove` of the token left its
+  points behind and an `insert` behind it landed between the token and its points. `EndsBlock` now
+  says what ends a block: a blank line, `;`, `end`, or a `-` that is not followed by a digit or a dot
+  (a row of dashes, a line switched off with a leading `-`, `--2.9 ...`). Found with the small gravel
+  quarry `gravelmine` as donor. The older path now also stops at `end`.
+- Generator version 7: a section that met the bug gave a wrong file with an unchanged declaration, so
+  every generated folder is written once more.
+- Three new self-test checks (97), the same cases in Republic Mod Manager's CoreTests (`ClonePlan`).
+
+## 0.2.2 (2026-11-26)
+
+- A base-game donor is cloned from the mesh and the materials that
+  `media_soviet\buildings\buildingtypes.ini` names for its type (`$TYPE <name>`, then `MODEL`,
+  `MATERIAL`, `MATERIALEMISSIVE`), not from `buildings\<donor>.nmf` / `.mtl` / `_e.mtl` by name
+  (`FindDonorArt`). Of the 475 types of game build 1.2.0.9, 113 use a mesh of another name and 278 a
+  material of another name; `gravel_processing` (mesh `gravel_processing_new.nmf`, material
+  `gravel_industry.mtl`) stopped with "no material". The names are the fallback when the list has
+  no entry or no such line; a listed type without `MATERIALEMISSIVE` gets no emissive material. A
+  path that leaves `media_soviet` is not followed. `DeclHash` stamps the same three files. The list
+  is read once per game folder.
+- Five new self-test checks (94). A donor that worked before gives the same folder, so the
+  generator version stays.
+
 ## 0.2.1 (2026-11-25)
 
 - Two findings of a code review of the command rule, both in `PlanOps`:

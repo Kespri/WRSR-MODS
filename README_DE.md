@@ -25,7 +25,7 @@ Texturen und Modelle liegen hier nicht - die kommen mit den Workshop-Paketen.
 | [Deposits Plus](plugins/deposits_plus) | 0.4.19 | Neue Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge |
 | [Localization](plugins/localization) | 0.4.2 | Übersetzungsdienst: Textpakete werden zu erweiterten Sprachdateien |
 | [Research Expansion](plugins/research_expansion) | 0.4.4 | Neue Forschungen und Änderungen am Forschungsbaum |
-| [Resources Button Fix](plugins/resources_button_fix) | 0.4.5 | Kompakte Werkzeugraster im Geländeeditor |
+| [Resources Button Fix](plugins/resources_button_fix) | 0.4.6 | Kompakte Werkzeugraster im Geländeeditor |
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.7 | Streugutlager, Materialprioritäten und Schneepflugtanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.3 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern |
 | [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.7 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
@@ -36,7 +36,7 @@ Diese drei reisen im Paket des Republic Mod Manager mit:
 
 | Plugin | Version | Was es macht |
 |---|---|---|
-| [Buildings Plus](plugins/buildings_plus) | 0.2.1 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
+| [Buildings Plus](plugins/buildings_plus) | 0.2.3 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
 | [Resources Plus](plugins/resources_plus) | 0.1.7 | Eigene Ressourcen aus `plugins\resources_plus.ini`, Fork von resources: behebt den Absturz beim Beenden, übernimmt einmal die Liste des Originals, Namen je Spielsprache, pausiert, solange das Original geladen ist |
 | [Needs Plus](plugins/needs_plus) | 0.1.5 | Eigene Bürgerbedürfnisse aus `plugins\needs_plus.ini`, Fork von needs: übernimmt einmal die Liste des Originals, doppelte Namen abgewiesen, pausiert, solange das Original geladen ist |
 
@@ -56,7 +56,7 @@ und über die Original-DLL installiert (gleiche API, gleiche Logzeilen; die Änd
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.5 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.7.7 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
 
 ## Installation
 
