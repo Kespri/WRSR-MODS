@@ -54,7 +54,7 @@
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "resources_plus"
-#define PLUGIN_VERSION "0.1.7"
+#define PLUGIN_VERSION "0.1.8"
 
 // The DLL's own folder (Workshop package or a local copy), resolved in
 // DllMain, and the INI actually read: plugins\resources_plus.ini.
@@ -464,8 +464,17 @@ static bool g_warnedCapacity;
 // mined, concentrated, smelted and refined, so all four price themselves,
 // while a name declared in `[list]` and used by nothing at all cannot.
 #define RES_KIND_OFF   0x44
-#define RES_PRICE_RUB  0x58
-#define RES_PRICE_USD  0x5C
+// Which of the pair is which currency is settled by the customhouse list: it
+// prints +0x64 with the rouble format and +0x60 with the dollar format, and the
+// trade-price function below derives +0x64 from +0x5C and +0x60 from +0x58. So
+// +0x5C is the rouble price and +0x58 the dollar price. (Checked against the
+// game: medicine 2388.64 at +0x5C, the customhouse sells it for 2303.56 R.)
+#define RES_PRICE_RUB  0x5C
+#define RES_PRICE_USD  0x58
+// What the screens show, written by the trade-price function: the price times
+// the sell multiplier of the currency's market block.
+#define RES_SELL_USD   0x60
+#define RES_SELL_RUB   0x64
 #define RES_BASE_RUB   0x78
 #define RES_BASE_USD   0x7C
 
@@ -611,6 +620,30 @@ static const BYTE kPricePassPrologue[] = {
 };                                  // exactly 14, the minimum the host allows
 
 static DWORD g_priceRva = DEFAULT_PRICEPASS_RVA;
+
+// The trade-price function, the call that follows the price pass at each of
+// its three call sites (0xAD720, 0x2AAA70, 0x31A1CD). For every record with a
+// price kind >= 0 it runs the solver AGAIN and overwrites +0x58 and +0x5C, then
+// derives what the customhouse and the trade window show:
+//   +0x64 = +0x5C * [+0xA8]   sell, roubles     +0x60 = +0x58 * [+0x88]   sell, dollars
+//   +0x5C = +0x5C * [+0xAC]   buy,  roubles     +0x58 = +0x58 * [+0x8C]   buy,  dollars
+// (each price first times the 1.0 at +0xC4 / +0xA4 of its market block, and
+// sell and buy are swapped when sell comes out higher). A price forced after
+// the pass alone is therefore gone before any screen reads it - [price] has to
+// be written once more behind this function, into all four fields.
+#define DEFAULT_TRADEPRICES_RVA 0x2C5B00
+
+static const BYTE kTradePricesPrologue[] = {
+    0x4C, 0x8B, 0xDC,               // mov  r11, rsp
+    0x53,                           // push rbx
+    0x56,                           // push rsi
+    0x57,                           // push rdi
+    0x41, 0x55,                     // push r13
+    0x41, 0x56,                     // push r14
+    0x48, 0x83, 0xEC, 0x60          // sub  rsp, 60h
+};                                  // exactly 14, the minimum the host allows
+
+static DWORD g_tradeRva = DEFAULT_TRADEPRICES_RVA;
 
 // The record's last five qwords are its cargo meshes, and they are exactly the
 // tail of the 896-byte record - 0x378 + 8 == 0x380.
@@ -2545,6 +2578,57 @@ static void h_PricePass(void* game)
     LeaveCriticalSection(&g_lock);
 }
 
+// [price] once more, behind the trade-price function: the four figures the
+// screens read, worked out the way the engine does it but from the forced
+// price instead of the solver's.
+static void ApplyForcedTradePrices(void)
+{
+    for (int i = 0; i < g_priceCount; i++)
+    {
+        PriceEntry& p = g_price[i];
+        if (!p.hasPrice) continue;
+
+        BYTE* rec = FindRecord(p.name);
+        if (!rec) continue;
+
+        const BYTE* mRub = rec + RES_MARKET_USD;   // the block at +0xA8 goes with +0x5C, the rouble price
+        const BYTE* mUsd = rec + RES_MARKET_RUB;   // the block at +0x88 goes with +0x58, the dollar price
+        float rub = p.priceRub * *(const float*)(mRub + RES_MARKET_ONE);
+        float usd = p.priceUsd * *(const float*)(mUsd + RES_MARKET_ONE);
+        float sellRub = rub * *(const float*)(mRub + RES_MARKET_SELL), buyRub = rub * *(const float*)(mRub + RES_MARKET_BUY);
+        float sellUsd = usd * *(const float*)(mUsd + RES_MARKET_SELL), buyUsd = usd * *(const float*)(mUsd + RES_MARKET_BUY);
+        if (sellRub > buyRub) { float t = sellRub; sellRub = buyRub; buyRub = t; }
+        if (sellUsd > buyUsd) { float t = sellUsd; sellUsd = buyUsd; buyUsd = t; }
+
+        if (!WriteRecordFloats(rec, RES_PRICE_RUB, buyRub, RES_SELL_RUB, sellRub) ||
+            !WriteRecordFloats(rec, RES_PRICE_USD, buyUsd, RES_SELL_USD, sellUsd))
+        {
+            Logf("price     \"%s\": record is not writable (%lu)", p.name, GetLastError());
+            continue;
+        }
+        if (g_priceReport)
+            Logf("price     %-20s forced for trade: sell %.2f RUB / %.2f USD, buy %.2f RUB / %.2f USD",
+                 p.name, sellRub, sellUsd, buyRub, buyUsd);
+    }
+}
+
+typedef void (*t_TradePrices)(void*);
+static t_TradePrices o_TradePrices;
+
+static void h_TradePrices(void* game)
+{
+    o_TradePrices(game);
+
+    EnterCriticalSection(&g_lock);
+    if (!g_priceFaulted && g_nameOff >= 0)
+    {
+        __try { ApplyForcedTradePrices(); }
+        __except (FaultFilter("resources trade prices", GetExceptionInformation()))
+        { g_priceFaulted = true; Logf("price     disabled after a fault - [base_price] and [price] no longer applied"); }
+    }
+    LeaveCriticalSection(&g_lock);
+}
+
 static unsigned __int64 h_ResourceGet(void* a1, void* a2, void* a3, void* a4)
 {
     char n1[128], n2[128];
@@ -3048,6 +3132,9 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
 
     g_resRva   = PickRva("resource_rva", g_resRva, DEFAULT_RESOURCEGET_RVA, kResourceGetPrologue, sizeof(kResourceGetPrologue));
     g_priceRva = PickRva("price_pass_rva", g_priceRva, DEFAULT_PRICEPASS_RVA, kPricePassPrologue, sizeof(kPricePassPrologue));
+    if (IniStr("resources", "trade_prices_rva", v, sizeof(v)))
+        g_tradeRva = (DWORD)strtoul(v, NULL, 0);
+    g_tradeRva = PickRva("trade_prices_rva", g_tradeRva, DEFAULT_TRADEPRICES_RVA, kTradePricesPrologue, sizeof(kTradePricesPrologue));
     g_customsTickRva = PickRva("customhouse_tick_rva", g_customsTickRva, P_CUSTOMHOUSE_TICK_RVA,
                                kCustomsTickPrologue, sizeof(kCustomsTickPrologue));
 
@@ -3114,6 +3201,22 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         else
             Logf("price     WARN  no hook on the price pass - [base_price] and "
                  "[price] do nothing this session");
+    }
+
+    // The second half of [price]: without it a forced price is overwritten
+    // before the customhouse or the trade window reads it.
+    bool wantForced = false;
+    for (int i = 0; i < g_priceCount; i++)
+        if (g_price[i].hasPrice) wantForced = true;
+    if (g_priceHook && wantForced)
+    {
+        if (InstallInlineHook(g_exeBase + g_tradeRva, (void*)h_TradePrices,
+                              (void**)&o_TradePrices, kTradePricesPrologue,
+                              sizeof(kTradePricesPrologue), "resource trade prices"))
+            Logf("price     forced prices are written behind the trade-price function at 0x%lX", g_tradeRva);
+        else
+            Logf("price     WARN  no hook on the trade-price function - [price] does not "
+                 "reach the customhouse or the trade window this session");
     }
 
     // The customhouse tick. Post-hook: let the game run its own frame first,

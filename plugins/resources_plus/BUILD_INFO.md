@@ -10,6 +10,28 @@ Service name `resources`, the caption id base and the record layout deliberately
 to the original so saves, content packages and consumers such as Deposits Plus keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.1.8 (2026-11-26)
+
+- `[price]` never reached a screen. The price pass (0x2C4E90) is followed at each of its three call
+  sites by a second function (0x2C5B00) that runs the solver again for every record with a price
+  kind >= 0, overwrites +0x58 / +0x5C and then derives the trade figures: `+0x64 = +0x5C * [+0xA8]`
+  and `+0x60 = +0x58 * [+0x88]` (sell), `+0x5C *= [+0xAC]` and `+0x58 *= [+0x8C]` (buy). A price
+  forced after the pass alone was gone before anything read it. Seen in the game: `lng = 350`
+  forced, the log said 350 after every pass, the customhouse showed 190.
+- New inline hook behind that function (`h_TradePrices`, 14-byte prologue checked, RVA key
+  `trade_prices_rva`): `ApplyForcedTradePrices` writes the four figures from the forced price the
+  way the engine does (market factor, sell and buy multiplier, swap when sell is higher). Installed
+  only when `[price]` has an entry.
+- Rouble and dollar were the wrong way round: the customhouse list prints +0x64 with the rouble
+  format and +0x60 with the dollar format (0x80523D / 0x8051F7), so +0x5C is the rouble price and
+  +0x58 the dollar price. `RES_PRICE_RUB` / `RES_PRICE_USD` are swapped accordingly; the report
+  lines and `price = <rub>, <usd>` now match the game. The market block at +0xA8 belongs to the
+  rouble price and the one at +0x88 to the dollar price; the names `RES_MARKET_RUB` /
+  `RES_MARKET_USD` and the keys `market_rub` / `market_usd` still say the opposite and are left
+  alone (their defaults reproduce the base-game records by offset). Which of +0x78 / +0x7C is the
+  rouble base price is not established.
+- Not run in the game yet at the time of writing.
+
 ## 0.1.7 (2026-11-25)
 
 - Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, same image size), the hotfix that followed the DLC

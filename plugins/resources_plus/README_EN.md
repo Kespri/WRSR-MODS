@@ -1,4 +1,4 @@
-# 📦 Resources Plus 0.1.7
+# 📦 Resources Plus 0.1.8
 
 **Extension of the TesmioLoader plugin resources**
 
@@ -179,6 +179,7 @@ Unchanged from the original: the number of resources is part of the save, the di
 
 ### Version compatibility
 - With Soviet Mod Loader: SML brings resources of its own. While it runs, this plugin pauses and says so in the log; if you want Resources Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.8: bug fixed: a fixed price from `[price]` did not reach the customhouse or the trade window, because the game works the price out once more afterwards. It is now set behind that second calculation as well. The log shows roubles and dollars in the right column now.
 - 0.1.7: for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
 - 0.1.6: for WRSR 1.2.0.8 with the rocket DLC. The plugin knows the game's four new resources (`kerosene`, `lox`, `udmh`, `n2o4`) and the two new transport classes `cryo` and `hypergolic`. Old address lines in your `resources_plus.ini` do no harm, the plugin then uses its own.
 - 0.1.5: the first list is now also made from the original's `resources.ini` when the original lies only in the Workshop folder. Before, the plugin looked in the loader folder only and took the shipped list otherwise
@@ -204,7 +205,7 @@ Unchanged from the original: the number of resources is part of the save, the di
 | No icon | PNG missing | `media_soviet\resources\<name>.png`, 48×48 RGBA |
 
 ### Logging
-- Summary in `tesmioloader.log`: the loader's line with `resources_plus` and the version `0.1.7`, at the first start `created plugins\resources_plus.ini from …`, then `published as index …` per resource; with `price_report = 1` the price table as well, with `custom_report = 1` the records
+- Summary in `tesmioloader.log`: the loader's line with `resources_plus` and the version `0.1.8`, at the first start `created plugins\resources_plus.ini from …`, then `published as index …` per resource; with `price_report = 1` the price table as well, with `custom_report = 1` the records
 - Details in `logs\tesmioloader.resources_plus.log`: every resource name the game asked for
 
 ---
@@ -260,5 +261,5 @@ A: Republic Mod Manager switches the original off as soon as Resources Plus is s
 
 ---
 
-**Last update:** Resources Plus 0.1.7  
+**Last update:** Resources Plus 0.1.8  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

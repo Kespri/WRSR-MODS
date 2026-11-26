@@ -37,7 +37,7 @@ Diese drei reisen im Paket des Republic Mod Manager mit:
 | Plugin | Version | Was es macht |
 |---|---|---|
 | [Buildings Plus](plugins/buildings_plus) | 0.2.3 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
-| [Resources Plus](plugins/resources_plus) | 0.1.7 | Eigene Ressourcen aus `plugins\resources_plus.ini`, Fork von resources: behebt den Absturz beim Beenden, übernimmt einmal die Liste des Originals, Namen je Spielsprache, pausiert, solange das Original geladen ist |
+| [Resources Plus](plugins/resources_plus) | 0.1.8 | Eigene Ressourcen aus `plugins\resources_plus.ini`, Fork von resources: behebt den Absturz beim Beenden, übernimmt einmal die Liste des Originals, Namen je Spielsprache, pausiert, solange das Original geladen ist |
 | [Needs Plus](plugins/needs_plus) | 0.1.5 | Eigene Bürgerbedürfnisse aus `plugins\needs_plus.ini`, Fork von needs: übernimmt einmal die Liste des Originals, doppelte Namen abgewiesen, pausiert, solange das Original geladen ist |
 
 Jeder Plugin-Ordner hat eine eigene Anleitung in zwei Sprachen (`README_DE.md`, `README_EN.md`)
