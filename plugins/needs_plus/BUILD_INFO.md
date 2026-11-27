@@ -10,6 +10,14 @@ Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) c
 the original so saves and content packages keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.1.9 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
+## 0.1.8 (2026-11-27)
+
+- Documentation only (README DE/EN, INI and schema comments, Workshop text where the package has one) brought up to date in the documentation audit; code unchanged apart from the version string.
+
 ## 0.1.7 (2026-11-27)
 
 - Clean-up of the slots 0.1.6 stopped giving: `TrimAfterLoad` subscribes `after` to the loader

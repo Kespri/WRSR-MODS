@@ -4,6 +4,14 @@ Target: WRSR 1.2.0.9 (the plugin uses no game address), TesmioLoader API 4. Buil
 the standard line (`cl /O2 /MT /W3 /EHsc /LD ... /link kernel32.lib`); exports
 TsmPluginApiVersion/TsmPluginInit/TsmPluginStart. History newest first.
 
+## 0.4.20 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
+## 0.4.19 (2026-11-27)
+
+- Documentation only (README DE/EN, INI and schema comments, Workshop text where the package has one) brought up to date in the documentation audit; code unchanged apart from the version string.
+
 ## 0.4.18 (2026-11-27)
 
 - Code review: the storage follow-up (RemoveGone, Resize, AfterLoad) ran for every building.

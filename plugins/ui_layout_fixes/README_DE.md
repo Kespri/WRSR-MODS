@@ -1,4 +1,4 @@
-# 🪟 UI Layout Fixes 0.3.3
+# 🪟 UI Layout Fixes 0.3.4
 
 **TesmioLoader-Plugin für gezielte Korrekturen an einzelnen Infofenstern**
 
@@ -26,7 +26,7 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 - Keine Abhängigkeit zu anderen Plugins
 
 ### In drei Schritten
@@ -63,7 +63,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -196,6 +196,7 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Versionskompatibilität
+- **0.3.4:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.3.3:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
 - **0.3.2:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.3.1:** Für WRSR 1.1.1.13; sonst unverändert
@@ -304,5 +305,5 @@ A: Nein. Republic Mod Manager zeigt alle Schalter und Werte mit Beschreibung und
 
 ---
 
-**Letzte Aktualisierung:** UI Layout Fixes 0.3.3  
+**Letzte Aktualisierung:** UI Layout Fixes 0.3.4  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

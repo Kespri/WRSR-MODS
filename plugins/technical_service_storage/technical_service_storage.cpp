@@ -67,7 +67,7 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION  "0.3.9"
+#define PLUGIN_VERSION  "0.3.11"
 #define SPREADER_DIAGNOSTIC_VERSION PLUGIN_VERSION
 #define PLUGIN_LOG_NAME "tesmioloader.technical_service_storage.log"
 

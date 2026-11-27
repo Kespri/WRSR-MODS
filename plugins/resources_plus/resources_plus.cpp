@@ -54,7 +54,7 @@
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "resources_plus"
-#define PLUGIN_VERSION "0.1.8"
+#define PLUGIN_VERSION "0.1.10"
 
 // The DLL's own folder (Workshop package or a local copy), resolved in
 // DllMain, and the INI actually read: plugins\resources_plus.ini.

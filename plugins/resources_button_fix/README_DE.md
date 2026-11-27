@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 0.4.6
+# 🧰 Resources Button Fix 0.4.7
 
 **TesmioLoader-Plugin für kompakte Werkzeugraster im Geländeeditor**
 
@@ -27,7 +27,7 @@ Ordnet die Werkzeugschaltflächen in zwei Fenstern des Geländeeditors von *Work
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 - Optional: deposits.dll oder Deposits Plus – deren zusätzliche Ressourcen- und Geländewerkzeuge werden im jeweils richtigen Fenster mit eingeordnet.
 
 ### In drei Schritten
@@ -63,7 +63,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Steam-Updates gelten ab dem nächsten Spielstart
 ```
@@ -241,6 +241,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
+- **0.4.7:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.6:** `maximum_blocks` steht jetzt auf 4 statt 2. Mit Inhaltspaketen kommen schnell mehr als 12 Pinsel zusammen; der dreizehnte lag sonst weit neben dem Fenster. Gezeichnet werden weiter nur so viele Blöcke wie nötig.
 - **0.4.5:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
 - **0.4.4:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
@@ -338,5 +339,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung und prü
 
 ---
 
-**Letzte Aktualisierung:** Resources Button Fix 0.4.6  
+**Letzte Aktualisierung:** Resources Button Fix 0.4.7  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

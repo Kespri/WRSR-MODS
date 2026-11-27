@@ -9,6 +9,10 @@ hash helper (see below). Service name `deposits` and the savegame file `tesmio_d
 deliberately stay identical to the original so consumers such as Depletion keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.4.20 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
 ## 0.4.19 (2026-11-25)
 
 - Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574; engine stamp 0x6B05A4A4). 82 address constants were

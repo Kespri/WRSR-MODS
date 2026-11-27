@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.18
+# 🏗️ Vanilla Buildings 0.4.20
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -27,7 +27,7 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9 (Referenzversion; nach einem Spielupdate können sich Originalzeilen ändern, nicht mehr passende Regeln werden dann sicher abgewiesen)
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 - Localization (ab 0.4.0): Das Plugin selbst braucht es nur für übersetzte Gebäudenamen (`name` mit einem Übersetzungsschlüssel) und läuft sonst auch ohne.
 - Ressourcen, auf die eine Regel verweist (etwa `road_salt`), müssen im Spiel existieren, zum Beispiel über Resources Plus oder Resources.
 
@@ -66,7 +66,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -93,10 +93,10 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Vanilla Buildings damit in zwei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, Knopf für diese Anleitung und die Karte Fehlersuche (Ausführliches Protokoll); ein- und ausgeschaltet wird das Plugin mit „Plugin aktiv“ oben im Kopf
-- **Gebäude:** eine Zeile je Regelsatz mit Schalter, Kennung, erster Zieldatei und den Knöpfen Ändern und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (die Zieldateien) und **Zeilen** (der Zeilen-Editor: oben die Zieldatei wählen, links ihre Zeilen anklicken, daraus Anhängen/Ersetzen/Davor/Danach/Entfernen bauen; zwei Ansichten **Original** und **Ergebnis** – das Ergebnis zeigt schreibgeschützt die Datei, die das Spiel lesen wird, und markiert jede Zeile, die ein Befehl anlegt oder ersetzt; Anschlüsse fasst er als Block an, ein Klick auf eine Punktzeile nimmt den ganzen Anschluss; ein Befehl, der in dieser Datei nicht greift, steht rot mit Begründung, und solange einer rot ist, schreibt das Plugin für diese Datei gar nichts; das Kästchen „Gegen alle Zieldateien prüfen“ unter den Knöpfen sagt, in wie vielen Zielen ein Befehl passt). Jede Zeile in einem Feld ist eine INI-Zeile; unter dem Feld steht die Anzahl, am Griff lässt es sich aufziehen. „Gebäude auswählen…“ öffnet die Liste aller Gebäude des Spiels, der DLCs und der abonnierten Workshop-Objekte, nach Art gruppiert mit Suche und Filtern; angehakte Gebäude werden als Zielzeilen eingetragen
+- **Allgemein:** Hinweise, Knopf für diese Anleitung, die Karte Spielstände (Lager an schon gebauten Gebäuden nachführen, Versuch: auch Fahrzeugfabriken nachrüsten) und die Karte Fehlersuche (Ausführliches Protokoll); ein- und ausgeschaltet wird das Plugin mit „Plugin aktiv“ oben im Kopf
+- **Gebäude:** eine Zeile je Regelsatz mit Schalter, Kennung, erster Zieldatei und den Knöpfen Ändern und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (die Zieldateien) und **Zeilen** (der Zeilen-Editor: oben die Zieldatei wählen, links ihre Zeilen anklicken, daraus Anhängen/Ersetzen/Davor/Danach/Entfernen bauen oder einen angeklickten Befehl mit Ändern anpassen; zwei Ansichten **Original** und **Ergebnis** – das Ergebnis zeigt schreibgeschützt die Datei, die das Spiel lesen wird, und markiert jede Zeile, die ein Befehl anlegt oder ersetzt; Anschlüsse fasst er als Block an, ein Klick auf eine Punktzeile nimmt den ganzen Anschluss; ein Befehl, der in dieser Datei nicht greift, steht rot mit Begründung, und solange einer rot ist, schreibt das Plugin für diese Datei gar nichts; jeder Befehl wird gegen alle Zieldateien des Regelsatzes geprüft, eine Zieldatei, in die er nicht passt, steht rot). Jede Zeile in einem Feld ist eine INI-Zeile; unter dem Feld steht die Anzahl, am Griff lässt es sich aufziehen. „Gebäude auswählen…“ öffnet die Liste aller Gebäude des Spiels, der DLCs und der abonnierten Workshop-Objekte, nach Art gruppiert mit Suche und Filtern; angehakte Gebäude werden als Zielzeilen eingetragen
 
-**Umbenennen ist Absicht, kein Nebeneffekt.** Republic Mod Manager bietet dafür kein Feld an: Vanilla Buildings ändert bestehende Gebäude, die Namen des Spiels sollen stehen bleiben; ein eigenes Gebäude baust du mit Buildings Plus. Willst du ein Gebäude trotzdem umbenennen, machst du das im Reiter Zeilen mit einem Ersetzen, etwa `$NAME 6218` → `$NAME_STR "Salzlager"`. Das geht nur in einem Regelsatz mit **genau dieser einen** Zieldatei: die alte Zeile steht in jeder Datei anders, in allen anderen Zielen fände der Befehl seinen Anker nicht, und ein danebengehender Befehl verwirft dort den ganzen Regelsatz. Das Kästchen „Gegen alle Zieldateien prüfen“ zeigt es sofort.
+**Umbenennen ist Absicht, kein Nebeneffekt.** Republic Mod Manager bietet dafür kein Feld an: Vanilla Buildings ändert bestehende Gebäude, die Namen des Spiels sollen stehen bleiben; ein eigenes Gebäude baust du mit Buildings Plus. Willst du ein Gebäude trotzdem umbenennen, machst du das im Reiter Zeilen mit einem Ersetzen, etwa `$NAME 6218` → `$NAME_STR "Salzlager"`. Das geht nur in einem Regelsatz mit **genau dieser einen** Zieldatei: die alte Zeile steht in jeder Datei anders, in allen anderen Zielen fände der Befehl seinen Anker nicht, und ein danebengehender Befehl verwirft dort den ganzen Regelsatz. Der Reiter Zeilen markiert das sofort rot.
 
 Original-Regelsätze aus dem Paket können ausgeblendet oder Zeile für Zeile übersteuert werden. Persönliche Änderungen liegen in `user_config\vanilla_buildings.editor.ini`, die wirksame Datei ist `tesmioloader\plugins\vanilla_buildings.ini`; die INI im Paket bleibt unverändert. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
 
@@ -122,7 +122,7 @@ enabled = 1
 debug = 0
 ; 1 rüstet schon gebaute Gebäude beim Laden eines Spielstands mit den Lagern deiner Regelsätze nach
 retrofit_storages = 1
-; Versuch, Vorgabe 0: 1 nimmt auch Fahrzeugfabriken mit - nur an einer Kopie des Spielstands testen
+; Versuch, Vorgabe 0: 1 nimmt auch Fahrzeugfabriken, Trockendock und Raketenteile-Werke mit - nur an einer Kopie des Spielstands testen
 retrofit_vehicle_factories = 0
 ```
 
@@ -249,17 +249,19 @@ Fehler in `[general]`, mehrdeutige Abschnittsgrenzen, falsche Kodierung oder üb
 ### Spielstände
 Das Plugin ändert Gebäudedefinitionen. Ein Spielstand merkt sich aber für jedes gebaute Gebäude dessen Lager. Deshalb gibt es die **Nachrüstung** (`retrofit_storages`, Vorgabe EIN): Beim Laden eines Spielstands bekommt jedes fertige Gebäude die Lager, die ein eingeschalteter Regelsatz seiner Definition hinzufügt und die ihm noch fehlen.
 
-- Nachgerüstet werden Einzellager für eine Ressource (`$STORAGE_IMPORT_SPECIAL`) der Klassen covered, open und gravel. Sie werden leer eingefügt, an der Stelle, an der sie in der Gebäudedefinition stehen – so wie bei einem Neubau.
-- Vorhandene Lager bleiben, wie sie sind: nichts wird vergrößert oder entfernt. Baustellen und Gebäude im Abriss bleiben unberührt; ein Gebäude mit einem Fahrzeuglager (Fahrzeugfabrik, Trockendock) wird ausgelassen und im Protokoll genannt – so ein Gebäude musst du neu bauen, damit es ein neues Lager bekommt.
-- ⚠️ Beim nächsten normalen Speichern stehen die neuen Lager im Spielstand. Den Regelsatz ausschalten oder die Nachrüstung auf AUS stellen nimmt sie nicht wieder heraus.
+- Nachgeführt werden die Einzellager (`$STORAGE_IMPORT_SPECIAL` und `$STORAGE_EXPORT_SPECIAL`, alle Güterklassen) der eingeschalteten Regelsätze: Ein fehlendes Lager kommt leer hinter die vorhandenen Lager; nennt die Zeile eine andere Größe, übernimmt das Lager sie (größer sofort, kleiner, sobald der Bestand hineinpasst); eine andere Klasse, die die Ressource hat, tauscht das Lager, sobald es leer ist; ein Lager, dessen Zeile weg ist (entfernt oder Regelsatz aus), verschwindet, sobald es leer ist. Eine Klasse, in der die Ressource nichts fasst, ändert kein stehendes Gebäude.
+- Baustellen und Gebäude im Abriss bleiben unberührt. Fahrzeugfabriken, Trockendock und Raketenteile-Werke (Fertigungslinien) fasst die Nachrüstung nur mit dem Versuchsschalter `retrofit_vehicle_factories` an.
+- ⚠️ Beim nächsten normalen Speichern steht alles Hinzugefügte, Geänderte oder Herausgenommene im Spielstand. Mit Nachrüstung AUS bleiben Lager schon gebauter Gebäude, wie sie sind.
 - Dafür ist der Loader aus dem Republic Mod Manager nötig (ab b0.4.5-rmm.3). Mit einem anderen Loader gelten neue Lager wie früher nur für Neubauten.
 
 Dateien im Spielordner bleiben unverändert.
 
 ### Andere Plugins
-Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Für Materialien aus Vehicle Materials kannst du mit diesem Plugin die passende `$STORAGE_IMPORT_SPECIAL`-Zeile in den Fahrzeugfabriken ergänzen; die mitgelieferte INI enthält dafür keinen fertigen Regelsatz.
+Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Vehicle Materials gibt den Fahrzeugfabriken das Lager für seine Materialien selbst; dafür brauchst du hier keinen Regelsatz.
 
 ### Versionskompatibilität
+- **0.4.20:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
+- **0.4.19:** Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - **0.4.18:** Fahrzeugfabriken, Trockendock und Raketenteile-Werke (Fertigungslinien) fasst das Nachführen der Lager nur noch an, wenn der Versuchsschalter für Fahrzeugfabriken an ist. Sie führen eigene Lager hinter denen ihrer Definition, und die sollen in Ruhe bleiben.
 - **0.4.17:** Auch Ausgangslager (`$STORAGE_EXPORT_SPECIAL`) und alle Güterklassen – zum Beispiel Trockengut und Flüssigkeiten – folgen jetzt ihrer Zeile: neu, größer, kleiner oder entfernt. Nennt eine Zeile eine Klasse, in der die Ressource nichts fasst (etwa Industriesalz in einem Schüttgut-Lager), behält ein schon gebautes Gebäude sein Lager.
 - **0.4.16:** Lager folgen ihrer Zeile: Änderst du in einer Lagerzeile die Größe, übernehmen schon gebaute Gebäude sie beim nächsten Laden – größer sofort, kleiner, sobald der Bestand hineinpasst. Änderst du die Klasse (gedeckt, offen, Schüttgut), wird das Lager getauscht, sobald es leer ist.
@@ -269,7 +271,7 @@ Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Än
 - **0.4.12:** Ein nachgerüstetes Lager kommt jetzt an dieselbe Stelle wie bei einem Neubau (dort, wo es in der Gebäudedefinition steht) statt ans Ende. Neuer Versuchsschalter `retrofit_vehicle_factories` (Vorgabe AUS) für Fahrzeugfabriken – nur zum Testen an einer Kopie des Spielstands.
 - **0.4.11:** Gebäude mit einem Fahrzeuglager (Fahrzeugfabriken, Trockendock) lässt die Nachrüstung aus. Ein Versuch, sie mitzunehmen, hat das Spiel beim Laden abstürzen lassen. Diese Gebäude musst du neu bauen, damit sie ein neues Lager bekommen.
 - **0.4.9:** Schon gebaute Gebäude bekommen die Lager deiner Regelsätze nachträglich, wenn du einen Spielstand lädst (neuer Schalter `retrofit_storages`, Vorgabe EIN). Vorher musste man das Gebäude neu bauen. Dafür ist der Loader aus dem Republic Mod Manager ab b0.4.5-rmm.3 nötig.
-- **0.4.8:** Mehrere aktive Regelsätze dürfen sich eine Zieldatei teilen, wenn höchstens einer davon mehr tut, als Zeilen mit `add` anzuhängen. So können zum Beispiel mehrere Inhaltspakete derselben Fahrzeugfabrik je ein Lager geben. Zwei Regelsätze, die dieselbe Datei ändern, werden weiter beide abgewiesen.
+- **0.4.8:** Mehrere aktive Regelsätze dürfen sich eine Zieldatei teilen, wenn höchstens einer davon mehr tut, als Zeilen mit `add` anzuhängen. So können zum Beispiel mehrere Inhaltspakete demselben Gebäude je ein Lager geben. Zwei Regelsätze, die dieselbe Datei ändern, werden weiter beide abgewiesen.
 - **0.4.7:** Texte für WRSR 1.2.0.9; das Plugin nutzt keine Spieladresse und ist sonst unverändert.
 - **0.4.6:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
 - **0.4.5:** Aus dem Workshop geladen, liest das Plugin jetzt auch die fertige INI, die Republic Mod Manager nach `tesmioloader\plugins\vanilla_buildings.ini` schreibt; vorher blieb es dann bei der INI im Paket
@@ -372,5 +374,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 0.4.18  
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.20  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

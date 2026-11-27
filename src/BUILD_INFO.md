@@ -1,6 +1,6 @@
 # tesmioloader.dll – build notes
 
-The loader itself: MaxLegend's TesmioLoader b0.4.5 (GPL v3, https://github.com/MaxLegend/TesmioLoader)
+The loader itself: MaxLegend's TesmioLoader b0.4.6 (GPL v3, https://github.com/MaxLegend/TesmioLoader)
 with the corrections below. Target: WRSR 1.2.0.9 (SOVIET64.exe PE stamp 0x6B05A574), plugin
 API 4, accepts plugins built for API 3..4. Build: the loader line of the root `build.bat`
 (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib; user32 is pulled in by a pragma for the
@@ -12,9 +12,20 @@ user_config overlay, the service noticeboard, the save manifest and the repeat c
 Compatibility promise: the host table, the API version, the export names, the two-phase
 Init/Start rule, the `[plugins]` switches, the launcher's ini keys and every log line other
 tools read (`plugin <name> <version> from <dll>`, `<name>  idle - `, `plugin N loaded`,
-`--- shutdown`, the service lines) are those of upstream b0.4.5. A plugin built for upstream
-runs here; a plugin built here runs on upstream. The launcher is upstream's, unchanged.
+`--- shutdown`, the service lines) are those of upstream b0.4.6. A plugin built for upstream
+runs here; a plugin built here runs on upstream. The launcher is upstream's (0.4.6), unchanged.
 Republic Mod Manager ships this DLL and installs it over the upstream one.
+
+## b0.4.6-rmm.1 (2026-11-27)
+
+- Rebased on MaxLegend's b0.4.6 (Workshop item 3773169177, 2026-11-27). Upstream has not
+  published the b0.4.6 source (the GitHub tag `tesmioloader0.4.6` points at the b0.4.5
+  commit aafbe87); its DLL carries no text that the b0.4.5 source lacks, and its one game
+  address that differs from b0.4.5 is the menu version site 0x2A724C for WRSR 1.2.0.9 -
+  the value this build has had since b0.4.5-rmm.2. So the only change here is the version.
+- Plugins of this repository are now built with `/DTSM_RELEASE_VERSION=0.4.6`; launcher
+  0.4.6 warns "targets loader 0.4.5, current release 0.4.6" for any plugin built for 0.4.5.
+- Launcher 0.4.6 knows WRSR 1.2.0.9 (stamp 0x6B05A574), so `version_check = 1` works again.
 
 ## b0.4.5-rmm.5 (2026-11-27)
 

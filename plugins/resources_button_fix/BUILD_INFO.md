@@ -3,6 +3,10 @@
 Target: WRSR 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4. Build: MSVC x64, `/std:c++17 /O2 /MT /W3 /EHsc /LD`,
 kernel32.lib only. Workshop package: `My Plugins\resources_button_fix` (local_copy). History newest first.
 
+## 0.4.7 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
 ## 0.4.6 (2026-11-26)
 
 - Default of `maximum_blocks` raised from 2 to 4 (built-in default and shipped INI). Capacity was

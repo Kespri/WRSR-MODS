@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.9
+# 🚛 Technical Service Storage 0.3.11
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
@@ -30,7 +30,7 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.2.0.9 das Fenster des Tech
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 - Technische Services mit `$TYPE_GARBAGE_OFFICE` (intern Gebäudetyp 49) und Schneepflüge mit der Fähigkeit 35
 - Für den Streubetrieb: registrierte Streugut-Ressourcen und passende Einzellager im Depot (siehe [Gebäudelager und Migration](#-gebäudelager-und-migration))
 - **Empfohlen:** das Localization-Plugin mit dem Textpaket `technical_service_storage` für übersetzte Beschriftungen; ohne es gelten eingebaute Ersatztexte
@@ -80,7 +80,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Die INI findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -246,6 +246,8 @@ Mit `[storage_migration] enabled = 1` werden beim Laden fehlende konfigurierte S
 
 ⚠️ Beim nächsten normalen Speichern können die Ergänzungen im **nativen Spielstand** landen. Ausschalten macht das nicht rückgängig; zum Zurücksetzen einen Spielstand von vor der Migration verwenden.
 
+Kommt die Lagerzeile aus einem Regelsatz von Vanilla Buildings, ergänzt Vanilla Buildings (ab 0.4.9, mit dem Loader aus dem Republic Mod Manager) das Lager beim Laden schon selbst, ändert seine Größe oder nimmt es wieder heraus; die Migration hier hat dann nichts mehr zu tun.
+
 ---
 
 ## 💾 Speichern und Laden
@@ -304,10 +306,12 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 ### Andere Plugins
 - **Weather Roads** nutzt den Streugut-Dienst dieses Plugins; ohne ihn rechnet es mit Stärke 1.00.
 - **Localization** liefert die übersetzten Beschriftungen (empfohlen, nicht zwingend).
-- **Vanilla Buildings** oder das Buildings-Plugin ergänzen die nötigen Einzellager in den Depots.
+- **Vanilla Buildings** ergänzt die nötigen Einzellager in den Depotdefinitionen (ein eigenes Gebäude aus Buildings Plus kann sie ebenfalls mitbringen).
 - Ressourcen-Plugins (Resources Plus oder Resources) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
+- **0.3.11:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
+- **0.3.10:** Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - **0.3.9:** Beim Nachtragen eines fehlenden Depotlagers bleiben die vorhandenen Lager des Depots unangetastet an ihrem Platz im Speicher; vorher wurden sie dabei durch Kopien ersetzt. Am Verhalten im Spiel ändert sich nichts.
 - **0.3.8:** Das Nachtragen fehlender Depotlager beim Laden hängt sich jetzt an den Loader an, wenn dieser den Moment „Gebäude geladen“ selbst meldet (der Loader aus dem Republic Mod Manager ab b0.4.5-rmm.3). So können auch andere Plugins geladene Gebäude ansehen, ohne sich gegenseitig auszuschalten. Mit dem Loader von MaxLegend arbeitet das Plugin wie bisher. Am Verhalten ändert sich nichts.
 - **0.3.7:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
@@ -416,5 +420,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.9  
+**Letzte Aktualisierung:** Technical Service Storage 0.3.11  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

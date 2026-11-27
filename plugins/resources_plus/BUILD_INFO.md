@@ -10,6 +10,14 @@ Service name `resources`, the caption id base and the record layout deliberately
 to the original so saves, content packages and consumers such as Deposits Plus keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.1.10 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
+## 0.1.9 (2026-11-27)
+
+- Documentation only (README DE/EN, INI and schema comments, Workshop text where the package has one) brought up to date in the documentation audit; code unchanged apart from the version string.
+
 ## 0.1.8 (2026-11-26)
 
 - `[price]` never reached a screen. The price pass (0x2C4E90) is followed at each of its three call

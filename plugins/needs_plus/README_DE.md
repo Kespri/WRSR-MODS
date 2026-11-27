@@ -1,4 +1,4 @@
-# 📦 Needs Plus 0.1.7
+# 📦 Needs Plus 0.1.9
 
 **Erweiterung des TesmioLoader-Plugins needs**
 
@@ -27,7 +27,7 @@ Eigene Bedürfnisse für *Workers & Resources: Soviet Republic* 1.2.0.9: Deine B
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 - Eine Ressourcenliste, in der die gewünschte Ware steht (Resources Plus oder das Original-Plugin resources)
 
 ### In drei Schritten
@@ -49,7 +49,7 @@ Eigene Bedürfnisse für *Workers & Resources: Soviet Republic* 1.2.0.9: Deine B
 ### 🆕 Verbesserungen (neu in Needs Plus)
 
 #### 1️⃣ **Eigene Datei, automatisch übernommen**
-Needs Plus liest `tesmioloader\plugins\needs_plus.ini`, auch wenn die DLL aus dem Workshop kommt. Fehlt sie, entsteht sie beim ersten Start aus dem, was du schon hast: aus `tesmioloader\plugins\needs.ini` des Original-Plugins, in derselben Reihenfolge, mit einem Kopfkommentar, woher sie stammt. Das Original wird dabei nur gelesen, nie verändert. Stammt die `needs.ini` vom Soviet Mod Loader (der schreibt sie beim Spielstart mit allen Paketen zusammen neu), nimmt Needs Plus stattdessen SMLs Grundfassung, damit kein Paketbedürfnis doppelt erscheint. Gibt es weder eine `needs.ini` noch SMLs Grundfassung, nimmt das Plugin die INI neben seiner DLL.
+Needs Plus liest `tesmioloader\plugins\needs_plus.ini`, auch wenn die DLL aus dem Workshop kommt. Fehlt sie, entsteht sie beim ersten Start aus dem, was du schon hast: aus `tesmioloader\plugins\needs.ini` des Original-Plugins, in derselben Reihenfolge, mit einem Kopfkommentar, woher sie stammt. Das Original wird dabei nur gelesen, nie verändert. Stammt die `needs.ini` vom Soviet Mod Loader (der schreibt sie beim Spielstart mit allen Paketen zusammen neu), nimmt Needs Plus stattdessen SMLs Grundfassung, damit kein Paketbedürfnis doppelt erscheint. Gibt es beides nicht, nimmt es die `needs.ini` neben der DLL des Originals im Workshop-Ordner und erst danach die INI neben seiner eigenen DLL.
 
 #### 2️⃣ **Doppelte Namen werden abgewiesen**
 Steht eine Ressource zweimal in `[list]`, zählt die erste Zeile, die zweite wird mit einer Zeile im Protokoll übergangen. Das Original hätte den Bürgern das Bedürfnis zweimal gegeben.
@@ -77,7 +77,7 @@ Hast du auch das Plugin needs von MaxLegend (abonniert oder in `tesmioloader\plu
 ```
 1. Das Workshop-Objekt Republic Mod Manager abonnieren – Needs Plus
    liegt darin im Ordner plugins\needs_plus
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Beim ersten Start legt das Plugin deine Liste an:
    <Spiel>\tesmioloader\plugins\needs_plus.ini
@@ -176,8 +176,10 @@ Unverändert gegenüber dem Original: Die Lagerplätze der Läden sind Teil des 
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Bedürfnisse selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Needs Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.9: Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
+- 0.1.8: Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - 0.1.7: Beim Laden eines Spielstands verschwindet der leere Platz für Möbel, Speisesalz und Co. aus Werken, die ihn von einer früheren Version bekommen haben – nur wenn er leer ist und das Gebäude die Ware nicht selbst führt (eine Möbelfabrik behält ihr Möbel-Lager). Läden und Hotels bleiben, wie sie sind. Braucht den Loader aus dem Republic Mod Manager (ab b0.4.5-rmm.3).
-- 0.1.6: Neue Waren wie Möbel oder Speisesalz landen nur noch in Läden und Hotels. Vorher bekamen auch Fabriken einen leeren Lagerplatz dafür, etwa das Flugzeugwerk und das Raketenwerk einen für Möbel. Ein schon gebautes Werk behält diesen leeren Platz; er stört nicht.
+- 0.1.6: Neue Waren wie Möbel oder Speisesalz landen nur noch in Läden und Hotels. Vorher bekamen auch Fabriken einen leeren Lagerplatz dafür, etwa das Flugzeugwerk und das Raketenwerk einen für Möbel. Ein schon gebautes Werk behielt diesen leeren Platz; seit 0.1.7 verschwindet er beim Laden eines Spielstands.
 - 0.1.5: Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert.
 - 0.1.4: Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert.
 - 0.1.3: Die erste Liste entsteht jetzt auch aus der `needs.ini` des Originals, wenn das Original nur im Workshop-Ordner liegt. Vorher sah das Plugin nur im Loader-Ordner nach und nahm sonst die mitgelieferte Liste
@@ -256,5 +258,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Needs Plus eingeschalt
 
 ---
 
-**Letzte Aktualisierung:** Needs Plus 0.1.7  
+**Letzte Aktualisierung:** Needs Plus 0.1.9  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

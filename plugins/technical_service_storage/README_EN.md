@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.9
+# 🚛 Technical Service Storage 0.3.11
 
 **TesmioLoader plugin for grit storages, material priorities and snowplow tanks**
 
@@ -30,7 +30,7 @@ Extends the Technical Services window of *Workers & Resources: Soviet Republic* 
 ### Requirements
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader b0.4.5 or newer (API 4)
+- TesmioLoader b0.4.6 or newer (API 4)
 - Technical Services with `$TYPE_GARBAGE_OFFICE` (internal building type 49) and snowplows with skill 35
 - For grit operation: registered grit resources and matching single-resource storages in the depot (see [Building storages and migration](#-building-storages-and-migration))
 - **Recommended:** the Localization plugin with the `technical_service_storage` text pack for translated labels; without it built-in fallback labels are used
@@ -80,7 +80,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.6 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds the INI next to itself in the package
 4. Steam updates apply from the next game start
@@ -246,6 +246,8 @@ With `[storage_migration] enabled = 1` missing configured grit imports of the cu
 
 ⚠️ The next normal save can put the additions into the **native savegame**. Switching off does not undo them; to reset, use a savegame from before the migration.
 
+If the storage line comes from a Vanilla Buildings rule set, Vanilla Buildings (0.4.9 or newer, with the loader from Republic Mod Manager) already adds it, changes its size or removes it on load; then the migration here has nothing left to do.
+
 ---
 
 ## 💾 Saving and loading
@@ -304,10 +306,12 @@ Added storages can become part of the native savegame. Priorities and tanks live
 ### Other plugins
 - **Weather Roads** uses the grit spreader service of this plugin; without it, it counts with strength 1.00.
 - **Localization** provides the translated labels (recommended, not mandatory).
-- **Vanilla Buildings** or the Buildings plugin add the required single-resource storages to the depots.
+- **Vanilla Buildings** adds the required single-resource storages to the depot definitions (a building of your own from Buildings Plus can carry them too).
 - Resource plugins (Resources Plus or Resources) register additional materials such as `road_salt`.
 
 ### Version compatibility
+- **0.3.11:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
+- **0.3.10:** texts only: manual, Workshop text and settings page brought up to date; nothing changes in the game.
 - **0.3.9:** when a missing depot storage is added, the storages the depot has stay untouched where they are in memory; before, they were replaced by copies in the process. Nothing changes in the game.
 - **0.3.8:** adding missing depot storages on load now subscribes to the loader when the loader reports the moment "building loaded" itself (the loader from Republic Mod Manager, b0.4.5-rmm.3 or newer). Other plugins can then look at loaded buildings too without switching each other off. With MaxLegend's loader the plugin works as before. The behaviour does not change.
 - **0.3.7:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
@@ -416,5 +420,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Technical Service Storage 0.3.9  
+**Last update:** Technical Service Storage 0.3.11  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

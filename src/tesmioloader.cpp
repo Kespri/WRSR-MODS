@@ -36,11 +36,11 @@
 // here keeps build.bat's kernel32-only link line untouched.
 #pragma comment(lib, "user32.lib")
 
-// This build of the loader. Upstream is MaxLegend's b0.3.6 (API 4); the suffix
+// This build of the loader. Upstream is MaxLegend's b0.4.6 (API 4); the suffix
 // counts the rounds of fixes on top of it. The host table, the API version and
-// every log line other tools read are unchanged - a plugin built for b0.3.6
-// runs here and one built here runs on b0.3.6.
-#define LOADER_VERSION "b0.4.5-rmm.5"
+// every log line other tools read are unchanged - a plugin built for b0.4.6
+// runs here and one built here runs on b0.4.6.
+#define LOADER_VERSION "b0.4.6-rmm.1"
 
 // ---------------------------------------------------------------- exported names
 

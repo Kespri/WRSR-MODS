@@ -48,7 +48,7 @@
 
 #define PLUGIN_INI      "vehicle_materials.ini"
 #define PLUGIN_OVERLAY  "user_config\\vehicle_materials.ini"
-#define PLUGIN_VERSION  "0.4.14"
+#define PLUGIN_VERSION  "0.4.16"
 #define PLUGIN_LOG_NAME "tesmioloader.vehicle_materials.log"
 
 static const size_t MAX_INI_BYTES = 1u * 1024u * 1024u;
@@ -1172,7 +1172,7 @@ static Category CategoryForType(int rawType)
     if (rawType >= 0 && rawType < 16)
     {
         int mapping = g_typeOverride[rawType];
-        if (mapping >= CAT_ROAD && mapping <= CAT_AIRPLANE)
+        if (mapping >= CAT_ROAD && mapping < CAT_COUNT)
             return (Category)mapping;
     }
     return AutomaticCategory(rawType);

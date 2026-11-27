@@ -5,6 +5,14 @@ kernel32.lib only. Companion plugins: weather_roads (consumer of the `tss.grit_s
 service), vanilla_buildings (depot storage definitions), localization (text pack
 `technical_service_storage`). History newest first.
 
+## 0.3.11 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
+## 0.3.10 (2026-11-27)
+
+- Documentation only (README DE/EN, INI and schema comments, Workshop text where the package has one) brought up to date in the documentation audit; code unchanged apart from the version string.
+
 ## 0.3.9 (2026-11-26)
 
 - Depot migration (`storage_migration.h`): the storages a depot has are no longer cloned and

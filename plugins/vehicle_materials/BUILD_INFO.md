@@ -5,6 +5,19 @@ TesmioLoader plugin (API 4) for WRSR 1.2.0.9 (PE stamp 0x6B05A574), GPL v3. Buil
 includes `src/tesmio_plugin.h` and `my_plugins/tesmio_config.h` (base INI beside the DLL or in
 `plugins\`, personal overlay `user_config\vehicle_materials.ini`). User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.16 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
+## 0.4.15 (2026-11-27)
+
+- Fix: a manual `[mapping] typeN = 4` (rocket parts) was accepted by the parser but ignored -
+  `CategoryForType` honoured 0 to 3 only and fell back to the automatic class. It now takes every
+  value below `CAT_COUNT`.
+- Documentation brought up to date (README DE/EN, Steam description, INI and schema comments):
+  five classes, current automatic mapping, horse-drawn vehicles, storage class choice, the record
+  file `vehicle_materials.storages.txt`, storages being part of the save, current log lines.
+
 ## 0.4.14 (2026-11-27)
 
 - Package schema only: the rocket parts row of the vehicle classes matrix names `builtin:rocket`

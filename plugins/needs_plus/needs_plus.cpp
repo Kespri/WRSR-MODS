@@ -84,7 +84,7 @@
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "needs_plus"
-#define PLUGIN_VERSION "0.1.7"
+#define PLUGIN_VERSION "0.1.9"
 
 // The DLL's own folder (RMM package or a local copy), resolved in DllMain,
 // and the INI actually read: plugins\needs_plus.ini.

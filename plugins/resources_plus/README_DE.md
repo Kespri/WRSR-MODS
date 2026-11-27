@@ -1,4 +1,4 @@
-# 📦 Resources Plus 0.1.8
+# 📦 Resources Plus 0.1.10
 
 **Erweiterung des TesmioLoader-Plugins resources**
 
@@ -27,7 +27,7 @@ Eigene Ressourcen für *Workers & Resources: Soviet Republic* 1.2.0.9: neue Güt
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 
 ### In drei Schritten
 1. **Abonnieren:** Resources Plus steckt im Workshop-Objekt Republic Mod Manager. Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
@@ -51,7 +51,7 @@ Eigene Ressourcen für *Workers & Resources: Soviet Republic* 1.2.0.9: neue Güt
 Das Original ließ das Spiel beim Beenden abstürzen, sobald mehr als sechs eigene Ressourcen eingetragen waren (Windows meldete `ucrtbase.dll`, Code `c0000409`). Spielstände waren nie betroffen, aber jeder Ausstieg hinterließ einen Absturzbericht. Resources Plus legt die vergrößerte Tabelle so an, wie das Spiel sie beim Beenden wieder freigibt.
 
 #### 2️⃣ **Eigene Datei, automatisch übernommen**
-Resources Plus liest `tesmioloader\plugins\resources_plus.ini`, auch wenn die DLL aus dem Workshop kommt. Fehlt sie, entsteht sie beim ersten Start aus dem, was du schon hast: aus `tesmioloader\plugins\resources.ini` des Original-Plugins, in derselben Reihenfolge, mit einem Kopfkommentar, woher sie stammt. Das Original wird dabei nur gelesen, nie verändert. Stammt die `resources.ini` vom Soviet Mod Loader (der schreibt sie beim Spielstart mit allen Paketen zusammen neu), nimmt Resources Plus stattdessen SMLs Grundfassung, damit keine Paketressource doppelt erscheint. Gibt es weder eine `resources.ini` noch SMLs Grundfassung, nimmt das Plugin die INI neben seiner DLL.
+Resources Plus liest `tesmioloader\plugins\resources_plus.ini`, auch wenn die DLL aus dem Workshop kommt. Fehlt sie, entsteht sie beim ersten Start aus dem, was du schon hast: aus `tesmioloader\plugins\resources.ini` des Original-Plugins, in derselben Reihenfolge, mit einem Kopfkommentar, woher sie stammt. Das Original wird dabei nur gelesen, nie verändert. Stammt die `resources.ini` vom Soviet Mod Loader (der schreibt sie beim Spielstart mit allen Paketen zusammen neu), nimmt Resources Plus stattdessen SMLs Grundfassung, damit keine Paketressource doppelt erscheint. Gibt es beides nicht, nimmt es die `resources.ini` neben der DLL des Originals im Workshop-Ordner und erst danach die INI neben seiner eigenen DLL.
 
 #### 3️⃣ **Doppelte Namen werden abgewiesen**
 Steht ein Name zweimal in `[list]`, zählt der erste, der zweite wird mit einer Zeile im Protokoll übergangen. Das Original hätte ihn zweimal angemeldet.
@@ -82,7 +82,7 @@ Hast du auch das Plugin resources von MaxLegend (abonniert oder in `tesmioloader
 ```
 1. Das Workshop-Objekt Republic Mod Manager abonnieren – Resources Plus
    liegt darin im Ordner plugins\resources_plus
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Beim ersten Start legt das Plugin deine Liste an:
    <Spiel>\tesmioloader\plugins\resources_plus.ini
@@ -179,6 +179,8 @@ Unverändert gegenüber dem Original: Die Anzahl der Ressourcen ist Teil des Spi
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Ressourcen selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Resources Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.10: Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
+- 0.1.9: Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - 0.1.8: Fehler behoben: Ein fester Preis aus `[price]` kam am Zoll und im Handelsfenster nicht an, weil das Spiel den Preis danach noch einmal neu ausrechnet. Er wird jetzt auch hinter dieser zweiten Rechnung gesetzt. Im Log stehen Rubel und Dollar jetzt in der richtigen Spalte.
 - 0.1.7: Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert.
 - 0.1.6: Für WRSR 1.2.0.8 mit dem Raketen-DLC. Das Plugin kennt die vier neuen Ressourcen des Spiels (`kerosene`, `lox`, `udmh`, `n2o4`) und die zwei neuen Transportklassen `cryo` und `hypergolic`. Alte Adress-Zeilen in Deiner `resources_plus.ini` stören nicht, das Plugin nimmt dann seine eigenen.
@@ -261,5 +263,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Resources Plus eingesc
 
 ---
 
-**Letzte Aktualisierung:** Resources Plus 0.1.8  
+**Letzte Aktualisierung:** Resources Plus 0.1.10  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

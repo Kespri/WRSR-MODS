@@ -17,7 +17,7 @@
 #pragma comment(lib, "gdi32.lib")
 
 #define PLUGIN_NAME       "weather_roads"
-#define PLUGIN_VERSION    "0.3.7"
+#define PLUGIN_VERSION    "0.3.8"
 #define PLUGIN_INI        "plugins\\weather_roads.ini"
 #define PLUGIN_LOG        "tesmioloader.weather_roads.log"
 

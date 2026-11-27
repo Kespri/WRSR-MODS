@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.8
+# 🏭 Buildings Plus 0.2.10
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -26,8 +26,8 @@ Legt in *Workers & Resources: Soviet Republic* 1.2.0.9 neue Gebäude an, ohne da
 
 ### Voraussetzungen
 - Windows x64
-- WRSR 1.2.0.9 (das Plugin liest keine Spieladresse, ein Spielupdate kann höchstens eine building.ini-Zeile ungültig machen)
-- TesmioLoader ab b0.4.5 (API 4)
+- WRSR 1.2.0.9 (das Erzeugen nutzt keine Spieladresse; nur das Nachführen der Lager an schon gebauten Gebäuden tut das und schaltet sich auf einem anderen Spielbuild selbst ab)
+- TesmioLoader ab b0.4.6 (API 4)
 - Ressourcen, die ein Gebäude verbraucht oder herstellt, müssen im Spiel existieren, zum Beispiel über Resources Plus oder das Plugin resources.
 
 ### In drei Schritten
@@ -61,7 +61,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 ```
 1. Das Workshop-Objekt Republic Mod Manager abonnieren – Buildings Plus
    liegt darin im Ordner plugins\buildings_plus
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. Gebäude anlegen (Republic Mod Manager oder INI), Spiel vollständig neu starten
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -89,7 +89,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 Die Einstellungsseite bringt Republic Mod Manager (ab Version 0.7.0) selbst mit. Er zeigt Buildings Plus in drei Reitern, deutsch und englisch:
 
 - **Allgemein:** Hinweise, die Karte „Erzeugte Ordner“ mit den Schaltern Besitzer-ID nachtragen und Ordner aufräumen (prune), die Karte „Spielstände“ mit Lager an schon gebauten Gebäuden nachführen (retrofit_storages), dazu die Karte „Fehlersuche“ mit Immer neu schreiben (always) und Ausführliches Protokoll
-- **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (links die building.ini des Spenders, rechts deine Befehle; du klickst eine Zeile an, schreibst die neue darunter und wählst Anhängen, Ersetzen, Davor oder Danach – die Ansicht „Ergebnis“ zeigt die Datei, die daraus entsteht)
+- **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (links die building.ini des Spenders, rechts deine Befehle; du klickst eine Zeile an, schreibst die neue darunter und wählst Anhängen, Ersetzen, Davor oder Danach, Zeile entfernen oder Ändern für einen angeklickten Befehl – die Ansicht „Ergebnis“ zeigt die Datei, die daraus entsteht)
 - **Erzeugte Gebäude:** was unter `media_soviet\workshop_wip` schon erzeugt wurde, mit dem Knopf „Besitzer eintragen“, der eine fehlende Besitzer-ID nachträgt
 
 Den Schlüssel `object` bietet Republic Mod Manager nicht an — dort ist der Objektname immer der Abschnittsname. Von Hand geschrieben gilt `object` weiterhin.
@@ -274,17 +274,21 @@ Ein Abschnitt mit einem Fehler wird übersprungen und im Log genannt; die andere
 ### Spielstände
 Generierte Gebäude sind Workshop-Objekte mit fester ID. Ein Spielstand, in dem eines gebaut ist, braucht den Ordner beim Laden; entferne Abschnitte deshalb erst, wenn kein Spielstand das Gebäude mehr nutzt.
 
+**Lager schon gebauter Gebäude** (`retrofit_storages`, Vorgabe EIN): Beim Laden eines Spielstands folgt jedes fertige erzeugte Gebäude den Einzellager-Zeilen seines Abschnitts – ein neues Lager kommt leer ans Ende, eine andere Größe wird übernommen (kleiner, sobald der Bestand passt), eine andere Klasse tauscht das Lager, sobald es leer ist, ein Lager ohne Zeile verschwindet, sobald es leer ist. Angefasst werden nur Gebäude, die dieses Plugin erzeugt hat. Braucht den TesmioLoader aus dem Republic Mod Manager (ab b0.4.5-rmm.3); mit AUS gelten geänderte Zeilen nur für Gebäude, die du danach baust.
+
 In die `workshopconfig.ini` schreibt das Plugin deine **Steam-ID** — die des Spielers, auf dessen Rechner das Gebäude entsteht. Das Spiel prüft beim Laden eines Spielstands, wem die verwendeten Workshop-Objekte gehören; steht dort eine 0, meldet es „Die in diesem Speicherstand verwendeten Workshop-Objekte wurden nicht gefunden". Der Spielstand lädt trotzdem, aber die Meldung kommt bei jedem Laden. Die Nummer holt sich das Plugin aus der Registry des angemeldeten Steam-Kontos, sonst aus `loginusers.vdf` deiner Steam-Installation; findet es beides nicht, bleibt die 0 stehen und der nächste Start mit angemeldetem Steam trägt sie nach. Nichts davon reist im Paket mit — jede Kopie bekommt die ID dessen, der sie erzeugt hat.
 
 **Auch für Gebäude anderer Generatoren.** Soviet Mod Loader bringt seinen eigenen Gebäude-Teil mit und schreibt dort immer `$OWNER_ID 0` — die Meldung trifft also jeden, dessen Gebäude SML erzeugt hat, und abstellen lässt sie sich von Hand kaum. Mit `repair_owner_ids = 1` (Vorgabe) sieht Buildings Plus beim Start auch in erzeugte Ordner, die es nicht selbst geschrieben hat, und trägt dort **nur die fehlende Nummer** nach; jedes andere Byte der Datei bleibt, wie es war, Zeilenenden inbegriffen. Dafür müssen alle vier Bedingungen stimmen: Ordnername ist eine erzeugte Nummer (9000000000 bis 9999999999), im Ordner liegt ein `tesmioloader.stamp`, die Datei nennt gar keinen Besitzer, und deine eigene ID war zu ermitteln. Ein Ordner, der schon jemanden nennt, wird nie angefasst, der Stempel ebenso wenig. Der Zeitpunkt passt: SML erzeugt in seiner Startphase, Buildings Plus läuft danach — ein gerade neu geschriebener Ordner ist im selben Start wieder in Ordnung.
 
 ### Inhaltspakete
-Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildings = tesmio\buildings.ini` in seiner `rmm.mod.ini`). Republic Mod Manager trägt sie mit „Im Spiel bereitstellen“ in `tesmioloader\plugins\buildings_plus.ini` ein, und Buildings Plus erzeugt sie beim nächsten Spielstart. Das Abschnittsformat ist dasselbe.
+Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildings = tesmio\buildings.ini` in seiner `rmm.mod.ini`). Republic Mod Manager trägt sie mit „Im Spiel bereitstellen“ in `tesmioloader\plugins\buildings_plus.ini` ein, und Buildings Plus erzeugt sie beim nächsten Spielstart. Das Abschnittsformat ist dasselbe. Zwei Pakete dürfen denselben Gebäudeabschnitt mitbringen, wenn beide ihn unter `[content] shared_buildings` nennen; das erste liefert ihn, das andere springt ein, wenn das erste ausgeschaltet wird (Republic Mod Manager ab 0.8.9).
 
 ### Andere Plugins
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel, Resources Plus oder Resources). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.2.10:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
+- **0.2.9:** Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - **0.2.8:** Das Nachführen der Lager fasst nur noch die erzeugten Gebäude an. Vorher sah es sich jedes Gebäude an und hätte dort ein leeres Lager herausnehmen können, das nicht von Buildings Plus stammt.
 - **0.2.7:** Auch Ausgangslager (`$STORAGE_EXPORT_SPECIAL`) und alle Güterklassen – zum Beispiel Trockengut und Flüssigkeiten – folgen jetzt ihrer Zeile: neu, größer, kleiner oder entfernt. Nennt eine Zeile eine Klasse, in der die Ressource nichts fasst (etwa Industriesalz in einem Schüttgut-Lager), behält ein schon gebautes Gebäude sein Lager; ein neu gebautes zeigt dann ein Lager mit 0 Tonnen – nimm in so einer Zeile immer die Klasse der Ressource.
 - **0.2.6:** Lager folgen ihrer Zeile: Änderst du in einer Lagerzeile (`$STORAGE_IMPORT_SPECIAL`) die Größe, übernehmen schon gebaute Gebäude sie beim nächsten Laden – größer sofort, kleiner, sobald der Bestand hineinpasst. Änderst du die Klasse (gedeckt, offen, Schüttgut), wird das Lager getauscht, sobald es leer ist.
@@ -372,7 +376,7 @@ media_soviet\workshop_wip\<id>\
 ├── material.mtl                    (Texturpfade umgeschrieben)
 ├── material_e.mtl                  (nur wenn der Spender eines hat)
 └── <object>\
-    ├── building.ini                (deine Zeilen, dann der Spender ohne die ersetzten Zeilen)
+    ├── building.ini                (die Spenderdatei mit deinen Befehlen)
     ├── renderconfig.ini
     ├── model.nmf
     ├── building.bbox
@@ -409,5 +413,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.2.8  
+**Letzte Aktualisierung:** Buildings Plus 0.2.10  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

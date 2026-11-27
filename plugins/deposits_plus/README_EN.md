@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.19
+# 🏭 Deposits Plus 0.4.20
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -30,7 +30,7 @@ Fully configurable resource deposits for *Workers & Resources: Soviet Republic* 
 ### Requirements
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader b0.4.5 or newer (API 4)
+- TesmioLoader b0.4.6 or newer (API 4)
 - Recommended: Resources Plus or Resources – only needed so that a deposit's minimap button can show the icon of a resource registered there (`icon`). The deposits themselves do not need it.
 
 ### In three steps
@@ -87,7 +87,7 @@ If you also have the deposits plugin by MaxLegend (subscribed or in `tesmioloade
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.6 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds the textures next to itself in the package
 4. Steam updates apply from the next game start
@@ -521,6 +521,7 @@ MyGame\
 - **Within the 0.4 series:** updates carry save games and `tesmio_deposits.bin` over automatically; type numbers, map slots and tokens of running save games stay off limits (see above)
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 - **With Soviet Mod Loader:** SML brings deposits of its own. While it runs, this plugin pauses and says so in the log; if you want Deposits Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- **0.4.20:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.19:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
 - **0.4.18:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged.
 - **0.4.17:** the game starts faster when you are subscribed to many Workshop items: the `deposits.ini` of the original is only looked for where a package keeps its plugins, no longer in the whole Workshop folder
@@ -636,5 +637,5 @@ A: No. Republic Mod Manager shows every setting with a description, checks the v
 
 ---
 
-**Last update:** Deposits Plus 0.4.19  
+**Last update:** Deposits Plus 0.4.20  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

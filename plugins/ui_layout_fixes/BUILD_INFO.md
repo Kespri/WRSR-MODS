@@ -1,9 +1,13 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 0.3.3. Target: SOVIET64.exe 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4.
+- Plugin version 0.3.4. Target: SOVIET64.exe 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 0.3.4 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
 
 ## 0.3.3 (2026-11-25)
 

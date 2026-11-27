@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.7
+# ❄️ Weather Roads 0.3.8
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
@@ -29,7 +29,7 @@ Controls in *Workers & Resources: Soviet Republic* 1.2.0.9 how fast snow builds 
 ### Requirements
 - Windows x64
 - WRSR 1.2.0.9 (the identities of `SOVIET64.exe` and `C3DDLL64.dll` and the hook signatures are verified; other builds are refused)
-- TesmioLoader b0.4.5 or newer (API 4)
+- TesmioLoader b0.4.6 or newer (API 4)
 - **Optional:** Technical Service Storage with its grit spreader service for material-dependent protection and dry-plowing detection; without it every plowing counts with strength 1.00
 - **No** Localization plugin needed; the overlay has built-in German and English texts
 
@@ -80,7 +80,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.6 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. The DLL finds the INI next to itself in the package
 4. Steam updates apply from the next game start
@@ -240,6 +240,7 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 - The weather call chain accounts for the hook of `daynight`; other combinations are not verified.
 
 ### Version compatibility
+- **0.3.8:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.3.7:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
 - **0.3.6:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
 - **0.3.5:** nothing changes in the game; only log texts tidied
@@ -344,5 +345,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Weather Roads 0.3.7  
+**Last update:** Weather Roads 0.3.8  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

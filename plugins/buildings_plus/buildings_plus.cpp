@@ -17,7 +17,9 @@
 // plugins\buildings_plus.ids.ini under the section name, so it never changes
 // once given; an explicit `id =` still wins.
 //
-// It patches nothing: no hook, no import swap, no game structure. The loader is
+// The generator patches nothing: no hook, no import swap, no game structure.
+// Only the storage follow-up (retrofit_storages) reads game structures, through
+// my_plugins\storage_retrofit.h and the loader's building-load event. The loader is
 // injected into a suspended process and plugins are initialised from DllMain,
 // so a folder generated at startup is a folder the game finds when it scans
 // media_soviet\workshop_wip.
@@ -94,7 +96,7 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.2.8"
+#define PLUGIN_VERSION    "0.2.10"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"

@@ -24,7 +24,7 @@ Einstellungen, Ein- und Ausschalten und Starten deiner TesmioLoader-Plugins in e
 ### Voraussetzungen
 
 - *Workers & Resources: Soviet Republic* 1.2.0.9
-- **TesmioLoader** von MaxLegend ab b0.4.5, im Spielordner installiert (im Steam-Workshop abonnieren und nach seiner Anleitung einrichten). Dieses Paket bringt eine korrigierte Fassung seiner `tesmioloader.dll` mit (b0.4.5-rmm.2, gleiche API, Quelltext im GitHub-Repo) und ersetzt damit die vorhandene; Launcher und `tesmioloader.ini` bleiben die von MaxLegend
+- **TesmioLoader** von MaxLegend ab b0.4.6, im Spielordner installiert (im Steam-Workshop abonnieren und nach seiner Anleitung einrichten). Dieses Paket bringt eine korrigierte Fassung seiner `tesmioloader.dll` mit (b0.4.6-rmm.1, gleiche API, Quelltext im GitHub-Repo) und ersetzt damit die vorhandene; Launcher und `tesmioloader.ini` bleiben die von MaxLegend.
 - Windows 10 oder 11 (.NET Framework 4 ist dabei)
 
 ### In drei Schritten
@@ -44,18 +44,20 @@ Einstellungen, Ein- und Ausschalten und Starten deiner TesmioLoader-Plugins in e
 - Schalter „Plugin aktiv“ je Plugin. Deine persönlichen Werte liegen getrennt von der ausgelieferten INI, ein Paket-Update überschreibt sie nie.
 - Ersatz-Plugins: Ist ein Plugin der Ersatz für ein anderes (etwa Resources Plus für Resources), sorgt der Manager dafür, dass nie beide zugleich laufen.
 - Prüfung vor dem Spielstart: Fehlt einem Plugin etwas, das es braucht, sagt der Manager das vorher.
+- Inhaltspakete: Workshop-Objekte ohne DLL (Ressourcen, Vorkommen, Bedürfnisse, Gebäude, Regelsätze für Vanilla Buildings) stellst du mit „Im Spiel bereitstellen“ bereit. Bringt ein Paket Material für den Fahrzeugbau mit, wählst du auf der Karte „Fahrzeugbau“ EIN oder AUS (braucht Vehicle Materials). Zwei Pakete dürfen dasselbe Gebäude mitbringen: Ist eins aus, liefert das andere es weiter.
+- Zeilen-Fenster für Vanilla Buildings und Buildings Plus: Zeilen anhängen, ersetzen, davor oder danach einfügen und vorhandene Befehle mit „Ändern“ anpassen. Nennt eine Lagerzeile eine Klasse, in der die Ressource nichts fasst, warnt das Fenster in Orange.
 - Profile und Wiederherstellungspunkte für die ganze Plugin-Konfiguration.
 - Protokollfenster mit `tesmioloader.log` und allen Plugin-Protokollen, Probleme hervorgehoben.
 - „Speichern + Starten“ startet das Spiel über `tesmiolauncher.exe`.
-- Deutsch und Englisch, folgt der Windows-Sprache.
+- Fenster auf Deutsch und Englisch, folgt der Windows-Sprache. Die Einstellungsseiten aus diesem Paket gibt es zusätzlich in 18 weiteren Sprachen (unter anderem Französisch, Polnisch, Russisch, Chinesisch); dann ist der Rest des Fensters englisch.
 
 ### 🔧 Korrigierte Loader-DLL (`tesmioloader.dll`)
 
-MaxLegends TesmioLoader b0.4.5 mit Korrekturen. Für dich wichtig: Mit dieser Fassung kommen die Werte, die du im Manager einstellst, auch bei fremden Plugins an. Der Installer ersetzt die vorhandene DLL und sichert sie vorher.
+MaxLegends TesmioLoader b0.4.6 mit Korrekturen. Für dich wichtig: Mit dieser Fassung kommen die Werte, die du im Manager einstellst, auch bei fremden Plugins an. Außerdem meldet sie den Plugins, welche Gebäude ein Spielstand lädt. Nur so bekommen schon gebaute Gebäude neue Lager von Vehicle Materials, Vanilla Buildings und Buildings Plus, und Needs Plus räumt alte leere Plätze weg. Mit MaxLegends eigener DLL bleiben schon gebaute Gebäude, wie sie sind. Der Installer ersetzt die vorhandene DLL und sichert sie vorher.
 
 ### 🏭 Buildings Plus (`plugins\buildings_plus`)
 
-Neue Gebäude aus einer Erklärung: Du nennst ein Spendergebäude des Spiels und die Zeilen, die anders sein sollen, und beim Spielstart entsteht daraus ein vollständiges Workshop-Objekt unter `media_soviet\workshop_wip`. Gebraucht für neue Ressourcen, die eine Mine oder Fabrik brauchen. Im Manager unter „Buildings Plus“ legst du Gebäude an.
+Neue Gebäude aus einer Erklärung: Du nennst ein Spendergebäude des Spiels und sagst mit Befehlen (hinzufügen, ersetzen, entfernen, einfügen), was an seiner building.ini anders sein soll. Beim Spielstart entsteht daraus ein vollständiges Workshop-Objekt unter `media_soviet\workshop_wip`; auch die Gebäude der Inhaltspakete entstehen so. Gebraucht für neue Ressourcen, die eine Mine oder Fabrik brauchen. Änderst du eine Lagerzeile, übernehmen schon gebaute Gebäude sie beim Laden eines Spielstands: Neue Lager kommen leer dazu, eine andere Größe gilt an Ort und Stelle, ein Lager ohne Zeile verschwindet, sobald es leer ist. Schalter: „Lager an schon gebauten Gebäuden nachführen“ auf der Karte „Spielstände“ (Vorgabe EIN, braucht die Loader-DLL aus diesem Paket). Im Manager unter „Buildings Plus“ legst du Gebäude an.
 
 ### 📦 Resources Plus (`plugins\resources_plus`)
 
@@ -63,13 +65,13 @@ Eigene Ressourcen, als Ersatz für das Original-Plugin resources: dieselben Eint
 
 ### 📦 Needs Plus (`plugins\needs_plus`)
 
-Eigene Bürgerbedürfnisse, als Ersatz für das Original-Plugin needs: dieselben Einträge, dieselben Spielstände, in einer eigenen Datei. Beim ersten Spielstart übernimmt Needs Plus deine Liste aus `tesmioloader\plugins\needs.ini` nach `needs_plus.ini`. Für das Original gilt dasselbe wie bei Resources Plus.
+Eigene Bürgerbedürfnisse, als Ersatz für das Original-Plugin needs: dieselben Einträge, dieselben Spielstände, in einer eigenen Datei. Beim ersten Spielstart übernimmt Needs Plus deine Liste aus `tesmioloader\plugins\needs.ini` nach `needs_plus.ini`. Für das Original gilt dasselbe wie bei Resources Plus. Neue Waren wie Möbel oder Speisesalz kommen nur in Läden und Hotels. Leere Plätze dafür, die eine frühere Fassung Werken gegeben hat, verschwinden beim Laden eines Spielstands (mit der Loader-DLL aus diesem Paket).
 
 Diese drei Plugins lädt der TesmioLoader direkt aus diesem Workshop-Objekt, nichts wird kopiert. Steam hält sie aktuell. Brauchst du eines nicht, schalte es im Manager oder im TesmioLauncher aus.
 
 ### 📄 Einstellungsseiten (`settings_schemas\`)
 
-Deutsche und englische Einstellungsseiten für Plugins, die keine eigene mitbringen: Accumulator, Cities, Day and Night, Depletion, Deposits, Easy Start, Needs, Resources, Walking Distance, dazu die Seiten der drei Plus-Plugins.
+Einstellungsseiten (Deutsch, Englisch und 18 weitere Sprachen) für Plugins, die keine eigene mitbringen: Accumulator, Cities, Day and Night, Depletion, Deposits, Easy Start, Needs, Resources, Walking Distance, dazu die Seiten der drei Plus-Plugins.
 
 ---
 
@@ -128,7 +130,7 @@ Die Datei `Manual Installation\WOHIN.txt` wiederholt diese Schritte.
 ├── Manual Installation\
 │   ├── WOHIN.txt / WHERE.txt       (die Schritte von Hand)
 │   └── tesmioloader\               (Zielstruktur, zum Drüberziehen)
-│       ├── tesmioloader.dll        (korrigierte Loader-DLL b0.4.5-rmm.2)
+│       ├── tesmioloader.dll        (korrigierte Loader-DLL b0.4.6-rmm.1)
 │       ├── rmm.exe
 │       ├── rmm.ini
 │       ├── rmm.README_DE.md, rmm.README_EN.md   (Anleitung)
@@ -148,15 +150,17 @@ Die Datei `Manual Installation\WOHIN.txt` wiederholt diese Schritte.
 **Spielordner** nach der Installation
 ```
 SovietRepublic\tesmioloader\
-├── tesmioloader.dll                (TesmioLoader b0.4.5-rmm.2, aus diesem Paket)
+├── tesmioloader.dll                (TesmioLoader b0.4.6-rmm.1, aus diesem Paket)
 ├── tesmiolauncher.exe, tesmioloader.ini   (TesmioLoader von MaxLegend, nicht aus diesem Paket)
 ├── rmm.exe, rmm.ini, rmm.README_DE/EN.md, rmm.SCHEMA_DE/EN.md
 ├── settings_schemas\
 ├── plugins\
 │   ├── resources_plus.ini          (deine Ressourcenliste; beim ersten Start angelegt)
 │   ├── needs_plus.ini              (deine Bedürfnisliste; beim ersten Start angelegt)
-│   └── buildings_plus.ini          (deine Gebäude, sobald du im Manager speicherst)
+│   ├── buildings_plus.ini          (deine Gebäude, sobald du im Manager speicherst)
+│   └── buildings_plus.ids.ini      (die festen Nummern der erzeugten Gebäude)
 ├── user_config\                    (deine persönlichen Werte, vom Manager geschrieben)
+├── vfs\                            (Dateien aus Inhaltspaketen)
 ├── logs\                           (Detail-Protokolle der Plugins)
 └── rmm_install_backup\<Datum>\     (nur, wenn der Installer Dateien ersetzt hat)
 ```
@@ -167,10 +171,11 @@ SovietRepublic\tesmioloader\
 
 | Meldung des Installers | Ursache | Abhilfe |
 |---|---|---|
-| Der TesmioLoader ist nicht installiert | Im Ordner `tesmioloader` fehlen `tesmioloader.dll`, `tesmiolauncher.exe` oder `tesmioloader.ini` | TesmioLoader von MaxLegend (ab b0.4.5) abonnieren und nach seiner Anleitung installieren, dann erneut starten |
+| Der TesmioLoader ist nicht installiert | Im Ordner `tesmioloader` fehlen `tesmioloader.dll`, `tesmiolauncher.exe` oder `tesmioloader.ini` | TesmioLoader von MaxLegend (ab b0.4.6) abonnieren und nach seiner Anleitung installieren, dann erneut starten |
 | Der Spielordner wurde nicht gefunden | Der Installer hat das Spiel in keiner deiner Steam-Bibliotheken gefunden, oder im angegebenen Ordner liegt keine `SOVIET64.exe` | `Install-RMM.bat -GamePath "<Spielordner>"` |
 | Das Spiel oder der Republic Mod Manager läuft noch | Dateien sind in Benutzung | Programme beenden, erneut starten |
 | Datei konnte nicht kopiert werden | Schreibrechte oder Virenscanner | Als Administrator starten oder den Ordner im Virenscanner freigeben |
+| Datei ist nach dem Kopieren nicht identisch | Der Kopiervorgang wurde gestört (Virenscanner, volle Platte) | Erneut starten |
 | Das Paket ist unvollständig | Steam-Download unvollständig | Objekt abbestellen und neu abonnieren |
 
 Windows SmartScreen kann `rmm.exe` beim ersten Start als unbekanntes Programm melden, weil es nicht signiert ist. „Weitere Informationen“ und „Trotzdem ausführen“ genügt einmal.
@@ -181,7 +186,7 @@ Der Manager selbst hat ein Protokollfenster (Symbol in der Seitenleiste) mit `te
 
 ## 📜 Lizenz & Credits
 
-**GNU GPL v3**, siehe `LICENSE` im Paket. Republic Mod Manager ist eine eigene Entwicklung; die mitgelieferte `tesmioloader.dll` ist eine korrigierte Fassung von MaxLegends TesmioLoader b0.4.5 (GPL v3), Launcher und INI bleiben sein Werk. Resources Plus, Needs Plus und Buildings Plus sind Forks seiner Plugins resources, needs und buildings (alle GPL v3). Der vollständige Quelltext von Plugins, Manager und Loader liegt unter https://github.com/Kespri/WRSR-MODS.
+**GNU GPL v3**, siehe `LICENSE` im Paket. Republic Mod Manager ist eine eigene Entwicklung; die mitgelieferte `tesmioloader.dll` ist eine korrigierte Fassung von MaxLegends TesmioLoader b0.4.6 (GPL v3), Launcher und INI bleiben sein Werk. Resources Plus, Needs Plus und Buildings Plus sind Forks seiner Plugins resources, needs und buildings (alle GPL v3). Der vollständige Quelltext von Plugins, Manager und Loader liegt unter https://github.com/Kespri/WRSR-MODS.
 
 **Genosse, Achtung:** Dieses Programm wurde mit Hilfe einer künstlichen Intelligenz geschrieben. Die Fünfjahrespläne dazu hat trotzdem ein Mensch aufgestellt, getestet und beim Abstürzen des Spiels geflucht. Wer keine KI im Code möchte, bleibt einfach beim Grundspiel. Kein Hass, keine Umerziehung.
 
@@ -203,5 +208,5 @@ A: Jedes ist ein eigenes Workshop-Objekt. Abonnieren, Spiel starten, fertig; ein
 
 ---
 
-**Letzte Aktualisierung:** Republic Mod Manager 0.8.3  
+**Letzte Aktualisierung:** Republic Mod Manager 0.8.15  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

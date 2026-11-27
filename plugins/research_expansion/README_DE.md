@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.4
+# 🔬 Research Expansion 0.4.5
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -28,7 +28,7 @@ Fügt *Workers & Resources: Soviet Republic* 1.2.0.9 eigene Forschungseinträge 
 ### Voraussetzungen
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader ab b0.4.5 (API 4)
+- TesmioLoader ab b0.4.6 (API 4)
 - **Pflicht:** das Localization-Plugin (ab 0.4.0), eingeschaltet. Ohne seinen Dienst wird die Erweiterung nicht angewendet. Republic Mod Manager prüft das vor dem Spielstart und bietet an, Research Expansion auszuschalten, wenn Localization fehlt.
 - Für neue Forschungen: ein Localization-Textpaket mit den Namen und Beschreibungen (Namensraum `research_expansion`); es wird mit dem Localization-Paket ausgeliefert.
 
@@ -75,7 +75,7 @@ Wähle **eine** der zwei Methoden. Dieselbe DLL darf nie zweimal geladen werden.
 
 ```
 1. Workshop-Objekt abonnieren, ebenso das Paket Localization
-2. Der TesmioLoader (ab b0.4.5) findet die DLL beim nächsten Spielstart
+2. Der TesmioLoader (ab b0.4.6) findet die DLL beim nächsten Spielstart
    von selbst im Workshop-Ordner – nichts wird kopiert
 3. INI und Ersatz-Icon findet die DLL neben sich im Paket
 4. Steam-Updates gelten ab dem nächsten Spielstart
@@ -256,6 +256,7 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.5:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.4:** Texte für WRSR 1.2.0.9; das Plugin nutzt keine Spieladresse und ist sonst unverändert.
 - **0.4.3:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
 - **0.4.2:** nur Protokolltext; Logik und INI unverändert
@@ -357,5 +358,5 @@ A: Nein. Neue Forschungen, Änderungen an Vanilla-Forschungen und die Plugin-Ein
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 0.4.4  
+**Letzte Aktualisierung:** Research Expansion 0.4.5  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

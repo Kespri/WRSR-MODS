@@ -2,7 +2,7 @@
 
 **English** | [Deutsch](README_DE.md)
 
-Republic Mod Manager (RMM for short) is one window for all your TesmioLoader plugins. You see which plugins you have, switch them on or off, set their values with a description and range check, and start the game. The TesmioLoader itself stays untouched; RMM only writes settings files.
+Republic Mod Manager (RMM for short) is one window for all your TesmioLoader plugins. You see which plugins you have, switch them on or off, set their values with a description and range check, and start the game. RMM itself only writes settings files; the corrected `tesmioloader.dll` is put in by the installer of the Workshop package.
 
 ---
 
@@ -33,7 +33,7 @@ Republic Mod Manager (RMM for short) is one window for all your TesmioLoader plu
 ## 🚀 Requirements
 
 - *Workers & Resources: Soviet Republic* 1.2.0.9
-- TesmioLoader by MaxLegend, b0.4.5 or newer, in the game folder (folder `tesmioloader` with `tesmioloader.dll`, `tesmiolauncher.exe` and `tesmioloader.ini`). RMM brings a corrected build of `tesmioloader.dll` (b0.4.5-rmm.1, same API). With it your personal values also apply to plugins by other authors; with another build RMM warns you
+- TesmioLoader by MaxLegend, b0.4.6 or newer, in the game folder (folder `tesmioloader` with `tesmioloader.dll`, `tesmiolauncher.exe` and `tesmioloader.ini`). RMM brings a corrected build of `tesmioloader.dll` (b0.4.6-rmm.1, same API). With it your personal values also apply to plugins by other authors, and only with it do buildings that already stand get new storages from Vehicle Materials, Vanilla Buildings and Buildings Plus; with another build RMM warns you
 - Windows 10 or 11
 
 You do not need other loaders such as Soviet Mod Loader or the Workshop Bridge; RMM works with the TesmioLoader alone.
@@ -183,6 +183,8 @@ In the editors the entries appear as originals with a lock: you can override the
 
 **You win a collision.** If a package brings an id your game already has — your own resource, an entry from another package, or one from the plugin's shipped INI — the package is **not provided at all**: no entries, no files in the vfs. The package page shows a red message naming the id that is in the way. Take it out first — one of your own entries in RMM, an original entry straight in `plugins\<plugin>.ini` — and switch the package on again. Nothing of yours is ever replaced quietly, and a file that was in the vfs before the package is neither overwritten nor removed later anyway.
 
+Exception: buildings two packages explicitly share (such as the gas power plant in Natural Gas and Base Resources Buildings). One of them supplies the building, and when it is off the other takes over – same number, your saved games keep loading. The package page says which one supplies it right now.
+
 Switching off and saving takes entries and files out again. Your own entries and your overrides stay. If the package changes in the Workshop, the yellow "Update" mark appears in the list; saving once takes over the new state.
 
 If the loader finds no matching plugin for a kind of content, the package page says so (for example "No matching plugin is set up for buildings") and skips that part.
@@ -191,18 +193,14 @@ If the loader finds no matching plugin for a kind of content, the package page s
 
 **Vehicle production.** Some packages can make their resource a material for vehicle production. The package page then has a card "Vehicle production" with two choices:
 
-- **ON:** every vehicle factory needs this resource as well, or it builds nothing. This takes the plugin **Vehicle Materials**, installed and switched on.
+- **ON:** every vehicle factory needs this resource as well, or it builds nothing (except carriages and other horse-drawn vehicles). This takes the plugin **Vehicle Materials**, installed and switched on.
 - **OFF:** vehicles are built as before.
 
 RMM never decides this for you. As long as you have neither chosen ON nor OFF and saved, nothing happens, and RMM asks before every game start so that you cannot miss it. The same goes when ON is chosen but Vehicle Materials is missing or switched off: the card and "Before the game starts" then say what is in the way.
 
 With ON, RMM enters the material with the package's values in the list on the page of **Vehicle Materials** and switches the plugin on if it was off. There it is an entry like any other: you can change the values for road, rail, ship, aircraft and rocket parts, and your values stay after an update of the package. If an update brings a value for a class your entry does not have yet (the rocket parts, for example), RMM adds only that one. OFF takes the entry out again, just like the trash button on the page of Vehicle Materials. If you delete the entry there yourself, the card "Vehicle production" of the package shows OFF afterwards. If you had entered the material yourself before, the card shows ON from the start and your values stay. Your own entry is yours: neither OFF nor switching the package off takes it out, and the card says so in a note. Switching the whole package off takes out only the entry the package made itself.
 
-**The storage in the vehicle factories.** A vehicle factory can only accept an extra material when it has a storage for it. A package can bring that storage along: with ON a rule set of the package then appears on the page of **Vanilla Buildings** and gives the game's vehicle factories the storage; with OFF it is gone again. The card tells you whether the package does that. Three things to know:
-
-- Only factories you build **afterwards** have the storage. Factories that already stand do not get it and build nothing any more with ON.
-- If Vanilla Buildings is missing or switched off, RMM says so on the card, in "Before the game starts" and before every start.
-- Vehicle factories from the Workshop are not covered. RMM leaves out the target files of a DLC you do not own.
+**The storage in the vehicle factories.** A vehicle factory can only accept an extra material when it has a storage for it. **Vehicle Materials** gives it that storage itself, also to factories from the Workshop: new factories have it from the start, factories that already stand get it empty when you load the saved game (this needs the `tesmioloader.dll` from the RMM package). If you take a material out again, its storage disappears once it is empty.
 
 ---
 
@@ -344,7 +342,7 @@ On start RMM reads the build stamp of `SOVIET64.exe`. If it belongs to no game v
 | Key | Meaning |
 |---|---|
 | `[paths] workshop_root` | Folder with the subscribed packages. Without the line (or with a `;` in front) RMM uses your game's Steam Workshop folder. An empty value is not allowed. The loader has to look in the same folder. |
-| `[settings] language` | `auto` (German on a German Windows, otherwise English), `de` or `en`. |
+| `[settings] language` | `auto` (German on a German Windows, otherwise English), `de`, `en` or the code of a settings page language (such as `fr`, `zh-CN`; the window is English then). |
 | `[settings] version_check` | 0 turns the game version warning off. |
 | `[settings] tesmiolauncher_window` | 1 shows the TesmioLauncher window on "Save + Start". |
 | `[settings] launch_watch_seconds` | How long RMM watches after "Save + Start" whether the game stays up. Default 15, 0 turns it off. |
@@ -417,6 +415,7 @@ Window size, language and selection are remembered under `%LOCALAPPDATA%\Republi
 | Red box about the Workshop folder | RMM and the loader look in different folders | Remove the line `workshop_root` in `rmm.ini` or enter the same folder as the loader uses |
 | Orange dot "Being replaced" | A plugin and its replacement are both switched on | Switch one of the two off; otherwise RMM switches the original off at the start |
 | "Not loaded on the last game start" | The plugin was off on the last start, or the game did not run since you switched it on | Save and start the game once |
+| "Save + Start" does not start the game, the TesmioLauncher reports a wrong game version | Your TesmioLauncher does not know the game version yet (for 1.2.0.9, for example, a launcher older than 0.4.6) | Take the new launcher from your subscription to MaxLegend's TesmioLoader: copy `tesmiolauncher.exe` from its folder `tesmioloader` into the folder `tesmioloader` in the game folder. Until there is a matching launcher, `version_check = 0` under `[tesmioloader]` in `tesmioloader\tesmioloader.ini` helps |
 | Save does not work | The game or the TesmioLauncher is running, or a value is out of range | Close the programs, read the red note in the footer |
 | A value is different again after saving | The plugin read another INI than expected | Check the status line: where are the files? Open the log window |
 | A value of a Workshop plugin has no effect in the game | The `tesmioloader.dll` is not the one from the RMM package, or the plugin reads its INI itself and does not see your personal values | Use the `tesmioloader.dll` from the RMM package. If that does not help: copy the plugin's DLL and INI to `tesmioloader\plugins`, then RMM writes the finished INI next to the DLL (Steam updates no longer reach that copy by themselves) |

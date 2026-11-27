@@ -8,6 +8,10 @@ plugin. Output: a generated `research.ini` plus one `<id>.png` per new research 
 (`<loader>\vfs\media_soviet\research`). User documentation: README_DE.md / README_EN.md.
 History newest first.
 
+## 0.4.5 (2026-11-27)
+
+- Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
+
 ## 0.4.4 (2026-11-25)
 
 - Texts only: README, INI head and package name WRSR 1.2.0.9 (the hotfix that followed 1.2.0.8 on

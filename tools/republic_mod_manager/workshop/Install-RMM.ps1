@@ -4,7 +4,7 @@
 # "Manual Installation\tesmioloader" into the loader folder of the game (the folder
 # with tesmioloader.dll, normally <game>\tesmioloader) and can create a desktop
 # shortcut. It also replaces tesmioloader.dll with the corrected build that ships in
-# this package (b0.4.5-rmm.3, source in the GitHub repository); the previous file goes
+# this package (b0.4.6-rmm.1, source in the GitHub repository); the previous file goes
 # into the backup folder. The launcher (tesmiolauncher.exe) and tesmioloader.ini must
 # already be there - the loader itself comes from MaxLegend's Workshop item.
 #
@@ -140,8 +140,8 @@ if (-not $loaderFound -and $Uninstall) {
 }
 if ($build -eq '') {
     Fail (T 'Der TesmioLoader ist nicht installiert.' 'The TesmioLoader is not installed.') `
-         (T ('Unter ' + $game + '\tesmioloader fehlen tesmioloader.dll, tesmiolauncher.exe oder tesmioloader.ini. Republic Mod Manager braucht den TesmioLoader von MaxLegend ab b0.4.5: im Steam-Workshop abonnieren und nach seiner Anleitung installieren (Quelle: https://github.com/MaxLegend/TesmioLoader). Danach Install-RMM.bat erneut starten.') `
-            ('tesmioloader.dll, tesmiolauncher.exe or tesmioloader.ini are missing under ' + $game + '\tesmioloader. Republic Mod Manager needs the TesmioLoader by MaxLegend, b0.4.5 or newer: subscribe to it in the Steam Workshop and install it as its guide says (source: https://github.com/MaxLegend/TesmioLoader). Then run Install-RMM.bat again.'))
+         (T ('Unter ' + $game + '\tesmioloader fehlen tesmioloader.dll, tesmiolauncher.exe oder tesmioloader.ini. Republic Mod Manager braucht den TesmioLoader von MaxLegend ab b0.4.6: im Steam-Workshop abonnieren und nach seiner Anleitung installieren (Quelle: https://github.com/MaxLegend/TesmioLoader). Danach Install-RMM.bat erneut starten.') `
+            ('tesmioloader.dll, tesmiolauncher.exe or tesmioloader.ini are missing under ' + $game + '\tesmioloader. Republic Mod Manager needs the TesmioLoader by MaxLegend, b0.4.6 or newer: subscribe to it in the Steam Workshop and install it as its guide says (source: https://github.com/MaxLegend/TesmioLoader). Then run Install-RMM.bat again.'))
 }
 if ($loaderFound) { Ok ((T 'TesmioLoader gefunden: ' 'TesmioLoader found: ') + $build) }
 $loaderIni = Join-Path $build 'tesmioloader.ini'
@@ -231,7 +231,7 @@ foreach ($rel in $files) {
     $copied++
 }
 Ok ((T 'Dateien kopiert: ' 'Files copied: ') + $copied + (T ', behalten: ' ', kept: ') + $kept + (T ', ersetzt: ' ', replaced: ') + $replaced)
-Note (T 'tesmioloader.dll ist jetzt die Fassung aus diesem Paket (b0.4.5-rmm.3, gleiche API wie MaxLegends b0.4.5).' 'tesmioloader.dll is now the build from this package (b0.4.5-rmm.3, same API as the b0.4.5 by MaxLegend).')
+Note (T 'tesmioloader.dll ist jetzt die Fassung aus diesem Paket (b0.4.6-rmm.1, gleiche API wie MaxLegends b0.4.6).' 'tesmioloader.dll is now the build from this package (b0.4.6-rmm.1, same API as the b0.4.6 by MaxLegend).')
 
 # Leftovers of an earlier installation: the Workshop Bridge, and copies of the Plus
 # plugins that would win over the files in this Workshop item and never get an update.

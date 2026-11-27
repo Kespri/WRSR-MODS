@@ -1,4 +1,4 @@
-# 📦 Needs Plus 0.1.7
+# 📦 Needs Plus 0.1.9
 
 **Extension of the TesmioLoader plugin needs**
 
@@ -27,7 +27,7 @@ Your own citizen needs for *Workers & Resources: Soviet Republic* 1.2.0.9: your 
 ### Requirements
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader b0.4.5 or newer (API 4)
+- TesmioLoader b0.4.6 or newer (API 4)
 - A resource list that holds the wanted good (Resources Plus or the original resources plugin)
 
 ### In three steps
@@ -49,7 +49,7 @@ Your own citizen needs for *Workers & Resources: Soviet Republic* 1.2.0.9: your 
 ### 🆕 Improvements (new in Needs Plus)
 
 #### 1️⃣ **Its own file, taken over automatically**
-Needs Plus reads `tesmioloader\plugins\needs_plus.ini`, also when the DLL comes from the Workshop. If it is missing, it is created at the first start from what you already have: from the original plugin's `tesmioloader\plugins\needs.ini`, in the same order, with a header line saying where it came from. The original is only read, never changed. If that `needs.ini` was written by Soviet Mod Loader (which rewrites it at every game start with all packages merged in), Needs Plus takes SML's baseline instead, so no package need appears twice. With neither a `needs.ini` nor SML's baseline, the plugin takes the INI next to its DLL.
+Needs Plus reads `tesmioloader\plugins\needs_plus.ini`, also when the DLL comes from the Workshop. If it is missing, it is created at the first start from what you already have: from the original plugin's `tesmioloader\plugins\needs.ini`, in the same order, with a header line saying where it came from. The original is only read, never changed. If that `needs.ini` was written by Soviet Mod Loader (which rewrites it at every game start with all packages merged in), Needs Plus takes SML's baseline instead, so no package need appears twice. With neither of those, it takes the `needs.ini` next to the original's DLL in the Workshop folder, and only then the INI next to its own DLL.
 
 #### 2️⃣ **Duplicate names are refused**
 If a resource is listed twice in `[list]`, the first line counts and the second is skipped with a log line. The original would have given the citizens the need twice.
@@ -77,7 +77,7 @@ If you also have the needs plugin by MaxLegend (subscribed or in `tesmioloader\p
 ```
 1. Subscribe to the Workshop item Republic Mod Manager – Needs Plus
    sits in its folder plugins\needs_plus
-2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.6 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. At the first start the plugin creates your list:
    <game>\tesmioloader\plugins\needs_plus.ini
@@ -176,8 +176,10 @@ Unchanged from the original: the storage slots of the shops are part of the save
 
 ### Version compatibility
 - With Soviet Mod Loader: SML brings needs of its own. While it runs, this plugin pauses and says so in the log; if you want Needs Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.9: rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
+- 0.1.8: texts only: manual, Workshop text and settings page brought up to date; nothing changes in the game.
 - 0.1.7: when a saved game loads, the empty slot for furniture, table salt and the like disappears from works that got it from an earlier version - only while it is empty and only if the building does not stock the good itself (a furniture factory keeps its furniture storage). Shops and hotels stay as they are. Needs the loader from Republic Mod Manager (b0.4.5-rmm.3 or newer).
-- 0.1.6: new goods like furniture or table salt now only go to shops and hotels. Before, factories got an empty storage slot for them too, for example the airplane and rocket works one for furniture. A works that is already built keeps that empty slot; it does no harm.
+- 0.1.6: new goods like furniture or table salt now only go to shops and hotels. Before, factories got an empty storage slot for them too, for example the airplane and rocket works one for furniture. A works that is already built kept that empty slot; since 0.1.7 it is removed when a saved game loads.
 - 0.1.5: for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
 - 0.1.4: for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged.
 - 0.1.3: the first list is now also made from the original's `needs.ini` when the original lies only in the Workshop folder. Before, the plugin looked in the loader folder only and took the shipped list otherwise
@@ -256,5 +258,5 @@ A: Republic Mod Manager switches the original off as soon as Needs Plus is switc
 
 ---
 
-**Last update:** Needs Plus 0.1.7  
+**Last update:** Needs Plus 0.1.9  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

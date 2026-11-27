@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 0.4.6
+# 🧰 Resources Button Fix 0.4.7
 
 **TesmioLoader plugin for compact tool grids in the terrain editor**
 
@@ -27,7 +27,7 @@ Rearranges the tool buttons in two windows of the terrain editor of *Workers & R
 ### Requirements
 - Windows x64
 - WRSR 1.2.0.9
-- TesmioLoader b0.4.5 or newer (API 4)
+- TesmioLoader b0.4.6 or newer (API 4)
 - Optional: deposits.dll or Deposits Plus – their additional resource and terrain tools are arranged in the right window as well.
 
 ### In three steps
@@ -63,7 +63,7 @@ Choose **one** of the two methods. The same DLL must never be loaded twice.
 
 ```
 1. Subscribe to the Workshop item
-2. The TesmioLoader (b0.4.5 or newer) finds the DLL in the Workshop folder
+2. The TesmioLoader (b0.4.6 or newer) finds the DLL in the Workshop folder
    by itself on the next game start – nothing is copied
 3. Steam updates apply from the next game start
 ```
@@ -241,6 +241,7 @@ The file is checked as a complete new configuration set. If only one line is inv
 The plugin changes neither game files nor savegames; it only arranges buttons in the memory of the running game.
 
 ### Version compatibility
+- **0.4.7:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.6:** `maximum_blocks` is 4 now instead of 2. With content packages there are soon more than 12 brushes; the thirteenth used to sit far beside the window. Still only as many blocks are drawn as needed.
 - **0.4.5:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
 - **0.4.4:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
@@ -338,5 +339,5 @@ A: No. Republic Mod Manager shows every setting with a description and checks th
 
 ---
 
-**Last update:** Resources Button Fix 0.4.6  
+**Last update:** Resources Button Fix 0.4.7  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4
