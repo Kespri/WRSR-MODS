@@ -49,7 +49,7 @@ Einstellungen, Ein- und Ausschalten und Starten deiner TesmioLoader-Plugins in e
 - Profile und Wiederherstellungspunkte für die ganze Plugin-Konfiguration.
 - Protokollfenster mit `tesmioloader.log` und allen Plugin-Protokollen, Probleme hervorgehoben.
 - „Speichern + Starten“ startet das Spiel über `tesmiolauncher.exe`.
-- Fenster auf Deutsch und Englisch, folgt der Windows-Sprache. Die Einstellungsseiten aus diesem Paket gibt es zusätzlich in 18 weiteren Sprachen (unter anderem Französisch, Polnisch, Russisch, Chinesisch); dann ist der Rest des Fensters englisch.
+- Fenster und Einstellungsseiten in 20 Sprachen (unter anderem Französisch, Polnisch, Russisch, Japanisch, Chinesisch); „Automatisch“ folgt der Windows-Sprache, der Sprachknopf links unten wählt jede davon.
 
 ### 🔧 Korrigierte Loader-DLL (`tesmioloader.dll`)
 
@@ -135,7 +135,8 @@ Die Datei `Manual Installation\WOHIN.txt` wiederholt diese Schritte.
 │       ├── rmm.ini
 │       ├── rmm.README_DE.md, rmm.README_EN.md   (Anleitung)
 │       ├── rmm.SCHEMA_DE.md, rmm.SCHEMA_EN.md   (Referenz für Plugin-Autoren)
-│       └── settings_schemas\
+│       ├── settings_schemas\
+│       └── languages\             (das Fenster in 18 weiteren Sprachen)
 ├── plugins\                        (lädt der TesmioLoader direkt von hier)
 │   ├── buildings_plus\             (buildings_plus.dll, buildings_plus.ini, rmm.mod.ini)
 │   ├── resources_plus\             (resources_plus.dll, resources_plus.ini, rmm.mod.ini)
@@ -154,6 +155,7 @@ SovietRepublic\tesmioloader\
 ├── tesmiolauncher.exe, tesmioloader.ini   (TesmioLoader von MaxLegend, nicht aus diesem Paket)
 ├── rmm.exe, rmm.ini, rmm.README_DE/EN.md, rmm.SCHEMA_DE/EN.md
 ├── settings_schemas\
+├── languages\                      (das Fenster in 18 weiteren Sprachen)
 ├── plugins\
 │   ├── resources_plus.ini          (deine Ressourcenliste; beim ersten Start angelegt)
 │   ├── needs_plus.ini              (deine Bedürfnisliste; beim ersten Start angelegt)
@@ -208,5 +210,5 @@ A: Jedes ist ein eigenes Workshop-Objekt. Abonnieren, Spiel starten, fertig; ein
 
 ---
 
-**Letzte Aktualisierung:** Republic Mod Manager 0.8.17  
+**Letzte Aktualisierung:** Republic Mod Manager 0.8.18  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

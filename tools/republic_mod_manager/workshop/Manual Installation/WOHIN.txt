@@ -25,6 +25,7 @@ wenn du einen Weg zurück willst.
       tesmioloader\rmm.README_DE.md / _EN.md     Anleitung (Deutsch / Englisch)
       tesmioloader\rmm.SCHEMA_DE.md / _EN.md     Referenz für Plugin-Autoren
       tesmioloader\settings_schemas\             Einstellungsseiten der Plugins
+      tesmioloader\languages\                    das Fenster in 18 weiteren Sprachen
 
 3. rmm.exe starten. Fertig.
 

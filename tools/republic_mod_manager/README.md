@@ -16,7 +16,8 @@ Distributed as a Steam Workshop item; the item's installer and guides are in `wo
 | `tests/CoreTests.cs`, `tests/UiTests.cs` | offline tests, run against the fixture package in `packages/` |
 | `tests/BuildIcon.cs` | builds `assets/rmm.ico` from `assets/rmm-icon.png` during the build |
 | `languages/de.ini`, `languages/en.ini` | user interface strings, embedded into the executable |
-| `settings_schemas/` | settings pages for plugins that bring no package schema of their own (DE in `languages/de.ini`, EN fallbacks in the `.launcher.ini`), and `replacements.ini`, the table of replacement pairs |
+| `languages/<code>.ini` | the user interface in 18 more languages, installed beside the executable as `languages\<code>.ini` |
+| `settings_schemas/` | settings pages for plugins that bring no package schema of their own (texts in `settings_schemas/languages/<code>.ini`, 20 languages; EN fallbacks in the `.launcher.ini`), and `replacements.ini`, the table of replacement pairs |
 | `packages/fixture_vehicle_materials/` | test fixture: a Vehicle Materials package without its DLL |
 | `workshop/` | the Steam Workshop item: `Install-RMM.bat`, `Uninstall-RMM.bat`, `Install-RMM.ps1`, guides and `WOHIN.txt` / `WHERE.txt` |
 

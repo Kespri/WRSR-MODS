@@ -23,6 +23,7 @@ old one if you want a way back.
       tesmioloader\rmm.README_DE.md / _EN.md     guide (German / English)
       tesmioloader\rmm.SCHEMA_DE.md / _EN.md     reference for plugin authors
       tesmioloader\settings_schemas\             settings pages of the plugins
+      tesmioloader\languages\                    the window in 18 more languages
 
 3. Start rmm.exe. Done.
 

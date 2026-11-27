@@ -66,7 +66,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.8.17  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.8.18  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -324,6 +324,9 @@ namespace TesmioAutoload
                 string captured=key;
                 var chip=new Label{Text=language.T("filter_"+key),AutoSize=false,Size=new Size(66,22),TextAlign=ContentAlignment.MiddleCenter,Margin=new Padding(0,10,5,0),Cursor=Cursors.Hand,Font=new Font("Segoe UI",8.5f)};
                 chip.AccessibleName="filter:"+key;
+                // 0.8.18: a longer word of another language (Проблемы, Обновления) gets a smaller font
+                // instead of being cut off; the chips keep their width.
+                for(float size=8.5f;size>6.5f&&TextRenderer.MeasureText(chip.Text,chip.Font).Width>chip.Width-4;size-=0.5f){Font old=chip.Font;chip.Font=new Font("Segoe UI",size-0.5f);old.Dispose();}
                 chip.Click+=(s,e)=>SetFilter(captured);
                 filterChips[key]=chip; row.Controls.Add(chip);
             }

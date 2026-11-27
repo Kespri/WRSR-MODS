@@ -186,7 +186,7 @@ if ($Uninstall) {
         }
         if (Test-Path -LiteralPath $target -PathType Leaf) { Remove-Item -LiteralPath $target -Force; $removed++ }
     }
-    foreach ($dir in @('settings_schemas\languages', 'settings_schemas')) {
+    foreach ($dir in @('settings_schemas\languages', 'settings_schemas', 'languages')) {
         $d = Join-Path $build $dir
         if ((Test-Path -LiteralPath $d) -and -not (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1)) { Remove-Item -LiteralPath $d -Force }
     }

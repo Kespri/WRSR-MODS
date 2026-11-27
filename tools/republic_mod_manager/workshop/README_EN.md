@@ -49,7 +49,7 @@ Settings, switching on and off, and starting your TesmioLoader plugins in one wi
 - Profiles and restore points for the whole plugin configuration.
 - A log window with `tesmioloader.log` and every plugin log, problems highlighted.
 - "Save + Start" launches the game through `tesmiolauncher.exe`.
-- Window in German and English, following the Windows language. The settings pages from this package also come in 18 more languages (French, Polish, Russian, Chinese and others); the rest of the window is English then.
+- Window and settings pages in 20 languages (French, Polish, Russian, Japanese, Chinese and others); "Automatic" follows the Windows language, the language button at the bottom left picks any of them.
 
 ### 🔧 Corrected loader DLL (`tesmioloader.dll`)
 
@@ -135,7 +135,8 @@ The file `Manual Installation\WHERE.txt` repeats these steps.
 │       ├── rmm.ini
 │       ├── rmm.README_DE.md, rmm.README_EN.md   (guide)
 │       ├── rmm.SCHEMA_DE.md, rmm.SCHEMA_EN.md   (reference for plugin authors)
-│       └── settings_schemas\
+│       ├── settings_schemas\
+│       └── languages\             (the window in 18 more languages)
 ├── plugins\                        (the TesmioLoader loads straight from here)
 │   ├── buildings_plus\             (buildings_plus.dll, buildings_plus.ini, rmm.mod.ini)
 │   ├── resources_plus\             (resources_plus.dll, resources_plus.ini, rmm.mod.ini)
@@ -154,6 +155,7 @@ SovietRepublic\tesmioloader\
 ├── tesmiolauncher.exe, tesmioloader.ini   (TesmioLoader by MaxLegend, not from this package)
 ├── rmm.exe, rmm.ini, rmm.README_DE/EN.md, rmm.SCHEMA_DE/EN.md
 ├── settings_schemas\
+├── languages\                      (the window in 18 more languages)
 ├── plugins\
 │   ├── resources_plus.ini          (your resource list; created at the first start)
 │   ├── needs_plus.ini              (your needs list; created at the first start)
@@ -208,5 +210,5 @@ A: Each one is a Workshop item of its own. Subscribe, start the game, done; you 
 
 ---
 
-**Last update:** Republic Mod Manager 0.8.17  
+**Last update:** Republic Mod Manager 0.8.18  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4
