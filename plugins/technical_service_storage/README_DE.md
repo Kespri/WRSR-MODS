@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.7
+# 🚛 Technical Service Storage 0.3.9
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
@@ -308,6 +308,8 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - Ressourcen-Plugins (Resources Plus oder Resources) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
+- **0.3.9:** Beim Nachtragen eines fehlenden Depotlagers bleiben die vorhandenen Lager des Depots unangetastet an ihrem Platz im Speicher; vorher wurden sie dabei durch Kopien ersetzt. Am Verhalten im Spiel ändert sich nichts.
+- **0.3.8:** Das Nachtragen fehlender Depotlager beim Laden hängt sich jetzt an den Loader an, wenn dieser den Moment „Gebäude geladen“ selbst meldet (der Loader aus dem Republic Mod Manager ab b0.4.5-rmm.3). So können auch andere Plugins geladene Gebäude ansehen, ohne sich gegenseitig auszuschalten. Mit dem Loader von MaxLegend arbeitet das Plugin wie bisher. Am Verhalten ändert sich nichts.
 - **0.3.7:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
 - **0.3.6:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
 - **0.3.5:** Im Spiel ändert sich nichts; nur die Texte im Protokoll wurden aufgeräumt
@@ -414,5 +416,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.7  
+**Letzte Aktualisierung:** Technical Service Storage 0.3.9  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

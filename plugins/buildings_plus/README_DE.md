@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.3
+# 🏭 Buildings Plus 0.2.8
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -88,7 +88,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 Die Einstellungsseite bringt Republic Mod Manager (ab Version 0.7.0) selbst mit. Er zeigt Buildings Plus in drei Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, die Karte „Erzeugte Ordner“ mit den Schaltern Besitzer-ID nachtragen und Ordner aufräumen (prune), dazu die Karte „Fehlersuche“ mit Immer neu schreiben (always) und Ausführliches Protokoll
+- **Allgemein:** Hinweise, die Karte „Erzeugte Ordner“ mit den Schaltern Besitzer-ID nachtragen und Ordner aufräumen (prune), die Karte „Spielstände“ mit Lager an schon gebauten Gebäuden nachführen (retrofit_storages), dazu die Karte „Fehlersuche“ mit Immer neu schreiben (always) und Ausführliches Protokoll
 - **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (links die building.ini des Spenders, rechts deine Befehle; du klickst eine Zeile an, schreibst die neue darunter und wählst Anhängen, Ersetzen, Davor oder Danach – die Ansicht „Ergebnis“ zeigt die Datei, die daraus entsteht)
 - **Erzeugte Gebäude:** was unter `media_soviet\workshop_wip` schon erzeugt wurde, mit dem Knopf „Besitzer eintragen“, der eine fehlende Besitzer-ID nachträgt
 
@@ -124,6 +124,8 @@ always = 0
 verbose = 0
 ; 1 trägt die Steam-ID auch in erzeugte Ordner anderer Generatoren nach
 repair_owner_ids = 1
+; 1 gibt schon gebauten Gebäuden beim Laden neue Lager aus ihrem Abschnitt und nimmt leere wieder heraus
+retrofit_storages = 1
 ```
 
 ### Gebäude: ein Abschnitt je Gebäude
@@ -237,7 +239,7 @@ Dieser Abschnitt gilt nur für die ältere Schreibweise mit `line` und `strip`. 
 
 | Größe | Grenze |
 |---|---|
-| `enabled`, `prune`, `always`, `verbose`, `repair_owner_ids` | genau 0 oder 1 |
+| `enabled`, `prune`, `always`, `verbose`, `repair_owner_ids`, `retrofit_storages` | genau 0 oder 1 |
 | Gebäudeabschnitte | höchstens 256 |
 | `id` | optional; Zahl von 9000000000 bis 9999999999, aber nicht 9100000000 bis 9199999999; in der Datei eindeutig; ohne Angabe automatisch ab 9300000000 |
 | `object`, Abschnittsname | Buchstaben, Ziffern, `_` und `-`, höchstens 64 Zeichen |
@@ -283,6 +285,11 @@ Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildin
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel, Resources Plus oder Resources). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.2.8:** Das Nachführen der Lager fasst nur noch die erzeugten Gebäude an. Vorher sah es sich jedes Gebäude an und hätte dort ein leeres Lager herausnehmen können, das nicht von Buildings Plus stammt.
+- **0.2.7:** Auch Ausgangslager (`$STORAGE_EXPORT_SPECIAL`) und alle Güterklassen – zum Beispiel Trockengut und Flüssigkeiten – folgen jetzt ihrer Zeile: neu, größer, kleiner oder entfernt. Nennt eine Zeile eine Klasse, in der die Ressource nichts fasst (etwa Industriesalz in einem Schüttgut-Lager), behält ein schon gebautes Gebäude sein Lager; ein neu gebautes zeigt dann ein Lager mit 0 Tonnen – nimm in so einer Zeile immer die Klasse der Ressource.
+- **0.2.6:** Lager folgen ihrer Zeile: Änderst du in einer Lagerzeile (`$STORAGE_IMPORT_SPECIAL`) die Größe, übernehmen schon gebaute Gebäude sie beim nächsten Laden – größer sofort, kleiner, sobald der Bestand hineinpasst. Änderst du die Klasse (gedeckt, offen, Schüttgut), wird das Lager getauscht, sobald es leer ist.
+- **0.2.5:** Neuer Schalter `retrofit_storages` (Vorgabe EIN) für das Nachführen der Lager an schon gebauten Gebäuden. Mit AUS bekommen nur neu gebaute Gebäude ein neues Lager, und kein Lager wird wieder herausgenommen.
+- **0.2.4:** Gebäude, die schon stehen, folgen ihrem Abschnitt: Gibst du einem erzeugten Gebäude ein neues Lager für eine einzelne Ressource (`$STORAGE_IMPORT_SPECIAL`, gedeckt, offen oder Schüttgut), bekommen es beim Laden eines Spielstands auch die Gebäude, die du schon gebaut hast – leer. Nimmst du die Lagerzeile wieder heraus, verschwindet das Lager aus den Gebäuden, sobald es leer ist. Dafür brauchst du den TesmioLoader aus dem Republic Mod Manager.
 - **0.2.3:** Fehler behoben: Eine Datenzeile, die mit einem Minus beginnt (zum Beispiel der Punkt `-5.2 4.4` einer Fläche oder eines Anschlusses), gehört jetzt zu ihrer Zeile darüber. Vorher blieb sie beim Ersetzen oder Entfernen stehen. Alle Gebäude werden beim nächsten Spielstart einmal neu erzeugt.
 - **0.2.2:** Spielgebäude, deren Modell oder Material anders heißt als das Gebäude selbst, lassen sich jetzt als Spender nehmen (zum Beispiel das Schotterwerk `gravel_processing` und die Ziegelei `brick_factory`). Vorher brach das Plugin dort mit „no material“ ab.
 - **0.2.1:** Zwei Befehle auf dieselbe Stelle werden abgewiesen statt still übergangen. Ein Einfügen hinter einer Zeile, die ein früherer Befehl schreibt, findet sie auch über ihre Datenzeilen.
@@ -402,5 +409,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.2.3  
+**Letzte Aktualisierung:** Buildings Plus 0.2.8  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

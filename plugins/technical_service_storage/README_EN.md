@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.7
+# 🚛 Technical Service Storage 0.3.9
 
 **TesmioLoader plugin for grit storages, material priorities and snowplow tanks**
 
@@ -308,6 +308,8 @@ Added storages can become part of the native savegame. Priorities and tanks live
 - Resource plugins (Resources Plus or Resources) register additional materials such as `road_salt`.
 
 ### Version compatibility
+- **0.3.9:** when a missing depot storage is added, the storages the depot has stay untouched where they are in memory; before, they were replaced by copies in the process. Nothing changes in the game.
+- **0.3.8:** adding missing depot storages on load now subscribes to the loader when the loader reports the moment "building loaded" itself (the loader from Republic Mod Manager, b0.4.5-rmm.3 or newer). Other plugins can then look at loaded buildings too without switching each other off. With MaxLegend's loader the plugin works as before. The behaviour does not change.
 - **0.3.7:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
 - **0.3.6:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
 - **0.3.5:** nothing changes in the game; only the log texts were tidied up
@@ -414,5 +416,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Technical Service Storage 0.3.7  
+**Last update:** Technical Service Storage 0.3.9  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

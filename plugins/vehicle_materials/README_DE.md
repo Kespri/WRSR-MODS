@@ -1,4 +1,4 @@
-# 🚚 Vehicle Materials 0.4.3
+# 🚚 Vehicle Materials 0.4.14
 
 **TesmioLoader-Plugin für zusätzliche Fahrzeugmaterialien**
 
@@ -34,7 +34,7 @@ Frei konfigurierbare Zusatzmaterialien für die Fahrzeugproduktion in *Workers &
 ### In drei Schritten
 1. **Ressourcen registrieren:** Jedes Material muss in der `resources.ini` stehen, zum Beispiel `glass` oder `cable`. In Republic Mod Manager geht das über den Eintrag Resources Plus oder Resources.
 2. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner. Dann die Materialien mit ihren Koeffizienten eintragen und das Plugin einschalten (`enabled = 1`), am bequemsten über Republic Mod Manager.
-3. **Produktionsgebäude anpassen:** Jede Fahrzeugfabrik braucht ein Lager für das neue Material (siehe [Produktionsgebäude vorbereiten](#-produktionsgebäude-vorbereiten)). Dann Spiel starten.
+3. **Spiel starten:** Das Lager für das neue Material bekommen die Fahrzeugfabriken vom Plugin selbst (siehe [Produktionsgebäude vorbereiten](#-produktionsgebäude-vorbereiten)).
 
 ---
 
@@ -101,7 +101,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Vehicle Materials damit in vier Reitern, deutsch und englisch:
 
-- **Allgemein:** Hinweise, der Knopf für diese Anleitung und die Fehlersuche (ausführliches Protokoll)
+- **Allgemein:** Hinweise, der Knopf für diese Anleitung, die Karte „Fahrzeugfabriken“ (Lager anlegen EIN oder AUS, Größe der Lager) und die Fehlersuche (ausführliches Protokoll)
 - **Ressourcen:** die Materialliste; der Plus-Knopf bietet nur Ressourcen an, die Resources Plus oder Resources registriert hat, und legt für jede Fahrzeugklasse den Koeffizienten an; der Papierkorb entfernt Material und Koeffizienten wieder
 - **Fahrzeugklassen:** die Koeffizienten als Tabelle Material mal Klasse
 - **Erweiterte Zuordnung:** die Fahrzeugtypen 0 bis 15
@@ -112,28 +112,26 @@ Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1
 
 ## 🏗️ Produktionsgebäude vorbereiten
 
-⚠️ **Jedes neue Material braucht in jeder Fahrzeugfabrik, die damit bauen soll, eine eigene Lagerzeile.** Sonst wird es weder geliefert noch angenommen. Das Plugin ergänzt nur den Materialbedarf des Fahrzeugs, es legt keine Lager an. Die Fabriken kennen von Haus aus die Transportklassen **COVERED** und **OPEN**; die Transportklasse der neuen Zeile muss zur Ressource passen (siehe Resources-Editor, Spalte Transportklasse). Für die Lagerzeile stehen drei Wege offen:
+Eine Fabrik kann ein zusätzliches Material nur verwenden, wenn zwei Dinge stimmen: Sie hat ein Lager dafür, und das Material steht bei ihr als Verbrauch. Fehlt der Verbrauch, zeigt die Fabrik das Lager zwar an, aber die Lkw laden nicht ab und es wird nichts gebaut. **Beides gibt das Plugin den Fabriken selbst. Du musst kein Gebäude anpassen.**
 
-1. **Gebäude kopieren** und die Lagerzeilen von Hand eintragen, zum Beispiel mit dem TesmioLoader-Plugin Buildings.
-2. **Vanilla Buildings** aus dem Workshop: fügt die Lagerzeilen den Gebäuden des Spiels hinzu.
-3. **Manueller Eintrag** in der `building.ini` des Gebäudes.
+- Das gilt für die Fabriken des Spiels, der DLCs und aus dem Workshop, für Straße, Schiene, Schiff und Flugzeug.
+- Neue Fabriken haben die Lager von Anfang an. Fabriken, die schon stehen, bekommen sie leer dazu, wenn du den Spielstand lädst (dafür brauchst du den TesmioLoader aus dem Republic Mod Manager).
+- Jedes Lager fasst 50 Tonnen. Die Größe stellst du mit `factory_storage_capacity` ein.
+- Nimmst du ein Material wieder aus der Liste (oder stellst den Fahrzeugbau eines Pakets auf AUS), nimmt das Plugin sein Lager beim nächsten Laden des Spielstands aus den Fabriken heraus. Das geht nur, wenn das Lager leer ist; ein Lager mit Bestand bleibt, bis es leer ist.
+- Hat eine Fabrik schon ein eigenes Lager für das Material, aus ihrer `building.ini` oder aus einem Regelsatz von Vanilla Buildings, bleibt es, wie es ist.
+- An den Dateien des Spiels ändert sich nichts. Das Plugin trägt alles nur im Speicher ein.
 
-In allen drei Fällen ist es dieselbe `$STORAGE_IMPORT_SPECIAL`-Zeile, eine je Material:
+**Lager lieber selbst anlegen?** Mit `factory_storages = 0` legt das Plugin keine Lager an. Dann braucht jede Fabrik für jedes Material eine eigene Zeile in ihrer `building.ini`:
 
 ```ini
-$STORAGE_IMPORT_CARPLANT RESOURCE_TRANSPORT_COVERED 250
-$STORAGE_IMPORT_CARPLANT RESOURCE_TRANSPORT_OPEN 300
-$STORAGE_EXPORT RESOURCE_TRANSPORT_VEHICLES 15
-; neu dazu:
 $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 glass
-$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable
 ```
 
-- `100` und `50` sind die Lagerkapazität
-- `glass` und `cable` sind die genauen Ressourcen-IDs aus resources.ini
-- der Transporttyp muss zur Transportklasse der Ressource passen; im Beispiel sind glass und cable als OPEN registriert
+- `100` ist die Lagerkapazität
+- `glass` ist die genaue Ressourcen-ID aus resources.ini
+- der Transporttyp muss zur Transportklasse der Ressource passen; im Beispiel ist glass als OPEN registriert
 
-Das gilt für die Fabriken für Straßenfahrzeuge, Schienenfahrzeuge, Schiffe und Flugzeuge. Die Gebäude lassen sich über einen eigenen Gebäudemod oder ein TesmioLoader-Plugin anpassen. Prüfe im Spiel, ob die neuen Lagerplätze am Gebäude erscheinen und beliefert werden.
+Den Eintrag als Verbrauch macht das Plugin auch dann selbst.
 
 ---
 
@@ -280,6 +278,17 @@ Das Plugin verändert keine Spieldateien und speichert nichts im Spielstand. Mat
 
 ### Versionskompatibilität
 
+- **0.4.14:** Im Republic Mod Manager haben die Raketenteile auf der Seite Fahrzeugklassen ein eigenes Raketen-Symbol statt des Flugzeugs (ab RMM 0.8.12, ein älterer zeigt dort ein Zahnrad); am Plugin ändert sich nichts.
+- **0.4.13:** Flugzeuge rechnen wieder mit den Flugzeug-Werten – seit dem Raketen-DLC hat das Spiel die Fahrzeugarten neu nummeriert, und Flugzeuge liefen mit den Schienen-Werten. Neue fünfte Klasse **Raketenteile** mit eigenen Werten (Reiter „Fahrzeugklassen“); ein Material ohne Raketen-Wert verlangt von Raketenteilen nichts. Kutschen und andere Fahrzeuge mit Pferden brauchen kein Zusatzmaterial mehr, und ihre Werkstätten (Kutschenbau, Gestüt) bekommen kein Lager dafür – was sie schon hatten, verschwindet, sobald es leer ist.
+- **0.4.12:** Intern: neu gebaut mit der gemeinsamen Lager-Routine; am Verhalten ändert sich nichts.
+- **0.4.11:** Intern: neu gebaut mit der gemeinsamen Lager-Routine; am Verhalten ändert sich nichts.
+- **0.4.10:** Änderst du die Größe der Lager (`factory_storage_capacity`), übernehmen schon gebaute Fabriken sie beim nächsten Laden – größer sofort, kleiner, sobald der Bestand hineinpasst.
+- **0.4.9:** Intern aufgeräumt; am Verhalten ändert sich nichts.
+- **0.4.8:** Ein leeres Lager verschwindet jetzt auch dann, wenn dahinter noch das Lager eines anderen Materials steht.
+- **0.4.7:** Das Lager eines Materials, das nicht mehr in der Liste steht, verschwindet wieder aus den Fabriken, sobald es leer ist. Materialien aus Inhaltspaketen stehen jetzt als gewöhnliche Einträge in der Liste (Republic Mod Manager ab 0.8.4); die eigene Paketdatei von 0.4.4 gibt es nicht mehr.
+- **0.4.6:** Fabriken, die schon stehen, bekommen ihr neues Lager jetzt so, dass sie ihren Strom behalten und sofort weiterbauen.
+- **0.4.5:** Die Fahrzeugfabriken bekommen das Lager und den Eintrag als Verbrauch für jedes Material vom Plugin selbst, auch Fabriken aus dem Workshop und Fabriken, die schon stehen. Vorher brauchte jede Fabrik dafür eigene Zeilen in ihrer Gebäudedatei. Neue Einstellungen `factory_storages` und `factory_storage_capacity`.
+- **0.4.4:** Inhaltspakete können ein eigenes Material mitbringen. Schaltest du das im Republic Mod Manager auf der Seite des Pakets ein (Karte „Fahrzeugbau“), liest das Plugin die Datei des Pakets aus dem Ordner `vehicle_materials.d` und hängt das Material hinter deine eigene Liste. Mit einer solchen Datei läuft das Plugin auch dann, wenn du es nie selbst eingeschaltet hast; hast du „Plugin aktiv“ selbst auf AUS gestellt, bleibt es aus.
 - **0.4.3:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); eine andere Spielversion wird abgelehnt. Sonst unverändert.
 - **0.4.2:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; eine andere Spielversion wird abgelehnt. Sonst unverändert.
 - **0.4.1:** Für WRSR 1.1.1.13; eine andere Spielversion wird abgelehnt. Das Plugin prüft vor dem Start zwei weitere Stellen im Spiel; passt eine nicht, bleibt es aus und das Spiel läuft wie gewohnt
@@ -296,7 +305,7 @@ Das Plugin verändert keine Spieldateien und speichert nichts im Spielstand. Mat
 | Plugin startet nicht | Resources Plus und Resources fehlen oder sind ausgeschaltet | eines der beiden abonnieren und im TesmioLauncher oder Republic Mod Manager einschalten |
 | Konfiguration abgelehnt | Material nicht in resources.ini, Kommentar hinter einem Wert, Wert außerhalb des Bereichs | Log lesen, Namen und Werte korrigieren |
 | Fahrzeug verlangt das Material nicht | `enabled = 0` oder Koeffizient 0 in dieser Klasse | „Plugin aktiv“ einschalten, Koeffizient setzen |
-| Fabrik nimmt das Material nicht an | kein `$STORAGE_IMPORT_SPECIAL` im Gebäude | Gebäude anpassen (siehe oben) |
+| Fabrik hat kein Lager für das Material | `factory_storages = 0`, oder die Fabrik stand schon und der Spielstand wurde ohne den TesmioLoader aus dem Republic Mod Manager geladen | `factory_storages = 1` setzen; den Loader aus dem Republic Mod Manager benutzen |
 | Falsche Fahrzeugklasse | interner Typ anders als erwartet | `debug = 1`, Zuordnung in `[mapping]` setzen |
 
 ### Logging
@@ -307,7 +316,7 @@ Alle Meldungen stehen in `tesmioloader.log` und im Detail-Log `logs\tesmioloader
 Erwartet bei erfolgreichem Start:
 ```
 vehicle_materials  INFO: - [status] Hook active at SOVIET64.exe+0x3F8C50
-vehicle_materials  INFO: - [status] Automatic mapping: type1=road, type6=ship, type7=airplane, other=rail
+vehicle_materials  INFO: - [status] Automatic mapping: type1/2=road, type6=ship, type8/10=airplane, type7/9=rocket, other=rail; horse-drawn vehicles take no extra material
 vehicle_materials  INFO: - [status] v0.4.1 ready
 ```
 
@@ -367,7 +376,7 @@ Aus dem Workshop geladen, bleiben DLL und Original-INI im Paket. Die persönlich
 A: Nein. Vehicle Materials verwendet nur Ressourcen, die Resources Plus oder Resources registriert hat.
 
 **F: Warum liefert niemand das Material an die Fabrik?**
-A: Die Fabrik braucht ein eigenes Lager dafür, eine `$STORAGE_IMPORT_SPECIAL`-Zeile in ihrer building.ini. Das Plugin legt das Lager nicht an.
+A: Dann fehlt der Fabrik das Lager für das Material. Das Plugin legt es selbst an, solange `factory_storages = 1` steht; das ist die Vorgabe. Im Protokoll steht dazu eine Zeile, die mit „Factories“ beginnt.
 
 **F: Werden die ursprünglichen Materialien ersetzt?**
 A: Nein. Stahl, mechanische Bauteile und alles andere bleiben; die neuen Materialien kommen dazu.
@@ -380,5 +389,5 @@ A: Nein. Republic Mod Manager bietet die Materialien aus resources.ini mit + an,
 
 ---
 
-**Letzte Aktualisierung:** Vehicle Materials 0.4.3  
+**Letzte Aktualisierung:** Vehicle Materials 0.4.14  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

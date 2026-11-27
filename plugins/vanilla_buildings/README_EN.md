@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.7
+# 🏗️ Vanilla Buildings 0.4.18
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -146,7 +146,7 @@ add = $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand
 
 Paths pick their root by themselves: `buildings_types\...` and `dlcN\buildings\...` sit under `<game>\media_soviet`, a numeric Workshop id under `<Steam library>\steamapps\workshop\content\784150`. The DLC or Workshop item must be installed. Absolute paths, `.` and `..` are rejected. `target1`, `target2`, `target3` are optional aliases that additionally check the target kind Vanilla, DLC or Workshop.
 
-The same target file may appear only once across enabled rule sets; all changes to one file belong in one rule set. Existing saved buildings are not retrofitted: new storages appear on newly built ones.
+The same target file may appear in several enabled rule sets as long as at most one of them does more than append lines with `add`. Rule sets that only append get along with each other and with the one rule set that edits the file; their lines follow its changes. Two rule sets that both edit the same file (replace, remove, insert, connections, name) are both rejected: such changes belong in one rule set. If one of the appended lines does not fit (for example because the file already has it), the target is rejected for every rule set involved. Buildings that already stand get new storages when a saved game is loaded, see [Savegames](#savegames).
 
 **Changing the building name:** `name = …` gives every target of the rule set a new name in the build menu. Just write the text, without quotes, at most 128 characters. The plugin replaces whatever `$NAME` or `$NAME_STR` line the target file carries, so you do not have to know the old line. `name` may stand only once per rule set, and a target without exactly one name line is rejected and named in the log. If the value looks like a translation key (at least one dot, otherwise only letters, digits, dot, underscore and hyphen), the plugin gets the text through the Localization plugin: in the game language if the text pack carries it, otherwise in the pack's fallback language. Without Localization, or with a key it does not know, it uses the part after the last dot and writes a warning to the log.
 
@@ -214,7 +214,7 @@ insert = 0 | $COST_WORK SOVIET_CONSTRUCTION_STEEL_LAYING 1.0 | $COST_RESOURCE_AU
 
 | Quantity | Limit |
 |---|---|
-| `enabled`, `debug` | exactly 0 or 1 |
+| `enabled`, `debug`, `retrofit_storages`, `retrofit_vehicle_factories` | exactly 0 or 1 |
 | Rule sets | at most 256 |
 | Target files in total | at most 256 |
 | Commands per rule set | at most 512 |
@@ -243,12 +243,29 @@ Errors in `[general]`, ambiguous section boundaries, a wrong encoding or exceede
 ## 💾 Compatibility
 
 ### Savegames
-The plugin changes building definitions, not saved buildings. New storages apply to new constructions; existing buildings need a separate retrofit. Savegames and files in the game folder stay untouched.
+The plugin changes building definitions. A saved game, however, remembers the storages of every building that stands. That is what the **retrofit** is for (`retrofit_storages`, ON by default): when a saved game is loaded, every finished building gets the storages an enabled rule set adds to its definition and that it does not have yet.
+
+- Retrofitted are single-resource storages (`$STORAGE_IMPORT_SPECIAL`) of the classes covered, open and gravel. They are put in empty, at the place where the building definition has them - as in a newly built building.
+- Existing storages stay as they are: nothing is resized or removed. Construction sites and buildings being demolished are left alone; a building with a storage of vehicles (vehicle factory, dry dock) is skipped and named in the log - it has to be built again to get a new storage.
+- ⚠️ The next ordinary save keeps the new storages in the saved game. Switching the rule set off or the retrofit to OFF does not take them out again.
+- This needs the loader from Republic Mod Manager (b0.4.5-rmm.3 or newer). With another loader new storages apply to new constructions only, as before.
+
+Files in the game folder stay untouched.
 
 ### Other plugins
 Other plugins that replace the same building file are not merged with these changes. For materials from Vehicle Materials you can add the matching `$STORAGE_IMPORT_SPECIAL` line in the vehicle factories with this plugin; the shipped INI has no ready-made rule set for it.
 
 ### Version compatibility
+- **0.4.18:** vehicle factories, the dry dock and the rocket part works (production lines) are only touched by the storage follow-up when the experimental switch for vehicle factories is on. They keep storages of their own behind those of their definition, and those are to be left alone.
+- **0.4.17:** export storages (`$STORAGE_EXPORT_SPECIAL`) and every goods class - cement and liquids, for example - follow their line as well: new, bigger, smaller or removed. When a line names a class in which the resource takes nothing (industrial salt in a gravel storage, say), a building that already stands keeps its storage.
+- **0.4.16:** storages follow their line: when you change the size in a storage line, buildings that already stand take it the next time a saved game is loaded - bigger at once, smaller as soon as the stock fits. When you change the class (covered, open, gravel), the storage is exchanged as soon as it is empty.
+- **0.4.15:** when you remove a storage line from a rule set, or switch the rule set off, the storage leaves the buildings again the next time a saved game is loaded, as soon as it is empty. A storage with stock stays until it is empty.
+- **0.4.14:** fixed: a building that already stood and got a new storage from a rule set on load showed "no power" afterwards, and the game could crash later. The storages the building has are left untouched now; the new storage goes to the end.
+- **0.4.13:** with the detailed log on, loading a saved game lists the storages of the buildings a rule set gives a storage to - for troubleshooting. Nothing in the game changes.
+- **0.4.12:** a retrofitted storage now goes to the same place as in a newly built building (where the building definition has it) instead of the end. New experimental switch `retrofit_vehicle_factories` (OFF by default) for vehicle factories - for testing on a copy of a saved game only.
+- **0.4.11:** the retrofit leaves out buildings with a storage of vehicles (vehicle factories, the dry dock). An attempt to include them made the game crash while loading. Such a building has to be built again to get a new storage.
+- **0.4.9:** buildings that already stand get the storages of your rule sets when you load a saved game (new switch `retrofit_storages`, ON by default). Before, the building had to be rebuilt. This needs the loader from Republic Mod Manager, b0.4.5-rmm.3 or newer.
+- **0.4.8:** several enabled rule sets may share a target file when at most one of them does more than append lines with `add`. Several content packages can, for example, each give the same vehicle factory a storage. Two rule sets that both edit a file are still both rejected.
 - **0.4.7:** texts for WRSR 1.2.0.9; the plugin uses no game address and is otherwise unchanged.
 - **0.4.6:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
 - **0.4.5:** loaded from the Workshop, the plugin now also reads the finished INI Republic Mod Manager writes to `tesmioloader\plugins\vanilla_buildings.ini`; before, it stayed with the INI in the package
@@ -270,7 +287,7 @@ Other plugins that replace the same building file are not merged with these chan
 | `expected buildings_types...` | target path has no supported form | write the path as above |
 | `source line has 0 matches` | searched line missing in the original | copy the complete line from the original file |
 | `... matches instead of exactly one` | line or connection not unique | check the line, for connections the coordinates |
-| `duplicate target` | target in two enabled rule sets | merge the changes into one rule set |
+| `duplicate target` | target in two enabled rule sets that both edit it | merge the changes into one rule set; rule sets that only append lines with `add` may share a target |
 | `could not read building source file` | DLC or Workshop item not installed | check path and installation |
 | `[utf8-bom]`, `[duplicate-key]`, `[boolean]` | INI format | UTF-8 without BOM, keys once, switches 0 or 1 |
 
@@ -338,7 +355,7 @@ The temporary copies live under `%TEMP%\TesmioLoader\vanilla_buildings\<process 
 A: No. Only temporary copies are created; without the plugin everything is as before.
 
 **Q: Do existing buildings get the new storages?**
-A: No, only new constructions. Existing buildings need a separate retrofit.
+A: Yes, when a saved game is loaded, as long as `retrofit_storages` is ON and you use the loader from Republic Mod Manager. Details and limits are under [Savegames](#savegames).
 
 **Q: Can I change a Workshop building?**
 A: Yes, with the Workshop id as the start of the path, for example `2496571917\utrzymanie1\building.ini`. The item must be subscribed and installed.
@@ -351,5 +368,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 0.4.7  
+**Last update:** Vanilla Buildings 0.4.18  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

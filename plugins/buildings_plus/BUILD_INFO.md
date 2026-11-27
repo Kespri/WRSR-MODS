@@ -9,6 +9,76 @@ folder>` generates the sections of a real INI from a real game folder into an ou
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
 
+## 0.2.8 (2026-11-27)
+
+- Code review: RemoveGone, Resize and AfterLoad ran for every loaded building, with storages
+  of vehicles served, and the record holds base-game resources too (coal, chemicals, fabric,
+  plastics ...). Now a building is served only when its definition is one of the generated
+  ones: `CollectGeneratedStorages` keeps the shape of every generated definition (its
+  single-resource storages as `I|E <class> <tons> <resource>`, sorted, plus the number of plain
+  `$STORAGE_IMPORT` / `$STORAGE_EXPORT` lines), `RetrofitAfterLoad` reads the singles of the
+  building's definition (`storage_retrofit::DefinitionSingles`) and `ShapeMatches` wants all
+  of a shape's singles and no more beyond them than its plain lines can make. A generated
+  definition without any single-resource storage is not served. A donor whose definition the
+  generated one did not change in its storages has the same shape and is served alike.
+- Self-test: 112 checks (6 new for the shape).
+
+## 0.2.7 (2026-11-27)
+
+- Stage C in the shared header: `Direction` (the parser sets +0x84 for the IMPORT tokens and
+  +0x85 for the EXPORT tokens, 1.2.0.9 0x12F650..0x12F728), `GoodsClass` / `ClassNumber`
+  (covered, open, gravel, oil, cement, cooler, livestock, concrete, nuclear1/2, cryo,
+  hypergolic). `PlainSingle`, `MakePlan`, `StorageGone`, `DefinitionKeeps` and `Resize` take
+  import and export storages of these classes; a storage that goes the other way is another
+  storage in every comparison.
+- No room, no change: a definition storage whose type slot holds nothing (the line names a
+  class the resource has no factor for - seen in the game as "0.00 of 0.00" on a newly built
+  salt refinery) is never given to a building, and it does not make the working storage of
+  another class leave.
+- `ParseStorageLine` reads `$STORAGE_EXPORT_SPECIAL` and every goods class; self-test 106 checks.
+- Offline test `my_plugins\tests\run_storage_retrofit_test.bat`: 31 checks.
+- Export storages not seen in the game at the time of writing.
+
+## 0.2.6 (2026-11-27)
+
+- Storages follow their line: `storage_retrofit::Resize` between `RemoveGone` and
+  `AfterLoad` (capacity written in place, bigger at once, smaller when the stock fits), and
+  a line of another class exchanges the storage when it is empty (`DefinitionKeeps` in the
+  shared header). Same switch `retrofit_storages`.
+- Offline test of the shared rules: `my_plugins\tests\run_storage_retrofit_test.bat`
+  (20 checks). The plugin's own self-test is unchanged, 105 checks.
+- Not seen in the game at the time of writing.
+
+## 0.2.5 (2026-11-27)
+
+- Switch `[buildings_plus] retrofit_storages`, default 1 (`g_retrofit`). With 0
+  `InstallStorageRetrofit` still collects the storage lines and keeps the record, but does
+  not subscribe to `tesmio.building_load`: nothing is added to or taken out of a building
+  that stands.
+- Local schema of Republic Mod Manager: card "Saved games" on the General tab with the
+  switch (`default = 1`).
+- Self-test: 105 checks (3 new: the switch off, on, and a value that is neither).
+
+## 0.2.4 (2026-11-27)
+
+- Buildings that already stand (section "buildings that already stand" of the source):
+  after the folders are written, the storage lines of every generated building are read
+  from the files the game reads (`CollectGeneratedStorages`, `$STORAGE_IMPORT_SPECIAL` with
+  one resource, classes covered/open/gravel) and the plugin subscribes to the loader's
+  `tesmio.building_load`. Per loaded building: `storage_retrofit::RemoveGone`, then
+  `storage_retrofit::AfterLoad` with `g_keepExisting`, `g_appendOnly` and
+  `g_serveVehicleStorages` - the shared routines of Vanilla Buildings and Vehicle Materials.
+- Record: `<loader>\plugins\buildings_plus.storages.txt`, every resource that ever stood in
+  such a line of a generated definition.
+- THE FIRST GAME ADDRESSES OF THIS PLUGIN, all inside `my_plugins\storage_retrofit.h`
+  (WRSR 1.2.0.9); on another build the header refuses and the generator works as before.
+- No switch for it yet. Matching is by resource, class and capacity, not by building: a
+  building of another kind whose definition has the same line and that lacks the storage
+  gets it too (that is what its definition says).
+- Self-test: 102 checks (5 new: the storage line parser, collecting from the generated
+  file, the record).
+- Not seen in the game at the time of writing.
+
 ## 0.2.3 (2026-11-26)
 
 - A block ended at the first data line that began with `-`: `BlockEndOf` and the older `line` path took

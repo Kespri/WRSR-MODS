@@ -69,6 +69,9 @@ namespace TesmioAutoload
             CatalogEntry rules=list.FirstOrDefault(e=>e.Key.Length>0&&PluginScan.SameKey(e.Key,"vanilla_buildings"));
             foreach(RuleSpread spread in Startup.RuleSpreads(build,steps,workshopRoot??""))
             { Line(trouble,language.Format("startcheck_rule_spread",spread.Plugin,spread.Section,spread.Fit,spread.Found,spread.Bad[0]),Theme.Amber,rules==null?"":rules.Root); any=true; }
+            // 0.8.0: the game starts, but vehicles do not use the package's resource - amber.
+            foreach(VehicleTrouble open in Startup.VehicleTroubles(build,list,language.Code))
+            { Line(trouble,language.Format("startcheck_vehicles_"+open.Reason,open.Entry.Name,open.Resources),Theme.Amber,open.Entry.Root); any=true; }
             foreach(CatalogEntry entry in list.Where(e=>e.Updated).OrderBy(e=>e.Name,StringComparer.CurrentCultureIgnoreCase))
             { Line(trouble,language.Format("startcheck_update_row",entry.Name,entry.PreviousVersion,entry.Version),Theme.Amber,entry.Root); any=true; }
             if(!any)Line(trouble,language.T("startcheck_clean"),Color.FromArgb(26,132,61),null);

@@ -24,9 +24,19 @@ namespace TesmioAutoload
         public static bool ValidCode(string code) { return Regex.IsMatch(code, "^[a-z]{2,3}(-[A-Za-z]{2,4})?$"); }
         public Language(string requested)
         {
-            string code = requested == "auto" ? CultureInfo.CurrentUICulture.TwoLetterISOLanguageName : requested;
+            string code = requested == "auto" ? AutoCode(CultureInfo.CurrentUICulture) : requested;
             Code = ValidCode(code ?? "") ? code : "en";
             english = Load("en"); selected = Load(Code) ?? english;
+        }
+        // "Automatic" takes the two-letter code of Windows; Chinese has two written forms, so it
+        // becomes zh-TW for Traditional (Taiwan, Hong Kong, Macau) and zh-CN for Simplified.
+        public static string AutoCode(CultureInfo culture)
+        {
+            string code = culture.TwoLetterISOLanguageName;
+            if (code != "zh") return code;
+            for (CultureInfo c = culture; c != null && c.Name.Length > 0; c = c.Parent)
+                if (c.Name == "zh-Hant" || c.Name == "zh-CHT" || c.Name == "zh-TW" || c.Name == "zh-HK" || c.Name == "zh-MO") return "zh-TW";
+            return "zh-CN";
         }
         static Ini Load(string code)
         {

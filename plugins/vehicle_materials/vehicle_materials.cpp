@@ -1,9 +1,11 @@
-// vehicle_materials.cpp - Vehicle Materials 0.4.0 for WRSR.
+// vehicle_materials.cpp - Vehicle Materials for WRSR.
 //
 // The plugin adds explicitly configured mod resources to the material list of
 // newly produced vehicles. resources.ini remains the authoritative registry;
 // vehicle_materials.ini only selects resources and their coefficients.
 // The game files are never modified and configuration changes need no rebuild.
+// The production lines get the consumption entry and the storage each material needs
+// from the plugin as well, in memory (see "factories" below).
 //
 // Configuration follows the rule shared by every plugin in my_plugins
 // (tesmio_config.h): the base INI is <loader>\plugins\vehicle_materials.ini if
@@ -36,15 +38,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <algorithm>
 #include <exception>
 #include <map>
+#include <vector>
 #include <set>
 #include <sstream>
 #include <string>
 
 #define PLUGIN_INI      "vehicle_materials.ini"
 #define PLUGIN_OVERLAY  "user_config\\vehicle_materials.ini"
-#define PLUGIN_VERSION  "0.4.3"
+#define PLUGIN_VERSION  "0.4.14"
 #define PLUGIN_LOG_NAME "tesmioloader.vehicle_materials.log"
 
 static const size_t MAX_INI_BYTES = 1u * 1024u * 1024u;
@@ -67,6 +71,9 @@ static const size_t EXPECTED_IMAGE_SIZE = 0xAE9000;
 #define VEHICLE_TYPE          0x2B8
 #define VEHICLE_REQUIREMENTS  0x8618
 #define VEHICLE_SCALE         0x86CC
+// std::vector of the horses that pull the vehicle (one per $HORSE line of its script.ini, 0x110
+// bytes each); the game's own requirement builder (0x419EC0) asks the same vector.
+#define VEHICLE_HORSES        0x7CC8
 
 static const unsigned char EXPECTED_PROLOGUE[15] =
 {
@@ -106,7 +113,8 @@ enum Category
     CAT_RAIL = 1,
     CAT_SHIP = 2,
     CAT_AIRPLANE = 3,
-    CAT_COUNT = 4
+    CAT_ROCKET = 4,
+    CAT_COUNT = 5
 };
 
 struct ConfigMaterial
@@ -123,6 +131,8 @@ struct PluginConfig
     ConfigMaterial materials[MAX_MATERIALS];
     int materialCount;
     int typeOverride[16];
+    int factoryStorages;
+    int factoryCapacity;
 };
 
 struct IniValue
@@ -146,6 +156,16 @@ static int g_typeOverride[16];
 static int g_enabled = 1;
 static int g_debug;
 static int g_debugLimit = 80;
+static int g_factoryStorages = 1;
+// Loaded only to take storages out of factories again: no material is active.
+static bool g_cleanupOnly;
+// The materials this plugin ever gave a factory a storage for (a small file in the loader
+// folder). Only such a storage is taken out again.
+static char g_factoryGiven[64][MAX_NAME];
+static int g_factoryGivenCount;
+static bool g_factoryGivenDirty;
+static std::string g_factoryGivenPath;
+static float g_factoryCapacity = 50.0f;
 
 static HANDLE g_detail = INVALID_HANDLE_VALUE;
 static bool g_bound;
@@ -368,7 +388,7 @@ static bool IsKnownSection(const std::string& section)
 {
     return section == "general" || section == "resources" ||
            section == "road" || section == "rail" ||
-           section == "ship" || section == "airplane" ||
+           section == "ship" || section == "airplane" || section == "rocket" ||
            section == "mapping";
 }
 
@@ -634,6 +654,13 @@ static bool ParseRequiredInt(const IniData& data, const char* section,
     return false;
 }
 
+static bool ParseOptionalInt(const IniData& data, const char* section,
+    const char* key, int minimum, int maximum, int* output)
+{
+    return !FindIniValue(data, section, key) ||
+           ParseRequiredInt(data, section, key, minimum, maximum, output);
+}
+
 static bool ValidateFixedKeys(const IniSection& section,
                               const char* sectionName,
                               const std::set<std::string>& allowed)
@@ -688,6 +715,8 @@ static bool ParseConfigData(IniData& data, bool overlayListsResources,
     generalKeys.insert("enabled");
     generalKeys.insert("debug");
     generalKeys.insert("debug_limit");
+    generalKeys.insert("factory_storages");
+    generalKeys.insert("factory_storage_capacity");
     if (!ValidateFixedKeys(data["general"], "general", generalKeys))
         return false;
 
@@ -700,6 +729,15 @@ static bool ParseConfigData(IniData& data, bool overlayListsResources,
                           &parsed.debug) ||
         !ParseRequiredInt(data, "general", "debug_limit", 0,
                           MAX_DEBUG_LIMIT, &parsed.debugLimit))
+        return false;
+
+    // Both are optional: an INI from before them means "storages on, 50 t".
+    parsed.factoryStorages = 1;
+    parsed.factoryCapacity = 50;
+    if (!ParseOptionalInt(data, "general", "factory_storages", 0, 1,
+                          &parsed.factoryStorages) ||
+        !ParseOptionalInt(data, "general", "factory_storage_capacity", 1,
+                          10000, &parsed.factoryCapacity))
         return false;
 
     int requested = 0;
@@ -772,8 +810,10 @@ static bool ParseConfigData(IniData& data, bool overlayListsResources,
         return false;
     }
 
+    // [rocket] is optional: a configuration written before the class existed has none, and a
+    // material without a [rocket] value asks nothing of rocket parts.
     static const char* const categoryNames[CAT_COUNT] = {
-        "road", "rail", "ship", "airplane"
+        "road", "rail", "ship", "airplane", "rocket"
     };
     for (int c = 0; c < CAT_COUNT; ++c)
     {
@@ -844,7 +884,7 @@ static bool ParseConfigData(IniData& data, bool overlayListsResources,
             mapping >= CAT_COUNT)
         {
             Report("ERROR", value->origin, "mapping-range",
-                "[mapping] %s must be an integer from -1 to 3 at line %Iu",
+                "[mapping] %s must be an integer from -1 to 4 at line %Iu",
                 key, value->line);
             return false;
         }
@@ -897,6 +937,8 @@ static void ApplyConfig(const PluginConfig& config)
     g_enabled = config.enabled;
     g_debug = config.debug;
     g_debugLimit = config.debugLimit;
+    g_factoryStorages = config.factoryStorages;
+    g_factoryCapacity = (float)config.factoryCapacity;
     g_materialCount = config.materialCount;
     memcpy(g_materials, config.materials, sizeof(g_materials));
     memcpy(g_typeOverride, config.typeOverride, sizeof(g_typeOverride));
@@ -904,14 +946,14 @@ static void ApplyConfig(const PluginConfig& config)
 
 static void LogConfig()
 {
-    Info("Configuration: enabled=%d debug=%d debug_limit=%d active_materials=%d",
-        g_enabled, g_debug, g_debugLimit, g_materialCount);
+    Info("Configuration: enabled=%d debug=%d debug_limit=%d factory_storages=%d factory_storage_capacity=%.0f active_materials=%d",
+        g_enabled, g_debug, g_debugLimit, g_factoryStorages, g_factoryCapacity, g_materialCount);
     for (int i = 0; i < g_materialCount; ++i)
     {
         const ConfigMaterial& m = g_materials[i];
-        Debug("material=%s road=%.4f rail=%.4f ship=%.4f airplane=%.4f",
+        Debug("material=%s road=%.4f rail=%.4f ship=%.4f airplane=%.4f rocket=%.4f",
             m.name, m.coeff[CAT_ROAD], m.coeff[CAT_RAIL],
-            m.coeff[CAT_SHIP], m.coeff[CAT_AIRPLANE]);
+            m.coeff[CAT_SHIP], m.coeff[CAT_AIRPLANE], m.coeff[CAT_ROCKET]);
     }
 }
 
@@ -1111,12 +1153,18 @@ static VectorResourceState FindResourceInVector(void* vehicle, void* resource)
 
 static Category AutomaticCategory(int rawType)
 {
-    // Verified for WRSR 1.1.1.9 (the builder compares the same numbers in 1.2.0.8): 1=road, 6=ship, 7=airplane; remaining
-    // production vehicle types use the rail/rolling-stock coefficients.
-    if (rawType == 1) return CAT_ROAD;
-    if (rawType == 6) return CAT_SHIP;
-    if (rawType == 7) return CAT_AIRPLANE;
-    return CAT_RAIL;
+    // The vehicle kind as 1.2.0.9 writes it to vehicle type +0x2B8 (0x68B070 turns the
+    // $TYPE token into the number): 1 ROAD, 2 ROAD_SERVICE, 3 RAIL_VAGON, 4 RAIL_LOCOMOTIVE,
+    // 5 RAIL_SERVICE, 6 SHIP, 7 CABIN, 8 AIRPLANE, 9 CONTAINER (the rocket parts of the
+    // rocket DLC), 10 HELICOPTER. The rocket DLC put CABIN at 7; before it the airplane was 7.
+    switch (rawType)
+    {
+        case 1: case 2: return CAT_ROAD;
+        case 6:         return CAT_SHIP;
+        case 8: case 10: return CAT_AIRPLANE;
+        case 7: case 9: return CAT_ROCKET;
+        default:        return CAT_RAIL;
+    }
 }
 
 static Category CategoryForType(int rawType)
@@ -1138,6 +1186,7 @@ static const char* CategoryName(Category category)
         case CAT_RAIL: return "rail";
         case CAT_SHIP: return "ship";
         case CAT_AIRPLANE: return "airplane";
+        case CAT_ROCKET: return "rocket";
         default: return "unknown";
     }
 }
@@ -1146,6 +1195,599 @@ static bool ReserveLimitedLog()
 {
     if (g_debugLimit <= 0) return false;
     return InterlockedIncrement(&g_debugCount) <= g_debugLimit;
+}
+
+// ---------------------------------------------------------------- factories
+//
+// A vehicle factory uses a material only when two things are true for its building type:
+//
+//   1. the material stands in the type's consumption list. The game's storage finder -
+//      the one behind deliveries and behind the production line itself - skips every
+//      storage slot of a production line whose resource is neither consumed nor produced
+//      by the type (mask 0x100000202C0 at SOVIET64.exe+0x448A57; type number 40). Without
+//      the entry a factory shows the storage and its stock, lorries do not unload and
+//      nothing is built. The game's own definitions carry "$CONSUMPTION steel 1.0" and so
+//      on for exactly this reason.
+//   2. the type has a storage for it.
+//
+// Both are given here, in memory, to every production line that takes materials (a storage
+// of the CARPLANT kind): the game's, the DLCs' and the Workshop's. Nothing is written to a
+// file. The consumption entry is the pair the parser makes of "$CONSUMPTION <resource> 1.0".
+// The storage is what the parser makes of "$STORAGE_IMPORT_SPECIAL <class> <tons>
+// <resource>": a copy, by the game's own copy constructor, of a storage the parser made of
+// such a line for some other building, with the class, the capacity and the one slot set.
+//
+// THE STORAGE GOES TO THE END OF THE TYPE'S LIST, behind the electricity, water, sewage and
+// waste storages the parser appends. A building keeps its storages in the order of its
+// type, and the game counts on that. A factory that already stands has every storage of
+// the type except the new ones, so appending them to the building (storage_retrofit.h,
+// when a saved game is loaded; g_keepExisting - the storages it has are moved, not cloned,
+// and nothing is freed) leaves no storage at another place than before - which a
+// storage line in the building's file cannot do: it lands in front of the appended ones
+// and shifts them.
+//
+// A type that already has a storage for the material - from its own file or from a rule
+// set - is left as it is; it only gets the consumption entry.
+#define STORAGE_RETROFIT_REPORT(level, rule, ...) Report(level, "Factory storage", rule, __VA_ARGS__)
+#include "../storage_retrofit.h"
+
+static const DWORD  RVA_BUILDING_TYPES   = 0x00A30AF0;   // std::vector<TYPE>, the objects themselves
+static const size_t TYPE_SIZE            = 0x0E98;
+static const size_t TYPE_NUMBER          = 0x0368;       // int; 40 = production line
+static const size_t TYPE_CONSUMPTION     = 0x0898;       // std::vector<{ resource*, float, 0 }>
+static const int    TYPE_PRODUCTION_LINE = 40;
+// Building subtype ($SUBTYPE_* in building.ini, 1.2.0.9 parser: rbp+0x1E1C, base rbp+0x1AB0).
+// The works of horse-drawn vehicles and the stud farm build nothing this plugin asks for.
+static const size_t TYPE_SUBTYPE         = 0x036C;
+static const int    SUBTYPE_HORSE_WAGON  = 42;
+static const int    SUBTYPE_HORSE_STUD   = 43;
+
+static bool HorseWorks(const BYTE* type)
+{
+    const int subtype = *(const int*)(type + TYPE_SUBTYPE);
+    return subtype == SUBTYPE_HORSE_WAGON || subtype == SUBTYPE_HORSE_STUD;
+}
+static const int    PURPOSE_CARPLANT     = 10;           // storage +0x88
+static const size_t MAX_BUILDING_TYPES   = 20000;
+// Per transport class inside a resource record: the factor a storage of that class
+// multiplies its capacity by, and a byte that rules the pair out.
+static const size_t RES_CLASS_FACTOR     = 0x00CC;
+static const size_t RES_CLASS_BLOCKED    = 0x00E8;
+static const size_t RES_CLASS_STRIDE     = 0x0020;
+
+static bool  g_factoryHelpers;                 // push, copy and destructor are the known ones
+static volatile LONG g_factoryBusy;
+static volatile LONG g_factoryFaulted;
+static volatile LONG g_factoryEmptyLogged;
+static volatile LONG g_factoryClassWarned;
+static volatile LONG g_factoryRetrofitted;
+
+// The storages this plugin appended, by type. Valid for the type list they were found in.
+struct FactoryOwn { BYTE* type; int material; };
+static FactoryOwn g_factoryOwn[4096];
+static int   g_factoryOwnCount;
+static BYTE* g_factoryTypesBegin;
+static BYTE* g_factoryTypesEnd;
+static bool  g_factoryScanned;
+static BYTE* g_factoryWitnessType;
+static void* g_factoryWitnessResource;
+static BYTE* g_factoryCurrentType;
+
+// ---- the record of what was given ------------------------------------------------------
+//
+// <loader>\plugins\vehicle_materials.storages.txt: one resource per line. A storage in a
+// factory counts as this plugin's own only when its resource stands here; storages from a
+// building's file, from a rule set or from another plugin are never touched.
+static bool FactoryGiven(const char* name)
+{
+    for (int i = 0; i < g_factoryGivenCount; ++i)
+        if (_stricmp(g_factoryGiven[i], name) == 0) return true;
+    return false;
+}
+
+static void FactoryRememberGiven(const char* name)
+{
+    if (!name || !name[0] || FactoryGiven(name)) return;
+    if (g_factoryGivenCount >= (int)_countof(g_factoryGiven)) return;
+    strcpy_s(g_factoryGiven[g_factoryGivenCount++], name);
+    g_factoryGivenDirty = true;
+}
+
+static void FactoryLoadGiven(const std::string& baseDir)
+{
+    g_factoryGivenCount = 0;
+    g_factoryGivenDirty = false;
+    g_factoryGivenPath = baseDir + "\\plugins\\vehicle_materials.storages.txt";
+    FILE* file = nullptr;
+    if (fopen_s(&file, g_factoryGivenPath.c_str(), "rb") != 0 || !file) return;
+    char line[256];
+    while (fgets(line, sizeof(line), file))
+    {
+        std::string name = TrimString(line);
+        if (name.empty() || name[0] == ';' || !IsSafeResourceName(name)) continue;
+        if (name.size() >= (size_t)MAX_NAME || FactoryGiven(name.c_str())) continue;
+        if (g_factoryGivenCount >= (int)_countof(g_factoryGiven)) break;
+        strcpy_s(g_factoryGiven[g_factoryGivenCount++], name.c_str());
+    }
+    fclose(file);
+}
+
+static void FactorySaveGiven()
+{
+    if (!g_factoryGivenDirty || g_factoryGivenPath.empty()) return;
+    FILE* file = nullptr;
+    if (fopen_s(&file, g_factoryGivenPath.c_str(), "wb") != 0 || !file) return;
+    fputs("; Written by the plugin Vehicle Materials: the materials it gave the vehicle\r\n"
+          "; factories a storage for. A storage of a material that is no longer asked for\r\n"
+          "; is taken out of the factories again when it is empty. Do not edit.\r\n", file);
+    for (int i = 0; i < g_factoryGivenCount; ++i)
+    {
+        fputs(g_factoryGiven[i], file);
+        fputs("\r\n", file);
+    }
+    fclose(file);
+    g_factoryGivenDirty = false;
+}
+
+static bool FactoryActive(const char* name)
+{
+    if (g_cleanupOnly) return false;
+    for (int i = 0; i < g_materialCount; ++i)
+        if (_stricmp(g_materials[i].name, name) == 0) return true;
+    return false;
+}
+
+static bool FactoryOwns(BYTE* type, int material)
+{
+    for (int i = 0; i < g_factoryOwnCount; ++i)
+        if (g_factoryOwn[i].type == type && g_factoryOwn[i].material == material) return true;
+    return false;
+}
+
+static void FactoryRemember(BYTE* type, int material)
+{
+    if (FactoryOwns(type, material)) return;
+    if (g_factoryOwnCount >= (int)_countof(g_factoryOwn)) return;
+    g_factoryOwn[g_factoryOwnCount].type = type;
+    g_factoryOwn[g_factoryOwnCount].material = material;
+    ++g_factoryOwnCount;
+}
+
+static bool PairListHas(const void* address, void* resource, bool* valid)
+{
+    storage_retrofit::Vector list = {};
+    size_t count = 0;
+    *valid = storage_retrofit::ReadVector(address, 16, 4096, &list, &count);
+    if (!*valid) return false;
+    for (size_t i = 0; i < count; ++i)
+        if (*(void**)(list.begin + i * 16) == resource) return true;
+    return false;
+}
+
+static bool StoragesHold(const storage_retrofit::Vector& storages, size_t count, void* resource)
+{
+    using namespace storage_retrofit;
+    for (size_t i = 0; i < count; ++i)
+    {
+        Vector slots = {};
+        size_t n = 0;
+        if (!ReadVector(storages.begin + i * STORAGE_SIZE, SLOT_SIZE, MAX_SLOTS_PER_STORAGE, &slots, &n)) continue;
+        for (size_t k = 0; k < n; ++k)
+            if (*(void**)(slots.begin + k * SLOT_SIZE) == resource) return true;
+    }
+    return false;
+}
+
+// What the parser makes of "$STORAGE_IMPORT_SPECIAL <covered|open|gravel> <tons> <resource>":
+// one slot, import, no purpose, no further owner.
+static bool IsPlainSpecialImport(BYTE* storage)
+{
+    using namespace storage_retrofit;
+    if (!ReadablePtr(storage, STORAGE_SIZE) || storage[0x84] != 1 || storage[0x85] != 0 ||
+        *(int*)(storage + 0x88) != -1 || *(BYTE**)(storage + 0xC0) != nullptr) return false;
+    const int transport = *(int*)(storage + STORAGE_CLASS);
+    if (transport != TRANSPORT_COVERED && transport != TRANSPORT_OPEN && transport != TRANSPORT_GRAVEL)
+        return false;
+    for (size_t i = 0; i < _countof(VECTOR_OFFSETS); ++i)
+    {
+        Vector view = {};
+        size_t count = 0;
+        if (!ReadVector(storage + VECTOR_OFFSETS[i], VECTOR_STRIDES[i], 4096, &view, &count)) return false;
+        // The slot list has the one resource; the per-resource controls may exist for it;
+        // the owner lists of a storage in use are empty in a definition.
+        if (i == 0 ? count != 1 : (i == 1 ? count > 1 : (i >= 3 && count != 0))) return false;
+    }
+    return StorageValid(storage);
+}
+
+static BYTE* FindSpecialImportTemplate(const storage_retrofit::Vector& types, size_t typeCount)
+{
+    using namespace storage_retrofit;
+    for (size_t t = 0; t < typeCount; ++t)
+    {
+        BYTE* type = types.begin + t * TYPE_SIZE;
+        Vector list = {};
+        size_t count = 0;
+        if (!ReadVector(type + TYPE_STORAGES, STORAGE_SIZE, MAX_STORAGES, &list, &count)) continue;
+        for (size_t i = 0; i < count; ++i)
+            if (IsPlainSpecialImport(list.begin + i * STORAGE_SIZE)) return list.begin + i * STORAGE_SIZE;
+    }
+    return nullptr;
+}
+
+// The class a storage for this resource gets: open, covered or gravel, whichever the
+// resource fills best. Liquids and the like get no storage here.
+static bool PickStorageClass(void* resource, int* transport, float* factor)
+{
+    using namespace storage_retrofit;
+    static const int order[] = { TRANSPORT_OPEN, TRANSPORT_COVERED, TRANSPORT_GRAVEL };
+    *transport = -1;
+    *factor = 0.0f;
+    BYTE* record = (BYTE*)resource;
+    if (!ReadablePtr(record, RESOURCE_RECORD_SIZE)) return false;
+    for (size_t i = 0; i < _countof(order); ++i)
+    {
+        const float f = *(float*)(record + RES_CLASS_FACTOR + order[i] * RES_CLASS_STRIDE);
+        const BYTE blocked = record[RES_CLASS_BLOCKED + order[i] * RES_CLASS_STRIDE];
+        if (!blocked && _finite(f) && f > *factor && f < 1000000.0f)
+        {
+            *factor = f;
+            *transport = order[i];
+        }
+    }
+    return *transport >= 0;
+}
+
+// A private copy of the template, so that no push into a type's list can move it.
+static bool TryCopyTemplate(BYTE* source, storage_retrofit::Vector* copy)
+{
+    using namespace storage_retrofit;
+    try
+    {
+        g_push(copy, source);
+        return copy->begin && copy->end == copy->begin + STORAGE_SIZE && CopyMatches(source, copy->begin);
+    }
+    catch (...) { return false; }
+}
+
+static bool TryAppendTypeStorage(BYTE* type, BYTE* templateStorage, void* resource,
+                                 int transport, float factor)
+{
+    using namespace storage_retrofit;
+    Vector temp = {};
+    bool ok = false;
+    try
+    {
+        g_push(&temp, templateStorage);
+        BYTE* s = temp.begin;
+        if (s && temp.end == s + STORAGE_SIZE)
+        {
+            BYTE* slot = *(BYTE**)s;
+            *(void**)slot = resource;
+            *(float*)(slot + 8) = g_factoryCapacity * factor;   // a type's slot holds capacity
+            *(DWORD*)(slot + 12) = 0;
+            Vector controls = {};
+            size_t controlCount = 0;
+            if (ReadVector(s + 0x18, SLOT_SIZE, MAX_SLOTS_PER_STORAGE, &controls, &controlCount) &&
+                controlCount == 1)
+                *(void**)controls.begin = resource;
+            *(float*)(s + STORAGE_CAPACITY) = g_factoryCapacity;
+            *(int*)(s + STORAGE_CLASS) = transport;
+            Vector* list = (Vector*)(type + TYPE_STORAGES);
+            Vector before = {};
+            size_t had = 0;
+            if (IsPlainSpecialImport(s) &&
+                ReadVector(list, STORAGE_SIZE, MAX_STORAGES - 1, &before, &had))
+            {
+                g_push(list, s);
+                Vector after = {};
+                size_t has = 0;
+                ok = ReadVector(list, STORAGE_SIZE, MAX_STORAGES, &after, &has) && has == had + 1 &&
+                     CopyMatches(s, after.begin + had * STORAGE_SIZE);
+            }
+        }
+    }
+    catch (...) { ok = false; }
+    if (temp.begin) g_destroy(&temp);
+    return ok;
+}
+
+static void ScanFactoryTypes(const char* when)
+{
+    using namespace storage_retrofit;
+    Vector types = {};
+    size_t typeCount = 0;
+    if (!ReadVector(g_exeBase + RVA_BUILDING_TYPES, TYPE_SIZE, MAX_BUILDING_TYPES, &types, &typeCount) ||
+        !typeCount)
+    {
+        if (InterlockedCompareExchange(&g_factoryEmptyLogged, 1, 0) == 0)
+            Info("Factories (%s): the game has no building types yet; they are looked at again when a saved game is loaded", when);
+        return;
+    }
+    if (types.begin != g_factoryTypesBegin) g_factoryOwnCount = 0;   // another list: old pointers mean nothing
+
+    void* resources[MAX_MATERIALS] = {};
+    int   transports[MAX_MATERIALS];
+    float factors[MAX_MATERIALS];
+    for (int m = 0; m < g_materialCount; ++m)
+    {
+        transports[m] = -1;
+        factors[m] = 0.0f;
+        resources[m] = GetResource(g_materials[m].name);
+        if (resources[m]) PickStorageClass(resources[m], &transports[m], &factors[m]);
+    }
+
+    Vector templateCopy = {};
+    bool templateSearched = false;
+    int lines = 0, consumption = 0, storages = 0, present = 0, failed = 0;
+    g_factoryWitnessType = nullptr;
+    g_factoryWitnessResource = nullptr;
+    for (size_t t = 0; t < typeCount; ++t)
+    {
+        BYTE* type = types.begin + t * TYPE_SIZE;
+        if (*(int*)(type + TYPE_NUMBER) != TYPE_PRODUCTION_LINE || HorseWorks(type)) continue;
+        Vector list = {};
+        size_t count = 0;
+        if (!ReadVector(type + TYPE_STORAGES, STORAGE_SIZE, MAX_STORAGES, &list, &count)) continue;
+        bool takesMaterials = false;
+        for (size_t i = 0; i < count && !takesMaterials; ++i)
+            takesMaterials = *(int*)(list.begin + i * STORAGE_SIZE + 0x88) == PURPOSE_CARPLANT;
+        if (!takesMaterials) continue;
+        ++lines;
+        int typeConsumption = 0, typeStorages = 0;
+        for (int m = 0; m < g_materialCount; ++m)
+        {
+            void* resource = resources[m];
+            if (!resource) continue;
+            bool valid = false;
+            if (!PairListHas(type + TYPE_CONSUMPTION, resource, &valid))
+            {
+                if (!valid) { ++failed; continue; }
+                MaterialEntry entry = { resource, 1.0f, 0.0f };
+                EntryVector source = { &entry, &entry + 1, &entry + 1 };
+                g_merge(type + TYPE_CONSUMPTION, 0, &source, 0);
+                if (!PairListHas(type + TYPE_CONSUMPTION, resource, &valid)) { ++failed; continue; }
+                ++consumption; ++typeConsumption;
+            }
+            if (!g_factoryWitnessType)
+            {
+                g_factoryWitnessType = type;
+                g_factoryWitnessResource = resource;
+            }
+            if (!g_factoryStorages || !g_factoryHelpers) continue;
+            // An earlier push may have moved the list.
+            if (!ReadVector(type + TYPE_STORAGES, STORAGE_SIZE, MAX_STORAGES, &list, &count)) { ++failed; continue; }
+            if (StoragesHold(list, count, resource)) { ++present; continue; }
+            if (transports[m] < 0)
+            {
+                if (InterlockedCompareExchange(&g_factoryClassWarned, 1, 0) == 0)
+                    Report("WARN", PLUGIN_INI, "factory-storage-class",
+                        "Resource '%s' fits no covered, open or gravel storage; the factories get no storage for it. Action: give them one in their building file or with a rule set",
+                        g_materials[m].name);
+                ++failed;
+                continue;
+            }
+            if (!templateSearched)
+            {
+                templateSearched = true;
+                BYTE* found = FindSpecialImportTemplate(types, typeCount);
+                if (!found || !TryCopyTemplate(found, &templateCopy))
+                {
+                    if (templateCopy.begin) g_destroy(&templateCopy);
+                    templateCopy = {};
+                    Report("WARN", "SOVIET64.exe", "factory-storage-template",
+                        "No building of the game has a storage made of a $STORAGE_IMPORT_SPECIAL line to model the new storages on; the factories get no storage. Action: give them one in their building file or with a rule set");
+                }
+            }
+            if (!templateCopy.begin) { ++failed; continue; }
+            if (TryAppendTypeStorage(type, templateCopy.begin, resource, transports[m], factors[m]))
+            {
+                ++storages; ++typeStorages;
+                FactoryRemember(type, m);
+                FactoryRememberGiven(g_materials[m].name);
+            }
+            else ++failed;
+        }
+        if (g_debug && (typeConsumption || typeStorages) && ReserveLimitedLog())
+            Report("DEBUG", NULL, "factory-type",
+                "type=%p index=%Iu consumption_entries_added=%d storages_appended=%d storages_now=%Iu",
+                type, t, typeConsumption, typeStorages,
+                (size_t)(((Vector*)(type + TYPE_STORAGES))->end - ((Vector*)(type + TYPE_STORAGES))->begin) / STORAGE_SIZE);
+    }
+    if (templateCopy.begin) g_destroy(&templateCopy);
+    FactorySaveGiven();
+    g_factoryTypesBegin = types.begin;
+    g_factoryTypesEnd = types.end;
+    g_factoryScanned = true;
+    if (consumption || storages || failed || InterlockedCompareExchange(&g_factoryEmptyLogged, 2, 0) != 2)
+        Info("Factories (%s): %d production line(s) that take materials among %Iu building types; %d consumption entr(ies) and %d storage(s) of %.0f t added, %d storage(s) were there already, %d could not be added",
+            when, lines, typeCount, consumption, storages, g_factoryCapacity, present, failed);
+    InterlockedExchange(&g_factoryEmptyLogged, 2);
+}
+
+// Cheap unless the game's type list changed: called for every vehicle type the game builds
+// at its start and before every building of a saved game.
+static void EnsureFactoryTypes(const char* when)
+{
+    if (InterlockedCompareExchange(&g_factoryFaulted, 0, 0)) return;
+    if (InterlockedCompareExchange(&g_factoryBusy, 1, 0) != 0) return;
+    __try
+    {
+        storage_retrofit::Vector raw = {};
+        if (ReadablePtr(g_exeBase + RVA_BUILDING_TYPES, sizeof(raw)))
+        {
+            memcpy(&raw, g_exeBase + RVA_BUILDING_TYPES, sizeof(raw));
+            bool current = g_factoryScanned && raw.begin == g_factoryTypesBegin && raw.end == g_factoryTypesEnd;
+            if (current && g_factoryWitnessType)
+            {
+                // The same block can hold types that were read again.
+                bool valid = false;
+                current = PairListHas(g_factoryWitnessType + TYPE_CONSUMPTION, g_factoryWitnessResource, &valid);
+            }
+            if (!current) ScanFactoryTypes(when);
+        }
+    }
+    __except (FaultFilter("vehicle_materials factory types", GetExceptionInformation()))
+    {
+        InterlockedExchange(&g_factoryFaulted, 1);
+        Report("WARN", "vehicle_materials", "factory-fault",
+            "Giving the factories their consumption entries and storages faulted and is off for the rest of this session; vehicles keep their materials. Action: preserve this log and report it");
+    }
+    InterlockedExchange(&g_factoryBusy, 0);
+}
+
+static bool FactoryWanted(const char* resource, int, float, void*)
+{
+    for (int i = 0; i < g_factoryOwnCount; ++i)
+        if (g_factoryOwn[i].type == g_factoryCurrentType &&
+            _stricmp(g_materials[g_factoryOwn[i].material].name, resource) == 0) return true;
+    return false;
+}
+
+// 1 = the building has every storage of its type in front of the appended ones, in the
+// type's order; 0 = it has not; -1 = not a building to look at.
+static int FactoryMatchesType(BYTE* building, BYTE* type)
+{
+    using namespace storage_retrofit;
+    int mine = 0;
+    for (int i = 0; i < g_factoryOwnCount; ++i)
+        if (g_factoryOwn[i].type == type) ++mine;
+    if (mine <= 0) return -1;
+    if (!ReadablePtr(building + B_CONSTRUCTION_PROGRESS, sizeof(float)) ||
+        !ReadablePtr(building + B_GOING_AWAY, 1)) return -1;
+    const float progress = *(float*)(building + B_CONSTRUCTION_PROGRESS);
+    if (!_finite(progress) || progress < 0.9999f || *(BYTE*)(building + B_GOING_AWAY)) return -1;
+    Vector definition = {}, own = {};
+    size_t definitionCount = 0, ownCount = 0;
+    if (!ReadVector(type + TYPE_STORAGES, STORAGE_SIZE, MAX_STORAGES, &definition, &definitionCount) ||
+        !ReadVector(building + B_STORAGE_BEGIN, STORAGE_SIZE, MAX_STORAGES, &own, &ownCount)) return -1;
+    if ((size_t)mine > definitionCount) return -1;
+    const size_t base = definitionCount - (size_t)mine;
+    if (ownCount < base) return 0;
+    for (size_t i = 0; i < base; ++i)
+    {
+        BYTE* d = definition.begin + i * STORAGE_SIZE;
+        BYTE* s = own.begin + i * STORAGE_SIZE;
+        if (*(int*)(d + STORAGE_CLASS) != *(int*)(s + STORAGE_CLASS) ||
+            *(int*)(d + 0x88) != *(int*)(s + 0x88)) return 0;
+    }
+    return 1;
+}
+
+static void __cdecl FactoryBeforeLoad(void*, void*, int)
+{
+    EnsureFactoryTypes("saved game");
+}
+
+// The storages of materials that are no longer asked for leave a factory again
+// (storage_retrofit::RemoveGone): a storage this plugin once gave - its resource is on
+// record - whose material is not active any more, as soon as it is empty.
+static bool FactoryGone(const char* resource, int, void*)
+{
+    return FactoryGiven(resource) && !FactoryActive(resource);
+}
+
+// Every storage this plugin once gave, active or not (for the works of horse-drawn vehicles).
+static bool FactoryGivenAny(const char* resource, int, void*)
+{
+    return FactoryGiven(resource);
+}
+
+static void FactoryGiveMissing(BYTE* building, BYTE* type)
+{
+    const int matches = FactoryMatchesType(building, type);
+    if (matches < 0) return;
+    if (matches == 0)
+    {
+        if (ReserveLimitedLog())
+            Report("WARN", NULL, "factory-differs",
+                "building=%p keeps its storages in another order than its definition (it was built while a storage line stood in the definition, or another mod changed it); it is left as it is. Action: if it lacks the storage for a material, demolish it and build it again",
+                building);
+        return;
+    }
+    g_factoryCurrentType = type;
+    const int added = storage_retrofit::AfterLoad(building, FactoryWanted, nullptr);
+    g_factoryCurrentType = nullptr;
+    if (added > 0) InterlockedExchangeAdd(&g_factoryRetrofitted, added);
+}
+
+// The storages this plugin gave follow factory_storage_capacity.
+static bool FactoryResizeWanted(const char* resource, int, float, void*)
+{
+    return FactoryGiven(resource) && FactoryActive(resource);
+}
+
+static void __cdecl FactoryAfterLoad(void* loaded, void*, int completed)
+{
+    if (!completed || InterlockedCompareExchange(&g_factoryFaulted, 0, 0)) return;
+    __try
+    {
+        BYTE* building = (BYTE*)loaded;
+        if (!building || !ReadablePtr(building + storage_retrofit::B_TYPEDESC, sizeof(void*))) return;
+        BYTE* type = *(BYTE**)(building + storage_retrofit::B_TYPEDESC);
+        if (!type || !ReadablePtr(type, TYPE_SIZE) ||
+            *(int*)(type + TYPE_NUMBER) != TYPE_PRODUCTION_LINE) return;
+        // The works of horse-drawn vehicles get nothing; what an earlier version gave them leaves
+        // again as soon as it is empty.
+        if (HorseWorks(type))
+        {
+            if (g_factoryGivenCount > 0) storage_retrofit::RemoveGone(building, FactoryGivenAny, nullptr);
+            return;
+        }
+        // First what is gone, then what is missing: a storage that leaves stands at the end,
+        // and a new one is put behind everything that stays.
+        if (g_factoryGivenCount > 0) storage_retrofit::RemoveGone(building, FactoryGone, nullptr);
+        if (!g_cleanupOnly && g_factoryStorages && g_factoryHelpers)
+            storage_retrofit::Resize(building, FactoryResizeWanted, nullptr);
+        if (!g_cleanupOnly && g_factoryStorages && g_factoryHelpers) FactoryGiveMissing(building, type);
+    }
+    __except (FaultFilter("vehicle_materials factory retrofit", GetExceptionInformation()))
+    {
+        g_factoryCurrentType = nullptr;
+        InterlockedExchange(&g_factoryFaulted, 1);
+        Report("WARN", "vehicle_materials", "factory-fault",
+            "Looking at a loaded factory faulted; the factory part is off for the rest of this session. Action: preserve this log and report it");
+    }
+}
+
+static void InstallFactorySupport()
+{
+    const bool give = !g_cleanupOnly && g_factoryStorages != 0;
+    if (!g_cleanupOnly && !g_factoryStorages)
+        Info("Factories: factory_storages = 0 - the plugin enters the materials as consumption only; every factory needs a storage line of its own for each material");
+    // Needed for giving a storage and for moving storages together when one leaves.
+    g_factoryHelpers = storage_retrofit::Prepare();
+    // A production line has a storage of vehicles among its own - in every mode.
+    storage_retrofit::g_serveVehicleStorages = true;
+    if (give)
+    {
+        if (!g_factoryHelpers)
+            Report("WARN", "SOVIET64.exe", "factory-storages-unavailable",
+                "The game functions for making a storage are not the known ones; the factories get the consumption entries only. Action: update the plugin for this game build, or give the factories a storage line for each material");
+        // Behind everything the factory has: the order of the materials may change between two
+        // sessions, the place of a storage in a building that stands may not.
+        storage_retrofit::g_appendOnly = true;
+        // And nothing the factory has is cloned or freed: the game keeps addresses into a
+        // factory's storages (cloning them cost the factory its power and crashed the game).
+        storage_retrofit::g_keepExisting = true;
+    }
+    const TsmBuildingLoadApi* events = nullptr;
+    if (H && H->structSize >= offsetof(TsmHost, consume) + sizeof(H->consume) && H->consume)
+        events = (const TsmBuildingLoadApi*)H->consume(TSM_SERVICE_BUILDING_LOAD, TSM_BUILDING_LOAD_VERSION);
+    if (!events || !events->subscribe ||
+        !events->subscribe(g_cleanupOnly ? nullptr : FactoryBeforeLoad, FactoryAfterLoad, nullptr, 0))
+    {
+        Info("Factories: this loader does not report loaded buildings (the loader from Republic Mod Manager, b0.4.5-rmm.3 or newer, does); factories that already stand are left as they are - only factories built from now on get the storages");
+        return;
+    }
+    if (g_cleanupOnly)
+        Info("Factories: storages this plugin gave for %d material(s) are taken out of the factories again, when empty, as a saved game is loaded",
+            g_factoryGivenCount);
+    else if (give && g_factoryHelpers)
+        Info("Factories: every production line that takes materials gets a storage of %.0f t and a consumption entry for each material; factories that already stand get the storages, empty, when a saved game is loaded, and lose the empty storage of a material that is no longer listed",
+            g_factoryCapacity);
+    else
+        Info("Factories: the empty storage of a material that is no longer listed is taken out of the factories when a saved game is loaded");
 }
 
 // ---------------------------------------------------------------- hook
@@ -1158,6 +1800,10 @@ static void __fastcall HookVehicleMaterials(void* rcx, void* vehicle)
     g_original(rcx, vehicle);
     if (!InterlockedExchangeAdd(&g_runtimeEnabled, 0)) return;
 
+    // The game reads every building type before it builds its vehicle types, so this is
+    // the first moment the factories can be given what the materials need.
+    EnsureFactoryTypes("game start");
+
     LONG faulted = 0;
     __try
     {
@@ -1167,6 +1813,20 @@ static void __fastcall HookVehicleMaterials(void* rcx, void* vehicle)
         float scale = *(float*)((BYTE*)vehicle + VEHICLE_SCALE);
         if (!_finite(scale) || !(scale > 0.0f) || scale > 1000000.0f)
             return;
+
+        // A vehicle pulled by horses is built from what the game asks for it (wood) and from
+        // nothing of this plugin.
+        if (ReadablePtr((BYTE*)vehicle + VEHICLE_HORSES, 2 * sizeof(void*)))
+        {
+            BYTE* first = *(BYTE**)((BYTE*)vehicle + VEHICLE_HORSES);
+            BYTE* last = *(BYTE**)((BYTE*)vehicle + VEHICLE_HORSES + sizeof(void*));
+            if (first && last > first)
+            {
+                if (g_debug && ReserveLimitedLog())
+                    Report("DEBUG", NULL, "vehicle-horses", "type=%d pulled by horses - no custom materials", rawType);
+                return;
+            }
+        }
 
         Category category = CategoryForType(rawType);
         MaterialEntry entries[MAX_MATERIALS] = {};
@@ -1292,6 +1952,21 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host,
         ApplyConfig(config);
         LogConfig();
 
+        // Storages this plugin gave to factories earlier have to leave them again when their
+        // material is no longer asked for - also when no material is left at all or the
+        // plugin is switched off in its INI. For that alone it stays loaded.
+        FactoryLoadGiven(baseDir);
+        if ((!g_enabled || g_materialCount <= 0) && g_factoryGivenCount > 0)
+        {
+            g_cleanupOnly = true;
+            g_materialCount = 0;
+            Info("%s; the plugin stays loaded only to take the storages it gave to factories out again (%d material(s) on record)",
+                 !g_enabled ? "enabled = 0" : "No material is listed", g_factoryGivenCount);
+            InterlockedExchange(&g_initialized, 1);
+            LogSummary("Initialization", true);
+            return 0;
+        }
+
         if (!g_enabled)
         {
             Info("enabled = 0; plugin remains inactive");
@@ -1336,12 +2011,26 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     try
     {
         if (!H || !g_bound || !InterlockedExchangeAdd(&g_initialized, 0) ||
-            g_materialCount <= 0)
+            (!g_cleanupOnly && g_materialCount <= 0))
         {
             Report("FATAL", NULL, "startup-state",
                 "Required initialized plugin state is unavailable. Action: review the initialization log; no hook was installed");
             LogSummary("Startup", false);
             return 1;
+        }
+
+        if (g_cleanupOnly)
+        {
+            // The offsets of the factory part belong to one game build.
+            if (!BuildMatches())
+            {
+                LogSummary("Startup", false);
+                return 1;
+            }
+            InstallFactorySupport();
+            Info("v%s ready (taking storages out only)", PLUGIN_VERSION);
+            LogSummary("Startup", true);
+            return 0;
         }
 
         g_resources = (const TsmResourceApi*)H->consume(
@@ -1406,7 +2095,8 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
         InterlockedExchange(&g_runtimeEnabled, 1);
 
         Info("Hook active at SOVIET64.exe+0x%X", RVA_VEHICLE_MATERIAL_BUILDER);
-        Info("Automatic mapping: type1=road, type6=ship, type7=airplane, other=rail");
+        InstallFactorySupport();
+        Info("Automatic mapping: type1/2=road, type6=ship, type8/10=airplane, type7/9=rocket, other=rail; horse-drawn vehicles take no extra material");
         Info("v%s ready", PLUGIN_VERSION);
         LogSummary("Startup", true);
         return 0;

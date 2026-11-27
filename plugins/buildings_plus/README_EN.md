@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.3
+# 🏭 Buildings Plus 0.2.8
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
@@ -88,7 +88,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 Republic Mod Manager (version 0.7.0 and later) brings the settings page itself. It shows Buildings Plus in three tabs, German and English:
 
-- **General:** notes, the card "Generated folders" with the switches Fill in the owner id and Clean up folders (prune), plus the card "Troubleshooting" with Always rewrite (always) and Detailed log
+- **General:** notes, the card "Generated folders" with the switches Fill in the owner id and Clean up folders (prune), the card "Saved games" with Keep storages of buildings that already stand in step (retrofit_storages), plus the card "Troubleshooting" with Always rewrite (always) and Detailed log
 - **Buildings:** one row per building with its switch, name, number, donor, state and the buttons Change, Open and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (object name, Workshop id, donor, name in the game, description, life) and **Lines** (the donor's building.ini on the left, your commands on the right; you click a line, type the new one below it and choose Append, Replace, Before or After - the "Result" view shows the file that comes out of it)
 - **Generated buildings:** what has already been generated under `media_soviet\workshop_wip`, with the "Fill in the owner" button that fills in a missing owner id
 
@@ -124,6 +124,8 @@ always = 0
 verbose = 0
 ; 1 also fills the Steam id into generated folders of other generators
 repair_owner_ids = 1
+; 1 gives buildings that already stand new storages of their section on load and takes empty ones out again
+retrofit_storages = 1
 ```
 
 ### Buildings: one section per building
@@ -237,7 +239,7 @@ This section is about the older way with `line` and `strip` only. There your lin
 
 | Quantity | Limit |
 |---|---|
-| `enabled`, `prune`, `always`, `verbose`, `repair_owner_ids` | exactly 0 or 1 |
+| `enabled`, `prune`, `always`, `verbose`, `repair_owner_ids`, `retrofit_storages` | exactly 0 or 1 |
 | building sections | at most 256 |
 | `id` | optional; number from 9000000000 to 9999999999, but not 9100000000 to 9199999999; unique in the file; assigned from 9300000000 when absent |
 | `object`, section name | letters, digits, `_` and `-`, at most 64 characters |
@@ -283,6 +285,11 @@ A Workshop item without a DLL of its own can bring buildings along (`[content] b
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game, Resources Plus or Resources). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.2.8:** the storage follow-up only touches the generated buildings. Before, it looked at every building and could have taken an empty storage out of one that has nothing to do with Buildings Plus.
+- **0.2.7:** export storages (`$STORAGE_EXPORT_SPECIAL`) and every goods class - cement and liquids, for example - follow their line as well: new, bigger, smaller or removed. When a line names a class in which the resource takes nothing (industrial salt in a gravel storage, say), a building that already stands keeps its storage; a newly built one then shows a storage of 0 tons - always use the resource's own class in such a line.
+- **0.2.6:** storages follow their line: when you change the size in a storage line (`$STORAGE_IMPORT_SPECIAL`), buildings that already stand take it the next time a saved game is loaded - bigger at once, smaller as soon as the stock fits. When you change the class (covered, open, gravel), the storage is exchanged as soon as it is empty.
+- **0.2.5:** new switch `retrofit_storages` (on by default) for keeping the storages of buildings that already stand in step. With it off, only newly built buildings get a new storage, and no storage is taken out again.
+- **0.2.4:** buildings that already stand follow their section: when you give a generated building a new storage for a single resource (`$STORAGE_IMPORT_SPECIAL`, covered, open or gravel), the buildings you have built already get it too, empty, when a saved game is loaded. When you take the storage line out again, the storage leaves the buildings as soon as it is empty. This takes the TesmioLoader that comes with Republic Mod Manager.
 - **0.2.3:** bug fixed: a data line that begins with a minus sign (for example the point `-5.2 4.4` of an area or a connection) now belongs to the line above it. It used to stay behind when that line was replaced or removed. All buildings are generated once more at the next game start.
 - **0.2.2:** game buildings whose model or material has another name than the building itself can be donors now (for example the gravel processing plant `gravel_processing` and the brick factory `brick_factory`). The plugin used to stop there with "no material".
 - **0.2.1:** two commands on the same place are refused instead of silently passed over. An insert behind a line an earlier command writes finds it by its data lines too.
@@ -402,5 +409,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.2.3  
+**Last update:** Buildings Plus 0.2.8  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

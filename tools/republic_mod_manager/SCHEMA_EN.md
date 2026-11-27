@@ -656,7 +656,7 @@ field.enabled = Plugin aktivieren
 
 ## 9. Icons and path safety
 
-Built-in icons include `builtin:gear`, `builtin:truck`, `builtin:rail`, `builtin:ship` and `builtin:plane`. Alternatively a safe relative PNG/ICO path inside the package. Absolute paths, `..`, URLs, reparse points, oversized files and invalid image sizes are refused or logged as optional and replaced by a default icon. Asset names may contain spaces and `. _ + ( ) & , ' -`, but no leading dot, no trailing dot or space and no `..`.
+Built-in icons include `builtin:gear`, `builtin:truck`, `builtin:rail`, `builtin:ship`, `builtin:plane` and `builtin:rocket`. Alternatively a safe relative PNG/ICO path inside the package. Absolute paths, `..`, URLs, reparse points, oversized files and invalid image sizes are refused or logged as optional and replaced by a default icon. Asset names may contain spaces and `. _ + ( ) & , ' -`, but no leading dot, no trailing dot or space and no `..`.
 
 ---
 
@@ -689,10 +689,14 @@ resources = tesmio\resources.ini       ; [list], [custom:<id>] and [names:<Langu
 deposits  = tesmio\deposits.ini        ; one section per deposit, as in deposits_plus.ini
 needs     = tesmio\needs.ini           ; [list] as in needs.ini
 buildings = tesmio\buildings.ini       ; one section per building, as in buildings_plus.ini
+rules     = tesmio\vanilla_buildings.ini ; one section per rule set, as in vanilla_buildings.ini
+vehicles  = tesmio\vehicle_materials.ini ; [materials] with <resource> = <road>, <rail>, <ship>, <airplane>[, <rocket>]
+vehicle_rules = tesmio\vehicle_buildings.ini ; rule sets that count only while "Vehicle production" is ON
+shared_buildings = gas_powerplant, gas_heating_plant ; buildings the package shares with other packages
 assets    = assets                     ; folder whose layout starts at media_soviet\...
 ```
 
-All five lines are optional on their own; at least one content file or the asset folder must be there. RMM reads the files loosely (repeated keys are allowed); a broken file rejects the whole package.
+All nine lines are optional on their own; at least one content file or the asset folder must be there. RMM reads the files loosely (repeated keys are allowed); a broken file rejects the whole package.
 
 **What RMM makes of it.** The package page has no settings, only the switch "Provide in the game". On save:
 
@@ -700,6 +704,10 @@ All five lines are optional on their own; at least one content file or the asset
 - The entries appear in that plugin's editor as originals: overridable, not deletable. If an id already exists there (an entry of your own, an original entry or one from another package), RMM does not provide the package at all: the package page names the id, nothing is written and no file is copied until the existing entry is gone.
 - For resources, every list entry takes its lines from the other sections of the content file along: prices (`[base_price]`, `[price]`) and names per game language (`[names:German]` with `<id> = <name>`; `German` as in the game's file name `sovietGerman.btf`). A line for an id the package does not bring itself stays out. Resources Plus 0.1.4 or newer shows the names; older versions and the original Resources skip the section.
 - `assets` is copied to `tesmioloader\vfs`, path for path.
+- `rules` goes to vanilla_buildings: every section but `[general]` is a rule set and appears there as an original, with all its repeated lines (`target`, `add`, ...).
+- `vehicles` is taken by no editor. The file has one section `[materials]`; every line names a resource and four or five numbers from 0 up (road, rail, ship, airplane and, if given, rocket parts), at least one above 0 - the coefficients of Vehicle Materials. It gives the package page the card "Vehicle production" with ON and OFF. With ON (and the package provided) RMM enters every resource of the file as an ordinary entry in the personal values of Vehicle Materials (`user_config\vehicle_materials.ini`: `[resources]` and one line each in `[road]`, `[rail]`, `[ship]`, `[airplane]`) and sets `enabled = 1` there. A resource the player already lists keeps his values; the package's numbers are starting values only. With OFF, and when the package is switched off, RMM takes the entries out again. The card shows what is in the list: with every resource of the package there it is ON, whoever entered them. The card shows the resource by the name from the package's resource list. If the package does not bring the resource itself, the file gives the name in two more sections: `[names]` for every language and `[names:German]` for the German RMM, one line `<resource> = <name>` each; without them the card shows the id. That the player has decided is kept in the receipt (`vehicles = on|off`); as long as that is missing and the resource is not in the list, RMM says so on the card, in "Before the game starts" and before every start.
+- `vehicle_rules` only exists together with `vehicles`. The file is built like the one of `rules` (one section per rule set for vanilla_buildings) and carries what vehicle production needs on top - as a rule the storage for the material: `add = $STORAGE_IMPORT_SPECIAL <class> <amount> <resource>` with one `target` line per vehicle factory. The rule sets reach vanilla_buildings only with ON and leave again with OFF. A `target` line whose file the player does not have (DLC not owned) is left out by RMM; a rule set without a target left is dropped. Several packages name the same factory, so these rule sets may only use `add` (Vanilla Buildings 0.4.8 or newer lets such rule sets share a target file). If vanilla_buildings is missing or off, RMM reports it like a missing choice.
+- `shared_buildings` names sections of the package's own `buildings` file that another package brings just the same. When both packages name the section here, it is no conflict: the package that comes first in the fixed order (by the name of the receipt folder, that is the mod id) supplies it, the other steps in when the first is switched off. The section stays in the INI of Buildings Plus, its generated folder stays, and since the section name is the same, so is the building's number - saved games keep loading. Only when no package supplies it any more does it go. If the packages bring different versions, the other package's page says so; the supplying one counts. A package that does not name the section here is a conflict as before. Every name has to be a section of the package's own buildings file.
 - For deposits RMM assigns `type` itself (10 to 127, free against everything the plugin already knows) and sets `map = auto`; `component` is dropped. A number once assigned stays with its section.
 - A receipt under `user_config\.autoload\content\<mod id>\` records what is provided. If the package changes in the Workshop, the "Update" mark appears; saving takes over the new state.
 

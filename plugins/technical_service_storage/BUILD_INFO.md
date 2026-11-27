@@ -5,6 +5,33 @@ kernel32.lib only. Companion plugins: weather_roads (consumer of the `tss.grit_s
 service), vanilla_buildings (depot storage definitions), localization (text pack
 `technical_service_storage`). History newest first.
 
+## 0.3.9 (2026-11-26)
+
+- Depot migration (`storage_migration.h`): the storages a depot has are no longer cloned and
+  freed when a missing one is added. The game makes a block with room for all (pushes of
+  plain definition storages), the existing storages are copied into it bit by bit, the new
+  ones follow, and the old block stays allocated and untouched. Reason: the cloning form,
+  used by Vehicle Materials on a vehicle factory, cost the factory its power and crashed the
+  game twice (a pointer with a zeroed upper half) - the game keeps addresses into the
+  storages of a building. Vehicle Materials 0.4.6 showed the moving form to work in the game
+  on a factory. For depots it has not been seen in the game at the time of writing.
+
+## 0.3.8 (2026-11-26)
+
+- Storage migration: `InstallStorageMigrationHook` first asks the loader for the service
+  `tesmio.building_load` (`TSM_SERVICE_BUILDING_LOAD`, loader b0.4.5-rmm.3 or newer). With it the
+  plugin subscribes (`MigrationEventBefore` takes `g_storageLoadLock`, `MigrationEventAfter` runs
+  `MigrationAfterLoad` when the load completed and releases the lock; subscribed as the outermost
+  one, `TSM_BUILDING_LOAD_OUTER`, so the lock spans every other plugin's work on the building)
+  and does not patch the call
+  at 0x457617 any more: other plugins need the same moment and only one patch fits there. Without
+  the service (MaxLegend's loader) or when the subscription is refused, the direct patch is
+  placed as before, with the same byte checks of the call and of the game's loader.
+- The four native helpers (push, deep copy, vector destructor, controls) are verified on both
+  paths. The log line `Storage migration [load-hook]` says `via=loader-building-load-event` on
+  the new path. The reconciliation itself is unchanged.
+- No game address changed. Not run in the game with a saved game at the time of writing.
+
 ## 0.3.7 (2026-11-25)
 
 Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574, image 0xAE9000); 1.2.0.8 is refused by the stamp. No

@@ -1,4 +1,4 @@
-# 📦 Needs Plus 0.1.5
+# 📦 Needs Plus 0.1.7
 
 **Extension of the TesmioLoader plugin needs**
 
@@ -176,6 +176,8 @@ Unchanged from the original: the storage slots of the shops are part of the save
 
 ### Version compatibility
 - With Soviet Mod Loader: SML brings needs of its own. While it runs, this plugin pauses and says so in the log; if you want Needs Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.7: when a saved game loads, the empty slot for furniture, table salt and the like disappears from works that got it from an earlier version - only while it is empty and only if the building does not stock the good itself (a furniture factory keeps its furniture storage). Shops and hotels stay as they are. Needs the loader from Republic Mod Manager (b0.4.5-rmm.3 or newer).
+- 0.1.6: new goods like furniture or table salt now only go to shops and hotels. Before, factories got an empty storage slot for them too, for example the airplane and rocket works one for furniture. A works that is already built keeps that empty slot; it does no harm.
 - 0.1.5: for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
 - 0.1.4: for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged.
 - 0.1.3: the first list is now also made from the original's `needs.ini` when the original lies only in the Workshop folder. Before, the plugin looked in the loader folder only and took the shipped list otherwise
@@ -198,7 +200,7 @@ Unchanged from the original: the storage slots of the shops are part of the save
 | Citizens want the good, shops do not have it | `storage = 0` | Set `storage = 1` or stock the shops yourself |
 
 ### Logging
-- Summary in `tesmioloader.log`: the loader's line with `needs_plus` and the version `0.1.5`, at the first start `created plugins\needs_plus.ini from …`, then one line per need with donor, factor and category; invalid INI values show up there as WARN lines
+- Summary in `tesmioloader.log`: the loader's line with `needs_plus` and the version `0.1.7`, at the first start `created plugins\needs_plus.ini from …`, then one line per need with donor, factor and category; invalid INI values show up there as WARN lines
 - With `probe = 1` the plugin writes the citizens' demand lists and the shops' storage slots into its own log `logs\tesmioloader.needs_plus.log`
 
 ---
@@ -254,5 +256,5 @@ A: Republic Mod Manager switches the original off as soon as Needs Plus is switc
 
 ---
 
-**Last update:** Needs Plus 0.1.5  
+**Last update:** Needs Plus 0.1.7  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

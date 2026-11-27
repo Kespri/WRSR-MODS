@@ -1,4 +1,4 @@
-# 📦 Needs Plus 0.1.5
+# 📦 Needs Plus 0.1.7
 
 **Erweiterung des TesmioLoader-Plugins needs**
 
@@ -176,6 +176,8 @@ Unverändert gegenüber dem Original: Die Lagerplätze der Läden sind Teil des 
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Bedürfnisse selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Needs Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.7: Beim Laden eines Spielstands verschwindet der leere Platz für Möbel, Speisesalz und Co. aus Werken, die ihn von einer früheren Version bekommen haben – nur wenn er leer ist und das Gebäude die Ware nicht selbst führt (eine Möbelfabrik behält ihr Möbel-Lager). Läden und Hotels bleiben, wie sie sind. Braucht den Loader aus dem Republic Mod Manager (ab b0.4.5-rmm.3).
+- 0.1.6: Neue Waren wie Möbel oder Speisesalz landen nur noch in Läden und Hotels. Vorher bekamen auch Fabriken einen leeren Lagerplatz dafür, etwa das Flugzeugwerk und das Raketenwerk einen für Möbel. Ein schon gebautes Werk behält diesen leeren Platz; er stört nicht.
 - 0.1.5: Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert.
 - 0.1.4: Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert.
 - 0.1.3: Die erste Liste entsteht jetzt auch aus der `needs.ini` des Originals, wenn das Original nur im Workshop-Ordner liegt. Vorher sah das Plugin nur im Loader-Ordner nach und nahm sonst die mitgelieferte Liste
@@ -198,7 +200,7 @@ Unverändert gegenüber dem Original: Die Lagerplätze der Läden sind Teil des 
 | Bürger wollen die Ware, Läden haben sie nicht | `storage = 0` | `storage = 1` setzen oder die Läden selbst bestücken |
 
 ### Logging
-- Zusammenfassung in `tesmioloader.log`: die Zeile des Loaders mit `needs_plus` und der Version `0.1.5`, beim ersten Start `created plugins\needs_plus.ini from …`, dann je Bedürfnis eine Zeile mit Spender, Faktor und Kategorie; ungültige Werte in der INI stehen dort als WARN-Zeile
+- Zusammenfassung in `tesmioloader.log`: die Zeile des Loaders mit `needs_plus` und der Version `0.1.7`, beim ersten Start `created plugins\needs_plus.ini from …`, dann je Bedürfnis eine Zeile mit Spender, Faktor und Kategorie; ungültige Werte in der INI stehen dort als WARN-Zeile
 - Mit `probe = 1` schreibt das Plugin die Bedürfnislisten der Bürger und die Lagerplätze der Läden in sein eigenes Protokoll `logs\tesmioloader.needs_plus.log`
 
 ---
@@ -254,5 +256,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Needs Plus eingeschalt
 
 ---
 
-**Letzte Aktualisierung:** Needs Plus 0.1.5  
+**Letzte Aktualisierung:** Needs Plus 0.1.7  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

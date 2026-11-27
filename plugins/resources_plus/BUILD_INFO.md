@@ -30,7 +30,7 @@ User documentation: README_DE.md / README_EN.md. History newest first, technical
   `RES_MARKET_USD` and the keys `market_rub` / `market_usd` still say the opposite and are left
   alone (their defaults reproduce the base-game records by offset). Which of +0x78 / +0x7C is the
   rouble base price is not established.
-- Not run in the game yet at the time of writing.
+- Confirmed in the game by the user on 2026-11-26: the customhouse shows the fixed LNG price.
 
 ## 0.1.7 (2026-11-25)
 

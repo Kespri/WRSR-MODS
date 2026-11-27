@@ -76,6 +76,9 @@
 #include <vector>
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
 
 // Optional text service. A `name =` that looks like a localisation key is
 // resolved to the text id the game's own $NAME takes, so a generated building
@@ -91,7 +94,7 @@ typedef struct TsmLocalizationApi
 } TsmLocalizationApi;
 #endif
 
-#define PLUGIN_VERSION    "0.2.3"
+#define PLUGIN_VERSION    "0.2.8"
 #define PLUGIN_INI        "plugins\\buildings_plus.ini"
 #define PLUGIN_LOG_NAME   "tesmioloader.buildings_plus.log"
 #define STAMP_NAME        "tesmioloader.stamp"
@@ -158,6 +161,9 @@ static bool g_prune   = false;   // remove our stamped folders whose declaration
 // On by default: without it the game asks about missing Workshop items on every
 // single save load, and there is nothing the player can do about it.
 static bool g_repairOwners = true;
+// Keep buildings that already stand in step with the storage lines of generated
+// buildings when a saved game is loaded. On by default.
+static bool g_retrofit = true;
 static std::wstring g_outDir = L"media_soviet\\workshop_wip";
 static std::wstring g_gameDir;
 static std::wstring g_media;
@@ -1994,6 +2000,7 @@ static void LoadRegistry(const std::string& text)
             else if (_stricmp(key.c_str(), "verbose") == 0) { if (ParseBool(val, &b)) g_verbose = b; else Warn("line %u: verbose must be 0 or 1", (unsigned)no); }
             else if (_stricmp(key.c_str(), "prune")   == 0) { if (ParseBool(val, &b)) g_prune   = b; else Warn("line %u: prune must be 0 or 1", (unsigned)no); }
             else if (_stricmp(key.c_str(), "repair_owner_ids") == 0) { if (ParseBool(val, &b)) g_repairOwners = b; else Warn("line %u: repair_owner_ids must be 0 or 1", (unsigned)no); }
+            else if (_stricmp(key.c_str(), "retrofit_storages") == 0) { if (ParseBool(val, &b)) g_retrofit = b; else Warn("line %u: retrofit_storages must be 0 or 1", (unsigned)no); }
             else if (_stricmp(key.c_str(), "out")     == 0) { if (!val.empty() && val.find("..") == std::string::npos) g_outDir = Wide(val); else Warn("line %u: out must be a folder without ..", (unsigned)no); }
             else Warn("line %u: unknown switch \"%s\" - ignored", (unsigned)no, key.c_str());
             continue;
@@ -2383,6 +2390,269 @@ static int Run(const std::string& configText, const char* configName)
     return 0;
 }
 
+// ---------------------------------------------------------------- buildings that already stand
+//
+// A generated building is an ordinary building for the game: when its section changes, the
+// folder is written anew and buildings built from then on follow it - the ones that already
+// stand in a saved game keep the storages they were built with. This part closes that gap
+// for storages: when a saved game is loaded, every finished building gets the single-resource
+// import and export storages ($STORAGE_IMPORT_SPECIAL, $STORAGE_EXPORT_SPECIAL, goods classes) of a generated
+// definition that it lacks, empty, behind the storages it has; and a storage of a resource
+// that once stood in a generated definition and that the building's definition no longer has
+// leaves the building again as soon as it is empty.
+//
+// It is storage_retrofit.h, shared with Vanilla Buildings and Vehicle Materials: nothing a
+// building has is cloned, destroyed or freed. THE ONLY GAME ADDRESSES OF THIS PLUGIN are in
+// that header (WRSR 1.2.0.9); on another build the header refuses and nothing happens.
+// The moment "a building was loaded" comes from the loader (service tesmio.building_load).
+static void RetrofitReport(const char* level, const char* rule, const char* fmt, ...)
+{
+    va_list ap; va_start(ap, fmt); std::string s = FormatV(fmt, ap); va_end(ap);
+    std::string line = std::string("Storage retrofit [") + rule + "] " + s;
+    if (strcmp(level, "WARN") == 0) Warn("%s", line.c_str());
+    else if (strcmp(level, "DEBUG") == 0) Info("%s", line.c_str());
+    else Note("%s", line.c_str());
+}
+#define STORAGE_RETROFIT_REPORT(level, rule, ...) RetrofitReport(level, rule, __VA_ARGS__)
+#include "../storage_retrofit.h"
+
+struct OwnedStorage
+{
+    std::string resource;
+    int         transportClass;
+    float       capacity;
+    bool        exported = false;
+};
+static std::vector<OwnedStorage> g_ownedStorages;
+// How each generated definition looks to the game: its single-resource storages as
+// "I|E <class> <tons> <resource>", sorted, and how many plain $STORAGE_IMPORT / $STORAGE_EXPORT
+// lines it has besides (a class with only one resource makes a single storage of such a
+// line too). Only a building whose definition matches one of these is served: the plugin
+// has no business with the storages of any other building.
+struct GeneratedShape
+{
+    std::vector<std::string> singles;
+    size_t plain = 0;
+};
+static std::vector<GeneratedShape> g_generatedShapes;
+// The resources that ever stood in a storage line of a generated definition:
+// <loader>\plugins\buildings_plus.storages.txt, one per line, lower case.
+static std::vector<std::string> g_givenResources;
+static std::wstring g_givenPath;
+
+static std::string LowerName(const std::string& text)
+{
+    std::string result = text;
+    for (char& c : result) if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+    return result;
+}
+
+static bool PlainResourceName(const std::string& name)
+{
+    if (name.empty() || name.size() > 63) return false;
+    for (char c : name)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) return false;
+    return true;
+}
+
+// "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_<COVERED|OPEN|GRAVEL> <tons> <resource>"
+static bool ParseStorageLine(const std::string& line, OwnedStorage* out)
+{
+    std::vector<std::string> words;
+    std::string word;
+    for (size_t i = 0; i <= line.size(); ++i)
+    {
+        char c = i < line.size() ? line[i] : ' ';
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') { if (!word.empty()) { words.push_back(word); word.clear(); } }
+        else word += c;
+    }
+    if (words.size() != 4 || (words[0] != "$STORAGE_IMPORT_SPECIAL" && words[0] != "$STORAGE_EXPORT_SPECIAL")) return false;
+    // Every class goods are stored in; water, electricity and the like are no such line.
+    const int transport = storage_retrofit::ClassNumber(words[1].c_str());
+    if (transport < 0) return false;
+    char* end = nullptr;
+    double capacity = strtod(words[2].c_str(), &end);
+    if (!end || *end || !(capacity > 0.0) || capacity > 1000000.0) return false;
+    if (!PlainResourceName(words[3])) return false;
+    out->resource = words[3];
+    out->transportClass = transport;
+    out->capacity = (float)capacity;
+    out->exported = words[0] == "$STORAGE_EXPORT_SPECIAL";
+    return true;
+}
+
+static std::string ShapeKey(bool exported, int transportClass, float capacity, const std::string& resource)
+{
+    char buffer[160];
+    _snprintf_s(buffer, sizeof(buffer), _TRUNCATE, "%c %d %.3f %s", exported ? 'E' : 'I', transportClass, capacity, LowerName(resource).c_str());
+    return buffer;
+}
+
+// The singles of a definition the game read (sorted) against every generated shape: all of
+// the shape's singles are there, and what the definition has beyond them is no more than the
+// plain storage lines of the shape could make.
+static bool ShapeMatches(const std::vector<std::string>& singles)
+{
+    for (const GeneratedShape& shape : g_generatedShapes)
+    {
+        if (shape.singles.empty() || singles.size() < shape.singles.size() || singles.size() - shape.singles.size() > shape.plain) continue;
+        if (std::includes(singles.begin(), singles.end(), shape.singles.begin(), shape.singles.end())) return true;
+    }
+    return false;
+}
+
+static bool OwnsStorage(const char* resource, int transportClass, float capacity)
+{
+    for (const OwnedStorage& s : g_ownedStorages)
+        if (s.transportClass == transportClass && fabsf(s.capacity - capacity) < 0.001f &&
+            _stricmp(s.resource.c_str(), resource) == 0) return true;
+    return false;
+}
+
+// The storage lines of every building that was generated or found up to date this start,
+// read from the files the game reads.
+static void CollectGeneratedStorages()
+{
+    g_ownedStorages.clear();
+    g_generatedShapes.clear();
+    for (size_t i = 0; i < g_decls.size(); i++)
+    {
+        const Decl& d = g_decls[i];
+        if (!d.valid || !d.enabled || d.id.empty() || d.object.empty()) continue;
+        std::string text;
+        if (!ReadTextFile(OutRoot() + L"\\" + Wide(d.id) + L"\\" + Wide(d.object) + L"\\building.ini", &text)) continue;
+        std::vector<std::string> lines = SplitLines(text);
+        GeneratedShape shape;
+        for (size_t k = 0; k < lines.size(); k++)
+        {
+            std::string line = TrimCopy(lines[k]);
+            OwnedStorage s;
+            if (ParseStorageLine(line, &s))
+            {
+                shape.singles.push_back(ShapeKey(s.exported, s.transportClass, s.capacity, s.resource));
+                if (!OwnsStorage(s.resource.c_str(), s.transportClass, s.capacity)) g_ownedStorages.push_back(s);
+            }
+            else if (line.compare(0, 16, "$STORAGE_IMPORT ") == 0 || line.compare(0, 16, "$STORAGE_EXPORT ") == 0 ||
+                     line.compare(0, 16, "$STORAGE_IMPORT\t") == 0 || line.compare(0, 16, "$STORAGE_EXPORT\t") == 0)
+                ++shape.plain;
+        }
+        std::sort(shape.singles.begin(), shape.singles.end());
+        if (!shape.singles.empty()) g_generatedShapes.push_back(shape);
+    }
+}
+
+static bool GivenResource(const std::string& lower)
+{
+    return std::find(g_givenResources.begin(), g_givenResources.end(), lower) != g_givenResources.end();
+}
+
+static void LoadGivenResources()
+{
+    g_givenResources.clear();
+    g_givenPath = Wide(g_baseDir ? g_baseDir : "") + L"\\plugins\\buildings_plus.storages.txt";
+    std::string text;
+    if (!ReadTextFile(g_givenPath, &text)) return;
+    std::vector<std::string> lines = SplitLines(text);
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        std::string name = TrimCopy(lines[i]);
+        if (name.empty() || name[0] == ';' || !PlainResourceName(name)) continue;
+        name = LowerName(name);
+        if (!GivenResource(name)) g_givenResources.push_back(name);
+    }
+}
+
+static void SaveGivenResources()
+{
+    std::string text =
+        "; Written by the plugin Buildings Plus: the resources its generated buildings had a\r\n"
+        "; storage line for. A storage whose line is gone is taken out of the buildings again\r\n"
+        "; when it is empty. Do not edit.\r\n";
+    for (size_t i = 0; i < g_givenResources.size(); i++) text += g_givenResources[i] + "\r\n";
+    WriteTextFileAtomic(g_givenPath, text);
+}
+
+static bool RetrofitWanted(const char* resource, int transportClass, float capacity, void*)
+{
+    return OwnsStorage(resource, transportClass, capacity);
+}
+
+static bool RetrofitGone(const char* resource, int, void*)
+{
+    return GivenResource(LowerName(resource ? resource : ""));
+}
+
+static void CollectSingle(const char* resource, int transportClass, float capacity, int direction, void* context)
+{
+    ((std::vector<std::string>*)context)->push_back(ShapeKey(direction == storage_retrofit::WAY_EXPORT, transportClass, capacity, resource ? resource : ""));
+}
+
+static void __cdecl RetrofitAfterLoad(void* building, void*, int completed)
+{
+    if (!completed) return;
+    // Only a building whose definition is one of the generated ones.
+    std::vector<std::string> singles;
+    if (storage_retrofit::DefinitionSingles((BYTE*)building, CollectSingle, &singles) <= 0) return;
+    std::sort(singles.begin(), singles.end());
+    if (!ShapeMatches(singles)) return;
+    // First what is gone, then what is missing.
+    if (!g_givenResources.empty()) storage_retrofit::RemoveGone((BYTE*)building, RetrofitGone, nullptr);
+    // A storage whose line names another size follows it.
+    if (!g_ownedStorages.empty()) storage_retrofit::Resize((BYTE*)building, RetrofitWanted, nullptr);
+    if (!g_ownedStorages.empty()) storage_retrofit::AfterLoad((BYTE*)building, RetrofitWanted, nullptr);
+}
+
+static void InstallStorageRetrofit()
+{
+    CollectGeneratedStorages();
+    LoadGivenResources();
+    const size_t recorded = g_givenResources.size();
+    for (const OwnedStorage& s : g_ownedStorages)
+    {
+        std::string name = LowerName(s.resource);
+        if (!GivenResource(name)) g_givenResources.push_back(name);
+    }
+    if (g_givenResources.size() != recorded) SaveGivenResources();
+    // The record is kept either way: a storage line that existed while the switch was off
+    // has reached the buildings built in that time.
+    if (!g_retrofit)
+    {
+        Note("storage retrofit: off (retrofit_storages = 0); a new storage line reaches buildings that are built afterwards only, and no storage is taken out again");
+        return;
+    }
+    if (g_ownedStorages.empty() && g_givenResources.empty())
+    {
+        Info("storage retrofit: no generated building has a single-resource import or export storage - nothing to do");
+        return;
+    }
+    const TsmBuildingLoadApi* events = nullptr;
+    if (H && H->structSize >= offsetof(TsmHost, consume) + sizeof(H->consume) && H->consume)
+        events = (const TsmBuildingLoadApi*)H->consume(TSM_SERVICE_BUILDING_LOAD, TSM_BUILDING_LOAD_VERSION);
+    if (!events || !events->subscribe)
+    {
+        Info("storage retrofit: this loader does not report loaded buildings (the loader from Republic Mod Manager, b0.4.5-rmm.3 or newer, does); buildings that already stand keep the storages they were built with");
+        return;
+    }
+    if (!storage_retrofit::Prepare())
+    {
+        Warn("storage retrofit: the game functions it needs are not the known ones; buildings that already stand keep the storages they were built with. Update the plugin for this game build");
+        return;
+    }
+    // Nothing a building has is cloned or freed, and nothing it has changes its place when a
+    // storage is added. A generated building may be a production line, which has a storage
+    // of vehicles among its own.
+    storage_retrofit::g_keepExisting = true;
+    storage_retrofit::g_appendOnly = true;
+    storage_retrofit::g_serveVehicleStorages = true;
+    if (!events->subscribe(nullptr, RetrofitAfterLoad, nullptr, 0))
+    {
+        Warn("storage retrofit: the loader did not take the subscription to its building-load event; buildings that already stand keep the storages they were built with");
+        return;
+    }
+    Note("storage retrofit: %u storage line(s) of %u generated building(s), %u resource(s) on record; generated buildings that already stand get the storages they lack, empty, when a saved game is loaded, and lose the empty storage of a line that is gone; other buildings are left alone",
+         (unsigned)g_ownedStorages.size(), (unsigned)g_generatedShapes.size(), (unsigned)g_givenResources.size());
+}
+
 extern "C" __declspec(dllexport) unsigned TsmPluginApiVersion(void)
 {
     return TSM_API_VERSION;
@@ -2401,8 +2671,9 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
     return 0;
 }
 
-// Second phase. Nothing here hooks the game - the work is reading the INI and
-// writing folders under media_soviet, which the game only scans later.
+// Second phase: reading the INI and writing folders under media_soviet, which the game
+// only scans later. The plugin itself hooks nothing; for the buildings that already
+// stand it subscribes to the loader's building-load event (see above).
 extern "C" __declspec(dllexport) int TsmPluginStart(void)
 {
     if (H && H->consume)
@@ -2423,7 +2694,10 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
             Note("no %s - nothing declared", Narrow(cfg).c_str());
             return 0;
         }
-        return Run(text, Narrow(cfg).c_str());
+        const int result = Run(text, Narrow(cfg).c_str());
+        // The buildings are written; now the ones that already stand in a saved game.
+        if (result == 0) InstallStorageRetrofit();
+        return result;
     }
     catch (const std::exception& e) { Error("C++ exception during startup: %s - nothing more generated this start", e.what()); }
     catch (...) { Error("unknown C++ exception during startup - nothing more generated this start"); }
@@ -2711,6 +2985,14 @@ int wmain(int argc, wchar_t** argv)
     EnsureDir(out + L"\\9188000003"); Put(out + L"\\9188000003\\" + Wide(STAMP_NAME), foreignStamp);
     Put(out + L"\\9188000003\\workshopconfig.ini", "$ITEM_ID 9188000003\r\n\r\n$OWNER_ID 76561197960287777\r\n\r\n$END\r\n");
 
+    g_warnings = 0; g_errors = 0; g_retrofit = true;
+    Run("[buildings_plus]\nenabled = 1\nprune = 0\nrepair_owner_ids = 0\nretrofit_storages = 0\n", "test");
+    Check(!g_retrofit && g_warnings == 0, "retrofit_storages = 0 switches the retrofit off");
+    Run("[buildings_plus]\nenabled = 1\nprune = 0\nrepair_owner_ids = 0\nretrofit_storages = 1\n", "test");
+    Check(g_retrofit && g_warnings == 0, "retrofit_storages = 1 switches the retrofit on");
+    Run("[buildings_plus]\nenabled = 1\nprune = 0\nrepair_owner_ids = 0\nretrofit_storages = 2\n", "test");
+    Check(g_retrofit && g_warnings == 1, "retrofit_storages takes 0 or 1 only and keeps its value otherwise");
+
     g_warnings = 0; g_errors = 0;
     Run("[buildings_plus]\nenabled = 1\nprune = 0\nrepair_owner_ids = 0\n", "test");
     Check(ReadTextFile(out + L"\\9188000001\\workshopconfig.ini", &cfg) && cfg == smlCfg,
@@ -2986,6 +3268,52 @@ int wmain(int argc, wchar_t** argv)
         DonorArt none = FindDonorArt(L"not_listed");
         Check(Has(Narrow(none.model), "buildings\\not_listed.nmf") && Has(Narrow(none.emissive), "not_listed_e.mtl"),
               "a type the list does not have keeps the three fallback names");
+    }
+
+    {
+        // Storage lines of generated buildings, for the buildings that already stand.
+        OwnedStorage o;
+        Check(ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable", &o) &&
+              o.resource == "cable" && o.transportClass == storage_retrofit::TRANSPORT_OPEN && o.capacity == 50.0f,
+              "a storage line of one resource is read: class, tons, resource");
+        Check(ParseStorageLine("$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_CEMENT 20 industrial_salt", &o) &&
+              o.resource == "industrial_salt" && o.transportClass == 4 && o.capacity == 20.0f &&
+              ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OIL 50 fuel", &o) && o.transportClass == 3,
+              "an export line and every goods class are read as well");
+        Check(!ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_WATER 50 water", &o) &&
+              !ParseStorageLine("$STORAGE_IMPORT RESOURCE_TRANSPORT_OPEN 50", &o) &&
+              !ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 0 cable", &o) &&
+              !ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 no name", &o),
+              "other classes, other tokens, no tons and a name with a blank are not such a line");
+        std::wstring ini = media + L"\\workshop_wip\\9400000080\\Plant\\building.ini";
+        std::string body;
+        Check(ReadTextFile(ini, &body) &&
+              WriteTextFileAtomic(ini, body + "\r\n  $STORAGE_IMPORT_SPECIAL\tRESOURCE_TRANSPORT_GRAVEL 120.5 Road_Salt\r\n"),
+              "the generated file takes a storage line for the check");
+        CollectGeneratedStorages();
+        Check(OwnsStorage("road_salt", storage_retrofit::TRANSPORT_GRAVEL, 120.5f) &&
+              !OwnsStorage("road_salt", storage_retrofit::TRANSPORT_OPEN, 120.5f) &&
+              !OwnsStorage("road_salt", storage_retrofit::TRANSPORT_GRAVEL, 120.0f),
+              "the storage lines of a generated building are collected from the file the game reads");
+        g_givenResources.clear();
+        g_givenResources.push_back("road_salt");
+        Check(RetrofitGone("ROAD_SALT", 0, nullptr) && !RetrofitGone("sand", 0, nullptr),
+              "a resource on record is one whose storage may leave again; another is not");
+        // Only a building whose definition is one of the generated ones is served.
+        Check(!g_generatedShapes.empty(), "the generated building leaves its shape");
+        const GeneratedShape shape = g_generatedShapes.back();
+        std::vector<std::string> same = shape.singles;
+        Check(ShapeMatches(same), "a definition with the same single storages is a generated one");
+        std::vector<std::string> fewer = same; fewer.pop_back();
+        Check(fewer.empty() || !ShapeMatches(fewer), "a definition that lacks one of them is not");
+        std::vector<std::string> more = same;
+        for (size_t extra = 0; extra <= shape.plain; ++extra) more.push_back(ShapeKey(false, 1, 7.0f, "zz_extra" + std::to_string(extra)));
+        std::sort(more.begin(), more.end());
+        Check(!ShapeMatches(more), "a definition with more single storages than its plain lines can make is not");
+        std::vector<std::string> other;
+        other.push_back(ShapeKey(false, storage_retrofit::TRANSPORT_GRAVEL, 120.5f, "road_salt"));
+        Check(shape.singles.size() == 1 || !ShapeMatches(other), "one matching storage alone does not make a generated building");
+        Check(ShapeKey(true, 4, 20.0f, "Industrial_Salt") == "E 4 20.000 industrial_salt", "the shape key: direction, class, tons, resource in lower case");
     }
 
     printf(g_failed ? "RESULT %d check(s) FAILED\n" : "RESULT all buildings_plus self-tests passed\n", g_failed);

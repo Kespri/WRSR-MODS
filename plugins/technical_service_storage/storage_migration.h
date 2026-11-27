@@ -1,6 +1,8 @@
 // Add-only reconciliation at the native building-load call boundary.
-// No polling, live UI mutation, raw memcpy of owning Storage objects, or use
-// of the plugin's C++ allocator for game-owned memory. See TECHNICAL_NOTES.md.
+// No polling, live UI mutation, or use of the plugin's C++ allocator for
+// game-owned memory. The storages a depot has are moved bit by bit into a block
+// the game made; nothing of them is cloned or freed (MigrationBuildReplacement).
+// See TECHNICAL_NOTES.md.
 #pragma once
 
 static const DWORD RVA_MIGRATION_BUILDING_LOAD = 0x0020B790;
@@ -318,29 +320,57 @@ static bool MigrationPrepareEmpty(BYTE* storage, BYTE* definition)
     return MigrationStorageValid(storage);
 }
 
+// A definition storage of one resource with nothing else in it: what stands in for a place
+// the depot's own storage will take.
+static bool MigrationPlainOneSlot(BYTE* storage)
+{
+    if (!ReadablePtr(storage, STORAGE_SIZE) || *(BYTE**)(storage + 0xC0) != nullptr) return false;
+    for (size_t i = 0; i < _countof(MIGRATION_VECTOR_OFFSETS); ++i)
+    {
+        MigrationVector view = {};
+        size_t count = 0;
+        if (!MigrationReadVector(storage + MIGRATION_VECTOR_OFFSETS[i],
+                MIGRATION_VECTOR_STRIDES[i], 4096, &view, &count)) return false;
+        if (i == 0 ? count != 1 : (i != 2 && count != 0)) return false;
+    }
+    return true;
+}
+
+// NOTHING THE DEPOT HAS IS CLONED OR FREED. The earlier form of this function replaced every
+// storage by a clone (the game's copy constructor) and freed the originals. Done to a
+// vehicle factory by Vehicle Materials, exactly that cost the factory its power for the
+// session and crashed the game twice on a pointer whose upper half had been zeroed: the game
+// keeps addresses into the storages of a building. So the storages are moved instead:
+//   - the game makes the block (pushes of plain definition storages as placeholders, then the
+//     new storages), so it can free it one day like any other;
+//   - the depot's own storages are copied over the placeholders bit by bit. Their slot and
+//     control lists stay where they are and stay owned once, by the storage at its new place;
+//   - the old block is not freed and its storages are not destroyed (MigrationAfterLoad): it
+//     keeps the same bytes, so an address into it still leads to the same lists. That leaves
+//     originalCount * 0xE0 bytes allocated per migrated depot, and 16 bytes per placeholder.
 static bool MigrationBuildReplacement(const MigrationPlan& plan, MigrationVector* staged)
 {
-    // Exceptions leave the original untouched; the caller disposes staged.
+    // Exceptions and every failure below happen before anything is shared; the caller may
+    // then dispose staged.
     for (size_t i = 0; i < plan.originalCount; ++i)
-        g_migrationPush(staged, plan.original.begin + i * STORAGE_SIZE);
+        g_migrationPush(staged, plan.add[0].definition);
     for (size_t i = 0; i < plan.count; ++i)
-    {
         g_migrationPush(staged, plan.add[i].definition);
-        if (!MigrationPrepareEmpty(staged->end - STORAGE_SIZE, plan.add[i].definition))
-            return false;
-    }
     MigrationVector checked = {};
     size_t count = 0;
     if (!MigrationReadVector(staged, STORAGE_SIZE, MAX_STORAGES, &checked, &count) ||
         count != plan.originalCount + plan.count) return false;
+    // No push after this point: the block does not move any more.
     for (size_t i = 0; i < plan.originalCount; ++i)
-        if (!MigrationCopyMatches(plan.original.begin + i * STORAGE_SIZE,
-                staged->begin + i * STORAGE_SIZE)) return false;
+        if (!MigrationPlainOneSlot(staged->begin + i * STORAGE_SIZE)) return false;
     for (size_t i = 0; i < plan.count; ++i)
     {
         BYTE* added = staged->begin + (plan.originalCount + i) * STORAGE_SIZE;
-        if (*(float*)(*(BYTE**)added + 8) != 0.0f) return false;
+        if (!MigrationPrepareEmpty(added, plan.add[i].definition) ||
+            *(float*)(*(BYTE**)added + 8) != 0.0f) return false;
     }
+    // Last and unconditional.
+    memcpy(staged->begin, plan.original.begin, plan.originalCount * STORAGE_SIZE);
     return true;
 }
 
@@ -365,12 +395,11 @@ static void MigrationAfterLoad(BYTE* building)
             g_migrationDestroy(&staged);
             return;
         }
-        // Swap only vector ownership; individual Storage owners were cloned
-        // by the game. The observer is excluded for the whole native load.
+        // Swap only vector ownership. The old block is left allocated and
+        // untouched on purpose (see MigrationBuildReplacement). The observer is
+        // excluded for the whole native load.
         memcpy(building + B_STORAGE_BEGIN, &staged, sizeof(staged));
-        staged = plan.original;
         committed = true;
-        g_migrationDestroy(&staged);
         for (size_t i = 0; i < plan.count; ++i)
             Report("INFO", "Storage migration", "added",
                 "building=%p definition_index=%d storage_index=%llu resource=%s capacity=%.3f stock=0 old_stock_and_fuel=preserved priority=existing-policy persistence=native-save",
@@ -402,6 +431,24 @@ static void __fastcall MigrationHookBuildingLoad(BYTE* building, void* stream)
     __finally { ReleaseSRWLockExclusive(&g_storageLoadLock); }
 }
 
+// The same two halves for the loader's building-load event (TSM_SERVICE_BUILDING_LOAD): the
+// loader calls `before`, the game's own load, then `after`. Nothing is swallowed or retried
+// here either; the lock is held for exactly the span the direct hook holds it.
+static void __cdecl MigrationEventBefore(void*, void*, int)
+{
+    AcquireSRWLockExclusive(&g_storageLoadLock);
+}
+
+static void __cdecl MigrationEventAfter(void* building, void*, int completed)
+{
+    __try
+    {
+        if (completed && g_runtimeActive && !InterlockedCompareExchange(&g_migrationFaulted, 0, 0))
+            MigrationAfterLoad((BYTE*)building);
+    }
+    __finally { ReleaseSRWLockExclusive(&g_storageLoadLock); }
+}
+
 static bool MigrationVerify(DWORD rva, const BYTE* expected, size_t count, const char* label)
 {
     if (rva <= g_exeSize && count <= g_exeSize - rva &&
@@ -425,12 +472,41 @@ static bool InstallStorageMigrationHook()
     static const BYTE controls[] = { 0x48,0x89,0x5C,0x24,0x10,0x57,0x48,0x83,0xEC,0x20,0x48,0x8B,0x51,0x08 };
     static const BYTE destroy[] = { 0x48,0x89,0x5C,0x24,0x10,0x56,0x48,0x83,0xEC,0x20,0x48,0x8B,0x19,0x48,0x8B,0xF1 };
     static const BYTE call[] = { 0x49,0x8B,0xD6,0x4A,0x8B,0x0C,0xC1,0xE8,0x74,0x41,0xDB,0xFF };
-    if (!MigrationVerify(RVA_MIGRATION_BUILDING_LOAD_CALL - 7, call, sizeof(call), "load call + arguments") ||
-        !MigrationVerify(RVA_MIGRATION_BUILDING_LOAD, load, sizeof(load), "loader") ||
-        !MigrationVerify(RVA_MIGRATION_STORAGE_PUSH, push, sizeof(push), "push") ||
+    // The native helpers the reconciliation calls are checked whichever way the moment
+    // "a building was loaded" reaches this plugin.
+    if (!MigrationVerify(RVA_MIGRATION_STORAGE_PUSH, push, sizeof(push), "push") ||
         !MigrationVerify(RVA_MIGRATION_DEEP_COPY, copy, sizeof(copy), "deep copy") ||
         !MigrationVerify(RVA_MIGRATION_VECTOR_DESTROY, destroy, sizeof(destroy), "vector destructor") ||
         !MigrationVerify(RVA_MIGRATION_STORAGE_CONTROLS, controls, sizeof(controls), "controls"))
+    {
+        MigrationWarn(nullptr, -1, nullptr, "unsupported-native-signature:migration-disabled");
+        return false;
+    }
+    // A loader that offers the building-load event owns the call site: other plugins look at
+    // loaded buildings too, and only one patch fits there. Subscribe instead of patching.
+    // MaxLegend's loader has no such service; there the plugin patches the call itself, as
+    // it always did.
+    const TsmBuildingLoadApi* events = nullptr;
+    if (H && H->structSize >= offsetof(TsmHost,consume)+sizeof(H->consume) && H->consume)
+        events = (const TsmBuildingLoadApi*)H->consume(TSM_SERVICE_BUILDING_LOAD, TSM_BUILDING_LOAD_VERSION);
+    if (events && events->subscribe)
+    {
+        g_migrationPush = (MigrationPushFn)(g_exeBase + RVA_MIGRATION_STORAGE_PUSH);
+        g_migrationDestroy = (MigrationDestroyFn)(g_exeBase + RVA_MIGRATION_VECTOR_DESTROY);
+        g_migrationControls = (MigrationControlsFn)(g_exeBase + RVA_MIGRATION_STORAGE_CONTROLS);
+        // Outermost: the lock is held around every other plugin that touches the building in
+        // its own `after`, so the readers of this plugin never see a half-swapped vector.
+        if (events->subscribe(MigrationEventBefore, MigrationEventAfter, nullptr, TSM_BUILDING_LOAD_OUTER))
+        {
+            Report("INFO", "Storage migration", "load-hook",
+                "active=1 via=loader-building-load-event after-native-load=1 type=49 add-only=1 empty-new-stock=1 worker-exclusion=1 periodic-mutations=0");
+            return true;
+        }
+        Report("WARN", "Storage migration", "load-event-refused",
+            "the loader offers the building-load event but did not take the subscription; trying the direct hook");
+    }
+    if (!MigrationVerify(RVA_MIGRATION_BUILDING_LOAD_CALL - 7, call, sizeof(call), "load call + arguments") ||
+        !MigrationVerify(RVA_MIGRATION_BUILDING_LOAD, load, sizeof(load), "loader"))
     {
         MigrationWarn(nullptr, -1, nullptr, "unsupported-native-signature-or-conflicting-load-hook:migration-disabled");
         return false;

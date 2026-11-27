@@ -50,6 +50,13 @@ namespace TesmioAutoload
             Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
             // The notices card belongs to the first tab only ("Allgemein"); the other tabs start with their groups.
             if(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id) AddNotices();
+            else if(id=="resources"||id=="vehicles")
+            {
+                // 0.8.2: on the page of Vehicle Materials the player looks for package materials
+                // where his list and the coefficients are - repeat the note there.
+                string packageNote=VehiclePackagesNote();
+                if(packageNote.Length>0){var noteCard=BeginCard(0,language.T("notices"));AddNotice(noteCard,packageNote,false);}
+            }
             if(presentation.Links.Count>0&&(presentation.LinksTab.Length==0?(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id):presentation.LinksTab==id)) AddPresentationLinks();
             foreach(var group in presentation.Groups.Where(g=>g.Tab==id)) AddGroup(group);
             ResizeCards(); UpdateStatus(); SaveView();
@@ -82,9 +89,17 @@ namespace TesmioAutoload
         void ShowInfo(string message) { var card=BeginCard(0); AddText(card,message,11,false,Theme.Muted); ResizeCards(); }
         // 0.4.55: an entry that cannot be shown gets a red box instead of grey text.
         void ShowProblem(string message) { var card=BeginCard(0); AddNotice(card,message,"error"); ResizeCards(); }
+        // 0.8.0: the two choices of the card "vehicle production" on a content package's page (null
+        // when the shown package has no such part).
+        internal RadioButton vehiclesOn,vehiclesOff;
         // The page of a content package - its state, what it carries and which plugin takes each part.
         void BuildContentPage()
         {
+            // 0.8.5: the two radio buttons of the card are forgotten BEFORE the page is taken
+            // down. Taking down the one that has the focus moves the focus to the other, and a
+            // radio button that gets the focus checks itself - that came in as a new choice of the
+            // player right after his save (ON saved, page showed OFF and "unsaved changes").
+            vehiclesOn=null; vehiclesOff=null;
             Theme.DisposeChildren(tabStrip); Theme.DisposeChildren(content); setters.Clear(); origins.Clear(); resetButtons.Clear();
             ContentSession c=contentSession; if(c==null) return;
             var notes=BeginCard(0,language.T("notices"));
@@ -97,7 +112,9 @@ namespace TesmioAutoload
             }
             else AddText(notes,c.Provided?language.Format("content_state_provided",c.ProvidedVersion):language.T("content_state_absent"),10,false,c.Provided?Color.FromArgb(26,132,61):Theme.Muted);
             foreach(string note in c.Notes) AddNotice(notes,language.Localize(note),"warning");
-            foreach(var pair in c.Skipped) if(pair.Value.Count>0) AddNotice(notes,language.Format("content_skipped",language.T("content_kind_"+pair.Key.ToLowerInvariant()),String.Join(", ",pair.Value)),"info");
+            // 0.8.9: a shared building that another package supplies is no "already there" - it has its own note.
+            foreach(string note in c.SharedNotes) AddNotice(notes,language.Localize(note),"info");
+            foreach(var pair in c.Skipped){var shown=pair.Value.Where(x=>!(pair.Key.Equals("buildings",StringComparison.OrdinalIgnoreCase)&&c.Package.SharedBuildings.Contains(x,StringComparer.OrdinalIgnoreCase))).ToList();if(shown.Count>0) AddNotice(notes,language.Format("content_skipped",language.T("content_kind_"+pair.Key.ToLowerInvariant()),String.Join(", ",shown)),"info");}
             // An id that already exists elsewhere blocks the package. Red, with the name of the
             // entry in the way and what to do about it - saving would fail with the same text.
             foreach(var clash in c.Conflicts(SessionFor))
@@ -108,15 +125,47 @@ namespace TesmioAutoload
             var contents=BeginCard(0,language.T("content_card_contents"));
             foreach(string key in ContentTargets.Keys)
             {
-                string text; if(!c.Package.ContentFragments.TryGetValue(key,out text)) continue;
+                if(!c.HasKind(key)) continue;
+                string text=c.Fragment(key); if(key=="rules"&&ContentTargets.IdsOf(key,text).Count==0) continue;
                 var ids=ContentTargets.IdsOf(key,text); string plugin; c.Targets.TryGetValue(key,out plugin); string list=ids.Count>0?String.Join(", ",ids):"-";
                 AddText(contents,!String.IsNullOrEmpty(plugin)?language.Format("content_target_line",language.T("content_kind_"+key),plugin,list):language.Format("content_target_none",language.T("content_kind_"+key),list),10,false,Theme.Ink);
             }
+            if(c.HasVehicles) AddText(contents,language.Format("content_vehicles_line",VehicleParts.Names(c.Package,language.Code)),10,false,Theme.Ink);
             if(c.Package.AssetFiles.Count>0) AddText(contents,language.Format("content_assets_count",c.Package.AssetFiles.Count,LocalEditorSpec.VfsRoot(state.Build)),10,false,Theme.Ink);
+            // 0.8.0: "vehicles need this resource" - the player's own decision, never made for him.
+            vehiclesOn=null; vehiclesOff=null;
+            if(c.HasVehicles)
+            {
+                string names=VehicleParts.Names(c.Package,language.Code);
+                var vehicles=BeginCard(0,language.T("content_card_vehicles"));
+                AddText(vehicles,language.Format("content_vehicles_help",names),10,false,Theme.Ink);
+                // 0.8.3: the package also brings the storage the factories need for it.
+                if(c.Package.VehicleRules.Length>0) AddText(vehicles,language.Format("content_vehicles_storage",names),10,false,Theme.Ink);
+                vehiclesOn=new RadioButton{Text=language.Format("content_vehicles_on",names),AutoSize=true,Checked=c.PendingVehicles=="on",Margin=new Padding(0,0,0,6),ForeColor=Theme.Ink,BackColor=Color.White};
+                vehiclesOff=new RadioButton{Text=language.T("content_vehicles_off"),AutoSize=true,Checked=c.PendingVehicles=="off",Margin=new Padding(0,0,0,12),ForeColor=Theme.Ink,BackColor=Color.White};
+                vehiclesOn.CheckedChanged+=(s,e)=>{if(vehiclesOn!=null&&vehiclesOn.Checked&&contentSession!=null){contentSession.PendingVehicles="on";lastAction="ready";UpdateStatus();}};
+                vehiclesOff.CheckedChanged+=(s,e)=>{if(vehiclesOff!=null&&vehiclesOff.Checked&&contentSession!=null){contentSession.PendingVehicles="off";lastAction="ready";UpdateStatus();}};
+                var layout=(CardLayout)vehicles.Tag; AddRow(layout.Inner,vehiclesOn); AddRow(layout.Inner,vehiclesOff);
+                string trouble=c.VehicleTrouble;
+                if(trouble.Length>0) AddNotice(vehicles,language.Format("content_vehicles_trouble_"+trouble,names),"warning");
+                else if(c.Provided&&c.Vehicles=="on") AddText(vehicles,language.Format("content_vehicles_active",names),10,false,Color.FromArgb(26,132,61));
+                // 0.8.4: ON and OFF are the entry in the list of Vehicle Materials.
+                AddNotice(vehicles,language.Format("content_vehicles_list",names),"info");
+                // 0.8.10: an entry the player made himself is his - OFF here leaves it alone.
+                List<string> ownMaterials=c.VehiclesOwn;
+                if(ownMaterials.Count>0) AddNotice(vehicles,language.Format("content_vehicles_own",String.Join(", ",ownMaterials)),"info");
+            }
             // 0.4.88: saved games that already know entries of this package.
             var usedBy=SavesUsingCurrent();
             if(usedBy.Count>0) AddText(notes,language.Format("saves_used_by",usedBy.Count,SaveGames.Names(usedBy,3,language.T("saves_and_more"))),10,false,Theme.Muted);
             ResizeCards();
+        }
+        // 0.8.2: "" unless this is the page of Vehicle Materials and package files are installed.
+        string VehiclePackagesNote()
+        {
+            if(session==null||!VehicleParts.Plugin.Equals(session.Package.Target??"",StringComparison.OrdinalIgnoreCase)) return "";
+            var installed=VehicleParts.Installed(state.Build);
+            return installed.Count>0?language.Format("vehicle_packages_note",String.Join(", ",installed)):"";
         }
         // Everything a user should know about this entry before touching it: unmet
         // dependencies and double loading in red, the rest as quiet notes.
@@ -167,9 +216,13 @@ namespace TesmioAutoload
             string packageNotice=localSpec!=null?localSpec.LocalizedNotice(language):presentation!=null?presentation.Notice:"";
             bool packageWarning=localSpec!=null?localSpec.NoticeStyle=="warning":presentation!=null&&presentation.NoticeStyle=="warning";
             string packageInfo=localSpec!=null?localSpec.LocalizedInfo(language):presentation!=null?presentation.Info:"";   // [launcher] info (0.4.10)
-            if(update==null&&problems.Count==0&&notes.Count==0&&warnings.Count==0&&overlay.Length==0&&packageNotice.Length==0&&packageInfo.Length==0) return;
+            // 0.8.2: materials that content packages added for Vehicle Materials are no entries of
+            // its own list - say so on its page, or a player looks for them in vain.
+            string vehiclePackages=VehiclePackagesNote();
+            if(update==null&&problems.Count==0&&notes.Count==0&&warnings.Count==0&&overlay.Length==0&&packageNotice.Length==0&&packageInfo.Length==0&&vehiclePackages.Length==0) return;
             var card=BeginCard(0,language.T("notices"));
             AddNotice(card,update,false);
+            AddNotice(card,vehiclePackages,false);
             AddNotice(card,packageNotice,packageWarning);
             AddNotice(card,packageInfo,false);
             AddNotice(card,overlay,false);

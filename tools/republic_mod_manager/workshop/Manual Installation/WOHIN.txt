@@ -5,7 +5,7 @@ Voraussetzung: Der TesmioLoader von MaxLegend (ab b0.4.5) ist installiert, also
 gibt es im Spielordner bereits den Ordner tesmioloader mit tesmioloader.dll,
 tesmiolauncher.exe und tesmioloader.ini. Ohne ihn läuft nichts. Die
 tesmioloader.dll in diesem Ordner ist eine korrigierte Fassung seiner b0.4.5
-(b0.4.5-rmm.2, gleiche API) und ersetzt die vorhandene - heb dir die alte auf,
+(b0.4.5-rmm.5, gleiche API) und ersetzt die vorhandene - heb dir die alte auf,
 wenn du einen Weg zurück willst.
 
 1. Spiel, TesmioLauncher und Republic Mod Manager beenden.
@@ -19,7 +19,7 @@ wenn du einen Weg zurück willst.
    vorher sichern.
 
    Danach liegen dort:
-      tesmioloader\tesmioloader.dll              der Loader (korrigierte Fassung b0.4.5-rmm.2)
+      tesmioloader\tesmioloader.dll              der Loader (korrigierte Fassung b0.4.5-rmm.5)
       tesmioloader\rmm.exe                       der Manager
       tesmioloader\rmm.ini                       seine Grundeinstellungen
       tesmioloader\rmm.README_DE.md / _EN.md     Anleitung (Deutsch / Englisch)

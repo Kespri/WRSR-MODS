@@ -66,7 +66,7 @@ namespace TesmioAutoload
         {
             state = initial.Copy(); stateStore = store; persistUi = saveUi; language = new Language(state.Language); Theme.CopyMenuLabel=()=>language.T("copy_text");
             mods.Cache=icons; icons.Warning=message=>Report(language.T("icon_warning")+" "+message); icons.LoaderExe=()=>Path.Combine(state.Build,"tesmiolauncher.exe");
-            Text = "Republic Mod Manager 0.7.7  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
+            Text = "Republic Mod Manager 0.8.14  ·  "+language.T("app_dependency"); Font = new Font("Segoe UI",10); ForeColor = Theme.Ink; BackColor = Color.White;Theme.ApplyWindowChrome(this);
             AutoScaleDimensions = new SizeF(96,96); AutoScaleMode = AutoScaleMode.Dpi; Size = new Size(1600,1000); MinimumSize = new Size(1560,760); StartPosition = FormStartPosition.CenterScreen;   // 0.4.36: minimum 1560 - the section editors' detail panel needs it; RestoreWindowSize caps it to the screen
             Load += (s,e) => RestoreWindowSize();
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tesmio.icon")) using (var icon = new Icon(stream)) Icon = (Icon)icon.Clone();
@@ -618,7 +618,10 @@ namespace TesmioAutoload
                 Action contentGuard=guard??(()=>RuntimeGuard.NoGameRunning(state.Build));
                 string written=contentSession.Commit(contentGuard,SessionFor); lastAction="saved"; Report(SavedNote(written));
                 if(!rebuild) return true;
-                BuildContentPage(); SyncActivation(); SaveView(); RefreshActivity(); return true;
+                // 0.8.6: the footer, the save button and the amber mark follow the save here too -
+                // the page of a content package was the one page that left them as they were until
+                // another entry was selected.
+                BuildContentPage(); SyncActivation(); SaveView(); RefreshActivity(); UpdateStatus(); return true;
             }
             if(resourceSession!=null)
             {
@@ -750,6 +753,7 @@ namespace TesmioAutoload
             if(resourceSession!=null) LocalResourceGuard.Check(resourceSession); else if(session!=null) RuntimeGuard.Check(session);
             EnsureGlobalResourceConsistency();
             if(!ConfirmMissingResources()) return;
+            if(!ConfirmVehicles()) return;
             if(!ConfirmSteamSession()) return;
             string build=Path.GetFullPath(state.Build);
             if(!File.Exists(SafeFiles.Child(build,"tesmiolauncher.exe"))) throw new IOException(Msg.Key("err_benoetigte_lokale_datei_fehlt","tesmiolauncher.exe"));
@@ -805,6 +809,20 @@ namespace TesmioAutoload
             Report(language.T("launch_missing_resources")+" "+rows.Replace("\n","; "));
             return MessageWindow.Show(this,language,Text,
                 language.T("launch_missing_resources")+"\n\n"+rows+"\n\n"+language.T("launch_missing_resources_hint"),
+                MessageWindow.Kind.Warning,DialogResult.Yes,DialogResult.No)==DialogResult.Yes;
+        }
+        // 0.8.0: a provided content package can make its resource a vehicle material, but only
+        // when the player says so. Nobody should start the game wondering why nothing uses the
+        // resource: named before the start while it is undecided, or switched on in vain.
+        bool ConfirmVehicles()
+        {
+            List<VehicleTrouble> open;
+            try{open=Startup.VehicleTroubles(state.Build,entries,language.Code);}catch(Exception){return true;}
+            if(open.Count==0)return true;
+            string rows=String.Join("\n",open.Take(8).Select(t=>language.Format("startcheck_vehicles_"+t.Reason,t.Entry.Name,t.Resources)));
+            Report(language.T("launch_vehicles")+" "+rows.Replace("\n","; "));
+            return MessageWindow.Show(this,language,Text,
+                language.T("launch_vehicles")+"\n\n"+rows+"\n\n"+language.T("launch_vehicles_hint"),
                 MessageWindow.Kind.Warning,DialogResult.Yes,DialogResult.No)==DialogResult.Yes;
         }
         bool ConfirmSteamSession()
@@ -1114,6 +1132,13 @@ namespace TesmioAutoload
             if(cliError.Length>0) return "FAIL "+current.Name+": "+Msg.Plain(cliError);
             if(activation.Checked!=on) return "FAIL "+current.Name+": the switch did not move";
             return null;
+        }
+        // 0.8.0: --vehicles on|off. Stages the choice of the card "vehicle production"; --save writes it.
+        internal string CliVehicles(bool on)
+        {
+            if(current==null) return "FAIL no entry selected (use --package or --workshop)";
+            if(contentSession==null||!contentSession.HasVehicles) return "FAIL "+current.Name+": this entry has no vehicle part";
+            contentSession.PendingVehicles=on?"on":"off"; return null;
         }
         internal string CliSave() { return CliSave(null); }
         // guard = null takes the real runtime checks (game closed, loader files present); the UI

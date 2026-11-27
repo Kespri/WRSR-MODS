@@ -663,6 +663,173 @@ static class CoreTests
             var aDone=new ContentSession(Package.Load(pkgA),build){ShippedIni=plugin=>shipped};
             C(8,!aDone.Incomplete&&!aDone.NeedsWrite&&new LooseIni(SafeFiles.Text(stateA)).Get("aaa_ore","type")=="14");
         });
+        // 0.8.0: two more parts of a content package - rule sets for Vanilla Buildings, taken by
+        // its list page like buildings, and extra vehicle materials, which no editor takes.
+        Test("a content package's vehicle part is a file of its own, written only when the player says so (0.8.0)",()=>
+        {
+            Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("vehicle part check "+n+" failed");};
+            string veh_pkg=Path.Combine(root,"content","veh_a");
+            Write(Path.Combine(veh_pkg,"soviet.mod.ini"),"[mod]\nid=example.veh_a\nname=Veh A\nversion=1.0\nenabled=1\n[content]\nvehicles=tesmio\\vehicle_materials.ini\n");
+            Write(Path.Combine(veh_pkg,"tesmio","vehicle_materials.ini"),"; what vehicles need\n[materials]\npanes = 0.025, 0.01, 0.002, 0.01 ; road, rail, ship, airplane\n");
+            string veh_build=MakeBuild(root,"content-vehicles");
+            Write(Path.Combine(veh_build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\n");
+            Package veh_loaded=Package.Load(veh_pkg);
+            C(1,veh_loaded.Kind=="content"&&veh_loaded.VehicleResources.SequenceEqual(new[]{"panes"})&&veh_loaded.VehicleFragment.Contains("panes = 0.025, 0.01, 0.002, 0.01"));
+            var veh_first=new ContentSession(veh_loaded,veh_build);string veh_file=veh_first.VehiclesPath,veh_list=VehicleParts.OverlayPath(veh_build);
+            C(2,veh_first.HasVehicles&&veh_first.VehicleTrouble.Length==0&&!File.Exists(veh_file)&&!File.Exists(veh_list));
+            veh_first.PendingOn=true;veh_first.Commit(NoGame,plugin=>null);
+            // Provided, but the player has not chosen: nothing is written, and that is said.
+            var veh_undecided=new ContentSession(Package.Load(veh_pkg),veh_build);
+            C(3,veh_undecided.Provided&&veh_undecided.Vehicles.Length==0&&veh_undecided.VehicleTrouble=="undecided"&&!File.Exists(veh_list)&&!veh_undecided.NeedsWrite);
+            veh_undecided.PendingVehicles="on";C(4,veh_undecided.NeedsWrite);veh_undecided.Commit(NoGame,plugin=>null);
+            // 0.8.4: ON is an ordinary entry in the player's list of Vehicle Materials, and the plugin is switched on.
+            var veh_doc=new LooseIni(SafeFiles.Text(veh_list));
+            C(5,!File.Exists(veh_file)&&veh_doc.Get("resources","count")=="1"&&veh_doc.Get("resources","resource0")=="panes"&&veh_doc.Get("road","panes")=="0.025"&&veh_doc.Get("rail","panes")=="0.01"&&veh_doc.Get("ship","panes")=="0.002"&&veh_doc.Get("airplane","panes")=="0.01"&&veh_doc.Get("general","enabled")=="1");
+            // Switched on in vain: no Vehicle Materials, then the player's own enabled = 0, then off in the loader.
+            C(6,new ContentSession(Package.Load(veh_pkg),veh_build).VehicleTrouble=="missing");
+            File.WriteAllBytes(Path.Combine(veh_build,"plugins","vehicle_materials.dll"),p.Dll);
+            C(7,new ContentSession(Package.Load(veh_pkg),veh_build).VehicleTrouble.Length==0);
+            veh_doc.Set("general","enabled","0");Write(veh_list,veh_doc.Render());
+            C(8,new ContentSession(Package.Load(veh_pkg),veh_build).VehicleTrouble=="disabled");
+            veh_doc.Set("general","enabled","1");veh_doc.Set("road","panes","0.5");Write(veh_list,veh_doc.Render());
+            C(9,new ContentSession(Package.Load(veh_pkg),veh_build).VehicleTrouble.Length==0);
+            Write(Path.Combine(veh_build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nvehicle_materials=0\n");
+            C(10,new ContentSession(Package.Load(veh_pkg),veh_build).VehicleTrouble=="off");
+            // The player's own number survives a save of the package.
+            var veh_keep=new ContentSession(Package.Load(veh_pkg),veh_build);veh_keep.Commit(NoGame,plugin=>null);
+            C(20,new LooseIni(SafeFiles.Text(veh_list)).Get("road","panes")=="0.5");
+            // OFF is a decision too: the entry goes as with the trash button, and nobody asks again.
+            var veh_off=new ContentSession(Package.Load(veh_pkg),veh_build);veh_off.PendingVehicles="off";veh_off.Commit(NoGame,plugin=>null);
+            var veh_decided=new ContentSession(Package.Load(veh_pkg),veh_build);var veh_gone=new LooseIni(SafeFiles.Text(veh_list));
+            C(11,veh_gone.Get("resources","resource0")==null&&veh_gone.Get("resources","count")==null&&veh_gone.Get("road","panes")==null&&veh_gone.Get("general","enabled")==null&&veh_decided.Vehicles=="off"&&veh_decided.VehicleTrouble.Length==0);
+            // Deleted on the plugin's page while the receipt says ON: the card shows OFF.
+            veh_decided.PendingVehicles="on";veh_decided.Commit(NoGame,plugin=>null);C(12,VehicleParts.Listed(veh_build,new[]{"panes"}));
+            Write(veh_list,VehicleParts.WithoutMaterials(SafeFiles.Text(veh_list),new[]{"panes"}));
+            C(21,new ContentSession(Package.Load(veh_pkg),veh_build).Vehicles=="off");
+            // A file of the earlier kind with ON in the receipt: still ON, and the next save makes an entry of it.
+            File.Delete(veh_list);Write(veh_file,"[materials]\npanes = 0.025, 0.01, 0.002, 0.01\n");
+            var veh_old=new ContentSession(Package.Load(veh_pkg),veh_build);C(23,veh_old.Vehicles=="on"&&veh_old.NeedsWrite);
+            veh_old.Commit(NoGame,plugin=>null);C(24,!File.Exists(veh_file)&&VehicleParts.Listed(veh_build,new[]{"panes"}));
+            // An entry beside one of the player's own: the package switched off takes its entry along and leaves the other.
+            Write(veh_list,"[general]\nenabled = 1\n[resources]\ncount = 2\nresource0 = other\nresource1 = panes\n[road]\nother = 1\npanes = 0.7\n");
+            C(22,new ContentSession(Package.Load(veh_pkg),veh_build).Vehicles=="on");
+            var veh_leave=new ContentSession(Package.Load(veh_pkg),veh_build);veh_leave.PendingOn=false;veh_leave.Commit(NoGame,plugin=>null);
+            var veh_left=new LooseIni(SafeFiles.Text(veh_list));
+            C(13,veh_left.Get("resources","count")=="1"&&veh_left.Get("resources","resource0")=="other"&&veh_left.Get("road","panes")==null&&veh_left.Get("road","other")=="1"&&new ContentSession(Package.Load(veh_pkg),veh_build).VehicleTrouble.Length==0);
+            // 0.8.10: an entry the player made himself before the package is his: the package switched
+            // on leaves his numbers, OFF and the package switched off leave the entry in the list.
+            Write(veh_list,"[general]\nenabled = 1\n[resources]\ncount = 1\nresource0 = panes\n[road]\npanes = 0.9\n");
+            var veh_mine=new ContentSession(Package.Load(veh_pkg),veh_build);veh_mine.PendingOn=true;veh_mine.PendingVehicles="on";veh_mine.Commit(NoGame,plugin=>null);
+            var veh_mineLook=new ContentSession(Package.Load(veh_pkg),veh_build);
+            C(25,veh_mineLook.VehiclesAddedKnown&&veh_mineLook.VehiclesAdded.Count==0&&veh_mineLook.VehiclesOwn.SequenceEqual(new[]{"panes"})&&new LooseIni(SafeFiles.Text(veh_list)).Get("road","panes")=="0.9");
+            veh_mineLook.PendingVehicles="off";veh_mineLook.Commit(NoGame,plugin=>null);
+            C(26,new LooseIni(SafeFiles.Text(veh_list)).Get("road","panes")=="0.9"&&VehicleParts.Listed(veh_build,new[]{"panes"}));
+            var veh_mineOff=new ContentSession(Package.Load(veh_pkg),veh_build);veh_mineOff.PendingOn=false;veh_mineOff.Commit(NoGame,plugin=>null);
+            C(27,new LooseIni(SafeFiles.Text(veh_list)).Get("road","panes")=="0.9"&&VehicleParts.Listed(veh_build,new[]{"panes"}));
+            // The package entering it itself: then it is the package's and leaves with it.
+            File.Delete(veh_list);
+            var veh_pack=new ContentSession(Package.Load(veh_pkg),veh_build);veh_pack.PendingOn=true;veh_pack.PendingVehicles="on";veh_pack.Commit(NoGame,plugin=>null);
+            var veh_packLook=new ContentSession(Package.Load(veh_pkg),veh_build);
+            C(28,veh_packLook.VehiclesAdded.SequenceEqual(new[]{"panes"})&&veh_packLook.VehiclesOwn.Count==0);
+            veh_packLook.PendingOn=false;veh_packLook.Commit(NoGame,plugin=>null);
+            C(29,!VehicleParts.Listed(veh_build,new[]{"panes"}));
+            // 0.8.11: a fifth number (rocket parts) is read; an entry the package made gets the value
+            // of a class it has none for yet, and a value that is there stays.
+            var veh_names=new List<string>();
+            C(30,VehicleParts.Normalize("[materials]\npanes = 0.025, 0.01, 0.002, 0.01, 0.005\n",veh_names).Contains("panes = 0.025, 0.01, 0.002, 0.01, 0.005")&&veh_names.Count==1);
+            bool veh_six=false;try{VehicleParts.Normalize("[materials]\npanes = 1, 2, 3, 4, 5, 6\n",new List<string>());}catch(FormatException){veh_six=true;}
+            C(31,veh_six);
+            Write(veh_list,"[general]\nenabled = 1\n[resources]\ncount = 1\nresource0 = panes\n[road]\npanes = 0.7\n[rail]\npanes = 0.01\n");
+            string veh_filled=VehicleParts.WithMaterials(veh_build,SafeFiles.Text(veh_list),"[materials]\npanes = 0.025, 0.01, 0.002, 0.01, 0.005\n",new[]{"panes"});
+            var veh_fill=new LooseIni(veh_filled);
+            C(32,veh_fill.Get("rocket","panes")=="0.005"&&veh_fill.Get("road","panes")=="0.7"&&veh_fill.Get("ship","panes")=="0.002"&&veh_fill.Get("resources","count")=="1");
+            C(33,VehicleParts.WithMaterials(veh_build,SafeFiles.Text(veh_list),"[materials]\npanes = 0.025, 0.01, 0.002, 0.01, 0.005\n",null)==SafeFiles.Text(veh_list));
+            File.Delete(veh_list);
+
+            // The start check names the same thing, per catalogue entry.
+            var veh_again=new ContentSession(Package.Load(veh_pkg),veh_build);veh_again.PendingOn=true;veh_again.PendingVehicles="";veh_again.Commit(NoGame,plugin=>null);
+            var veh_entry=new CatalogEntry{Root=veh_pkg,Id="example.veh_a",Name="Veh A",Kind="content"};
+            var veh_open=Startup.VehicleTroubles(veh_build,new List<CatalogEntry>{veh_entry});
+            C(14,veh_open.Count==1&&veh_open[0].Entry==veh_entry&&veh_open[0].Resources=="panes"&&veh_open[0].Reason.Length>0);
+            // A line that is not `<resource> = four numbers` refuses the package.
+            Write(Path.Combine(veh_pkg,"tesmio","vehicle_materials.ini"),"[materials]\npanes = 0.025, 0.01, 0.002, 0.01\nwire = 0.1, 0, 0, 0\n[names]\npanes = Glass\n[names:German]\npanes = Glas\n");
+            Package veh_named=Package.Load(veh_pkg);
+            C(17,VehicleParts.Names(veh_named,"de")=="Glas, wire"&&VehicleParts.Names(veh_named,"en")=="Glass, wire"&&!veh_named.VehicleFragment.Contains("names"));
+            // 0.8.2: what the page of Vehicle Materials says about package files and the player's own list.
+            string veh_dir=Path.Combine(veh_build,"plugins","vehicle_materials.d");
+            Write(Path.Combine(veh_dir,"example.veh_a.ini"),"; Written by Republic Mod Manager for the content package Veh A: extra materials\n[materials]\npanes = 0.025, 0.01, 0.002, 0.01\n");
+            Write(Path.Combine(veh_dir,"broken.ini"),"[materials]\npanes = 1\n");
+            var veh_shown=VehicleParts.Installed(veh_build);
+            C(18,veh_shown.Count==1&&veh_shown[0]=="panes 0.025 / 0.01 / 0.002 / 0.01 (Veh A)");
+            Write(Path.Combine(veh_build,"user_config","vehicle_materials.ini"),"[general]\nenabled = 1\n[resources]\ncount = 1\nresource0 = panes\n[road]\npanes = 0.5\n");
+            var veh_own=VehicleParts.OwnList(veh_build);
+            C(19,veh_own.Count==1&&veh_own.Contains("PANES"));
+            File.Delete(Path.Combine(veh_build,"user_config","vehicle_materials.ini"));File.Delete(Path.Combine(veh_dir,"broken.ini"));File.Delete(Path.Combine(veh_dir,"example.veh_a.ini"));
+            Write(Path.Combine(veh_pkg,"tesmio","vehicle_materials.ini"),"[materials]\npanes = 0.1, 0.1\n");
+            bool veh_refused=false;try{Package.Load(veh_pkg);}catch(Exception){veh_refused=true;}C(15,veh_refused);
+            Write(Path.Combine(veh_pkg,"tesmio","vehicle_materials.ini"),"[materials]\npanes = 0, 0, 0, 0\n");
+            veh_refused=false;try{Package.Load(veh_pkg);}catch(Exception){veh_refused=true;}C(16,veh_refused);
+        });
+        Test("rule sets of a content package go to Vanilla Buildings (0.8.0)",()=>
+        {
+            Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("rules part check "+n+" failed");};
+            string rul_pkg=Path.Combine(root,"content","rules_a");
+            Write(Path.Combine(rul_pkg,"soviet.mod.ini"),"[mod]\nid=example.rules_a\nname=Rules A\nversion=1.0\nenabled=1\n[content]\nrules=tesmio\\vanilla_buildings.ini\n");
+            string rul_text="[general]\nenabled = 1\n[sand_for_concrete]\nenabled = 1\ntarget = buildings_types\\concrete_plant.ini\ntarget = buildings_types\\concrete_plant_v2.ini\nadd = $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 20 sand\n";
+            Write(Path.Combine(rul_pkg,"tesmio","vanilla_buildings.ini"),rul_text);
+            C(1,ContentTargets.KeyForPlugin("vanilla_buildings")=="rules"&&ContentTargets.PluginsFor("rules").SequenceEqual(new[]{"vanilla_buildings"}));
+            C(2,ContentTargets.IdsOf("rules",rul_text).SequenceEqual(new[]{"sand_for_concrete"}));
+            string rul_build=MakeBuild(root,"content-rules");
+            Write(Path.Combine(rul_build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\n");
+            // Without the plugin the part has no target and the page says so.
+            var rul_none=new ContentSession(Package.Load(rul_pkg),rul_build);
+            C(3,rul_none.Targets["rules"].Length==0&&rul_none.Notes.Any(n=>Msg.KeyOf(n)=="content_missing_target"));
+            File.WriteAllBytes(Path.Combine(rul_build,"plugins","vanilla_buildings.dll"),p.Dll);
+            var rul_s=new ContentSession(Package.Load(rul_pkg),rul_build);C(4,rul_s.Targets["rules"]=="vanilla_buildings");
+            rul_s.PendingOn=true;rul_s.Commit(NoGame,plugin=>null);
+            var rul_staged=ContentLayer.Fragments(rul_build,"vanilla_buildings");
+            C(5,rul_staged.Count==1&&rul_staged[0].PackageId=="example.rules_a"&&rul_staged[0].Text.Contains("[sand_for_concrete]"));
+            // Both target lines of the rule set travel with it.
+            C(6,new LooseIni(rul_staged[0].Text).GetAll("sand_for_concrete","target").Count==2);
+        });
+        // 0.8.3: rule sets that belong to the vehicle part - the storage a vehicle factory needs for
+        // the material. They are staged for Vanilla Buildings only while the vehicle part is on.
+        Test("the storage rule set of a vehicle part goes to Vanilla Buildings only with the switch on (0.8.3)",()=>
+        {
+            Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("vehicle rules check "+n+" failed");};
+            string vr_pkg=Path.Combine(root,"content","vrules_a");
+            Write(Path.Combine(vr_pkg,"soviet.mod.ini"),"[mod]\nid=example.vrules_a\nname=VRules A\nversion=1.0\nenabled=1\n[content]\nvehicles=tesmio\\vehicle_materials.ini\nvehicle_rules=tesmio\\vehicle_buildings.ini\n");
+            Write(Path.Combine(vr_pkg,"tesmio","vehicle_materials.ini"),"[materials]\npanes = 0.025, 0.01, 0.002, 0.01\n");
+            Write(Path.Combine(vr_pkg,"tesmio","vehicle_buildings.ini"),"[panes_storage]\nenabled = 1\ntarget = buildings_types\\production_vehicle.ini\nadd = $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 panes\n");
+            string vr_build=MakeBuild(root,"content-vrules");
+            Write(Path.Combine(vr_build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\n");
+            File.WriteAllBytes(Path.Combine(vr_build,"plugins","vehicle_materials.dll"),p.Dll);
+            Package vr_loaded=Package.Load(vr_pkg);
+            C(1,vr_loaded.VehicleRules.Contains("[panes_storage]")&&!vr_loaded.ContentFragments.ContainsKey("rules")&&!vr_loaded.Hints.Any(h=>Msg.KeyOf(h)=="hint_content_unknown_kind"));
+            // Without Vanilla Buildings the material would be asked for with nowhere to put it.
+            var vr_bare=new ContentSession(vr_loaded,vr_build);
+            C(2,vr_bare.HasKind("rules")&&vr_bare.Targets["rules"].Length==0);
+            vr_bare.PendingOn=true;vr_bare.PendingVehicles="on";vr_bare.Commit(NoGame,plugin=>null);
+            C(3,vr_bare.VehicleTrouble=="nostorage");
+            File.WriteAllBytes(Path.Combine(vr_build,"plugins","vanilla_buildings.dll"),p.Dll);
+            var vr_on=new ContentSession(Package.Load(vr_pkg),vr_build);
+            C(4,vr_on.Targets["rules"]=="vanilla_buildings"&&vr_on.Vehicles=="on"&&vr_on.VehicleTrouble.Length==0);
+            // Switched on: the rule set is staged for Vanilla Buildings.
+            vr_on.Commit(NoGame,plugin=>null);
+            var vr_staged=ContentLayer.Fragments(vr_build,"vanilla_buildings");
+            C(5,vr_staged.Count==1&&vr_staged[0].PackageId=="example.vrules_a"&&vr_staged[0].Text.Contains("[panes_storage]")&&vr_staged[0].Text.Contains("100 panes"));
+            C(6,ContentTargets.IdsOf("rules",vr_on.Fragment("rules")).SequenceEqual(new[]{"panes_storage"}));
+            // Switched off: nothing is staged any more, and the page lists no rule set.
+            vr_on.PendingVehicles="off";C(7,vr_on.NeedsWrite&&vr_on.Fragment("rules").Length==0);
+            vr_on.Commit(NoGame,plugin=>null);
+            C(8,ContentLayer.Fragments(vr_build,"vanilla_buildings").Count==0&&!File.Exists(Path.Combine(vr_on.StateDir,"rules.ini"))&&vr_on.VehicleTrouble.Length==0);
+            // The whole package off takes the rule set along as well.
+            vr_on.PendingVehicles="on";vr_on.Commit(NoGame,plugin=>null);C(9,ContentLayer.Fragments(vr_build,"vanilla_buildings").Count==1);
+            vr_on.PendingOn=false;vr_on.Commit(NoGame,plugin=>null);C(10,ContentLayer.Fragments(vr_build,"vanilla_buildings").Count==0);
+            // Rule sets without a vehicle part are refused: there would be no switch for them.
+            Write(Path.Combine(vr_pkg,"soviet.mod.ini"),"[mod]\nid=example.vrules_a\nname=VRules A\nversion=1.0\nenabled=1\n[content]\nvehicle_rules=tesmio\\vehicle_buildings.ini\n");
+            bool vr_refused=false;try{Package.Load(vr_pkg);}catch(Exception){vr_refused=true;}C(11,vr_refused);
+        });
         // 0.4.80: content packages - fragments merged into the target editors as originals, assets
         // copied into the vfs, all of it taken back when the package is switched off.
         Test("a content package is provided through the target editors, updated and removed again (0.4.80)",()=>
@@ -1232,6 +1399,51 @@ static class CoreTests
             var blind=new ContentSession(Package.Load(pkg),build);blind.Commit(NoGame,plugin=>plugin=="resources"?sessions(plugin):null);
             C(14,blind.Parked.Count==0&&Directory.Exists(Path.Combine(wip,"9300000003"))&&new LooseIni(SafeFiles.Text(Path.Combine(build,"plugins","buildings_plus.ini"))).HasSection("cable_works"));
         });
+        // 0.8.9: two packages share a building. Whichever provided package comes first supplies it;
+        // switched off, the other steps in - same section, so the same folder and number - and only
+        // when neither supplies it any more does the folder leave workshop_wip.
+        Test("two content packages share a building: no conflict, the other steps in, the folder stays (0.8.9)",()=>
+        {
+            Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("shared check "+n+" failed");};
+            string game=Path.Combine(root,"sharedgame"),build=Path.Combine(game,"tesmioloader"),wip=Path.Combine(game,"media_soviet","workshop_wip");
+            Directory.CreateDirectory(Path.Combine(build,"plugins"));
+            Func<string,string,string,string,string> pack=(name,id,shared,body)=>{string dir=Path.Combine(root,"content",name);Write(Path.Combine(dir,"soviet.mod.ini"),"[mod]\nid="+id+"\nname="+name+"\nversion=1.0\nenabled=1\n[content]\nbuildings=tesmio\\buildings.ini\n"+(shared.Length>0?"shared_buildings = "+shared+"\n":""));Write(Path.Combine(dir,"tesmio","buildings.ini"),body);return dir;};
+            string alpha=pack("Alpha","example.alpha","gas_plant","[gas_plant]\ndonor = powerplant_gas\nname = Gas Plant\nline = $CONSUMPTION gas 1\n\n[alpha_only]\ndonor = bauxite_mine\nname = Alpha Mine\n");
+            string beta=pack("Beta","example.beta","gas_plant","[gas_plant]\ndonor = powerplant_gas\nname = Gas Plant\nline = $CONSUMPTION gas 2\n\n[beta_only]\ndonor = bauxite_mine\nname = Beta Mine\n");
+            string gamma=pack("Gamma","example.gamma","","[gas_plant]\ndonor = powerplant_gas\nname = Gas Plant\n");
+            File.WriteAllBytes(Path.Combine(build,"plugins","buildings_plus.dll"),p.Dll);Write(Path.Combine(build,"plugins","buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n");
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nbuildings_plus=1\n");
+            LocalEditorSpec bpSpec=LocalEditorSpec.Load(Path.GetFullPath(Path.Combine(args[0],"..","..","settings_schemas","buildings_plus.launcher.ini")));
+            Func<string,LocalResourceSession> sessions=plugin=>plugin=="buildings_plus"?new LocalResourceSession(bpSpec,build):null;
+            Write(Path.Combine(wip,"9300000005","tesmioloader.stamp"),"buildings_plus generated this folder.\r\nsection=gas_plant donor=powerplant_gas object=GasPlant\r\nhash=1\r\n");
+            Write(Path.Combine(wip,"9300000005","GasPlant","building.ini"),"$CONSUMPTION gas 1\n");
+            Func<string> bpIni=()=>SafeFiles.Text(Path.Combine(build,"plugins","buildings_plus.ini"));
+            C(1,Package.Load(alpha).SharedBuildings.SequenceEqual(new[]{"gas_plant"})&&Package.Load(gamma).SharedBuildings.Count==0);
+            // Beta first, then Alpha: no conflict; Alpha comes first in the fixed order and supplies it.
+            var b=new ContentSession(Package.Load(beta),build);b.PendingOn=true;b.Commit(NoGame,sessions);
+            C(2,b.Provided&&b.Added["buildings"].Contains("gas_plant")&&SafeFiles.Text(b.ReceiptPath).Contains("buildings = gas_plant"));
+            var a=new ContentSession(Package.Load(alpha),build);C(3,a.Conflicts(sessions).Count==0&&a.SharedNotes.Count>0);
+            a.PendingOn=true;a.Commit(NoGame,sessions);
+            C(4,a.Provided&&a.Added["buildings"].Contains("gas_plant")&&bpIni().Contains("$CONSUMPTION gas 1")&&!bpIni().Contains("$CONSUMPTION gas 2")&&a.Parked.Count==0);
+            var bAgain=new ContentSession(Package.Load(beta),build);bAgain.Commit(NoGame,sessions);
+            var bLook=new ContentSession(Package.Load(beta),build);
+            C(5,bLook.Skipped.ContainsKey("buildings")&&bLook.Skipped["buildings"].Contains("gas_plant")&&bLook.RecordedShared.Contains("gas_plant")&&bLook.SharedNotes.Count==2&&bLook.SharedNotes.Any(x=>x.Contains("content_shared_differs")));
+            C(6,new ContentSession(Package.Load(alpha),build).SharedNotes.Count==0);
+            C(7,ContentLayer.Recorded(build,"buildings_plus").Any(f=>f.PackageId=="example.beta"&&f.Added.Contains("gas_plant")));
+            // A third package that does not share the section is in the way as before.
+            C(8,new ContentSession(Package.Load(gamma),build).Conflicts(sessions).ContainsKey("buildings"));
+            // Alpha off: Beta steps in, the section stays, its folder stays.
+            var aOff=new ContentSession(Package.Load(alpha),build);aOff.PendingOn=false;aOff.Commit(NoGame,sessions);
+            C(9,!aOff.Provided&&aOff.Parked.Count==0&&Directory.Exists(Path.Combine(wip,"9300000005"))&&new LooseIni(bpIni()).HasSection("gas_plant")&&bpIni().Contains("$CONSUMPTION gas 2")&&!new LooseIni(bpIni()).HasSection("alpha_only"));
+            C(10,new ContentSession(Package.Load(beta),build).SharedNotes.Count==0);
+            // Beta off as well: now the section goes and so does the folder - although Beta's receipt said skipped.
+            var bOff=new ContentSession(Package.Load(beta),build);bOff.PendingOn=false;bOff.Commit(NoGame,sessions);
+            C(11,!bOff.Provided&&bOff.Parked.SequenceEqual(new[]{"9300000005"})&&!Directory.Exists(Path.Combine(wip,"9300000005"))&&!new LooseIni(bpIni()).HasSection("gas_plant"));
+            // A name that is no section of the package is refused when the package is read.
+            string broken=pack("Broken","example.broken","no_such_section","[gas_plant]\ndonor = powerplant_gas\n");
+            bool refused=false;try{Package.Load(broken);}catch(FormatException e){refused=e.Message.Contains("err_shared_building_missing")||e.Message.Contains("no_such_section");}
+            C(12,refused);
+        });
         // 0.6.12: the folders in workshop_wip are read like the declarations, a resource that a
         // building names is reported before it is hidden, and a section removed on the Buildings
         // Plus page takes its generated folder along.
@@ -1465,6 +1677,19 @@ static class CoreTests
             Check(DonorPlan.SettingKey("$WORKERS_NEEDED 8")==DonorPlan.SettingKey("$WORKERS_NEEDED 15"),"the same setting with another number is one key");
             Check(DonorPlan.SettingKey("$PRODUCTION cable 0.06")!=DonorPlan.SettingKey("$PRODUCTION steel 0.2"),"two recipes are two keys");
             Check(DonorPlan.SettingKey("$COST_RESOURCE_AUTO ground_asphalt\t1.0")=="","a tab separates like a space and $COST repeats anyway");
+            // 0.8.8: a storage line whose class the resource does not have (0.00 of 0.00 t in the game).
+            {
+                Check(String.Join(",",ResourceCatalogData.ClassesOf("asphalt"))=="gravel"&&String.Join(",",ResourceCatalogData.ClassesOf("yellowcake"))=="open"&&String.Join(",",ResourceCatalogData.ClassesOf("livestock"))=="livestock,covered"&&String.Join(",",ResourceCatalogData.ClassesOf("waste_steel"))=="gravel,waste"&&ResourceCatalogData.ClassesOf("nothing").Count==0,"0.8.8: the base resources have the classes the game gives them ["+String.Join(",",ResourceCatalogData.ClassesOf("livestock"))+"]");
+                Check(ResourceClasses.ClassName("RESOURCE_TRANSPORT_CEMENT")=="cement"&&ResourceClasses.ClassName("resource_transport_oil")=="oil"&&ResourceClasses.ClassName("gravel")=="gravel"&&ResourceClasses.ClassName("19")=="hypergolic"&&ResourceClasses.ClassName("RESOURCE_TRANSPORT_NOPE")==""&&ResourceClasses.ClassName("20")=="","0.8.8: a class is read by token, name or number");
+                var listed=ResourceClasses.Read(new[]{"[list]\nindustrial_salt = alumina, Industrial Salt\nroad_salt = 70, gravel, Road Salt\ncable = auto, steel, Cable\nfine_salt = industrial_salt, Fine Salt\nodd = nothing_known, Odd\n[custom:cable]\ntransport = covered, 0.5\nclass = RESOURCE_TRANSPORT_OPEN\n[custom:odd2]\ntransport = 3\n[price]\ncable = 5\n"});
+                Check(String.Join(",",ResourceClasses.Of(listed,"industrial_salt"))=="cement"&&String.Join(",",ResourceClasses.Of(listed,"road_salt"))=="gravel"&&String.Join(",",ResourceClasses.Of(listed,"cable").OrderBy(x=>x))=="covered,open"&&String.Join(",",ResourceClasses.Of(listed,"fine_salt"))=="cement"&&ResourceClasses.Of(listed,"odd").Count==0&&String.Join(",",ResourceClasses.Of(listed,"odd2"))=="oil"&&String.Join(",",ResourceClasses.Of(listed,"STEEL"))=="open","0.8.8: a listed resource has the classes of its template plus those of its custom section ["+String.Join(",",ResourceClasses.Of(listed,"cable"))+"]");
+                string[] wrong=ResourceClasses.Mismatch(listed,"$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 20 industrial_salt");
+                Check(wrong!=null&&wrong[0]=="industrial_salt"&&wrong[1]=="RESOURCE_TRANSPORT_GRAVEL"&&wrong[2]=="RESOURCE_TRANSPORT_CEMENT","0.8.8: industrial salt in a gravel storage is named, with the class that fits");
+                Check(ResourceClasses.Mismatch(listed,"$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_CEMENT 20 industrial_salt")==null&&ResourceClasses.Mismatch(listed,"  $storage_import_special\tRESOURCE_TRANSPORT_OPEN 50 cable")==null&&ResourceClasses.Mismatch(listed,"$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 5 livestock")==null,"0.8.8: a class the resource has is fine, a second class too");
+                Check(ResourceClasses.Mismatch(listed,"$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 5 odd")==null&&ResourceClasses.Mismatch(listed,"$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 5 never_heard_of")==null&&ResourceClasses.Mismatch(listed,"$STORAGE_IMPORT RESOURCE_TRANSPORT_GRAVEL 50")==null&&ResourceClasses.Mismatch(listed,"$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_NOPE 5 steel")==null&&ResourceClasses.Mismatch(listed,"$PRODUCTION steel 1")==null&&ResourceClasses.Mismatch(null,"")==null,"0.8.8: nothing is said about a resource nothing is known of, an unknown class or another line");
+                Check(ResourceClasses.Mismatch(null,"$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 5 asphalt")!=null&&ResourceClasses.Mismatch(null,"$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 5 asphalt")==null,"0.8.8: base resources are judged without any list");
+                Check(ResourceClasses.Load(Path.Combine(Path.GetTempPath(),"rmm-no-such-loader-folder")).Count==0,"0.8.8: without a list file nothing is known, and nothing throws");
+            }
             Check(DonorPlan.SettingKey("$RESOURCE_VISUALIZATION 3")==""&&DonorPlan.SettingKey("$STORAGE_FUEL RESOURCE_TRANSPORT_OIL 15")=="","a token whose payload is the index or the geometry never folds");
             var twice=new List<string>{"$WORKERS_NEEDED 8","$CITIZEN_ABLE_SERVE 6","$WORKERS_NEEDED 15"};
             Check(DonorPlan.Build(new List<string>(),twice,new List<string>(),"").Warnings.Any(x=>x.Contains("donor_warn_double")),"the same setting twice is reported");

@@ -16,6 +16,53 @@ tools read (`plugin <name> <version> from <dll>`, `<name>  idle - `, `plugin N l
 runs here; a plugin built here runs on upstream. The launcher is upstream's, unchanged.
 Republic Mod Manager ships this DLL and installs it over the upstream one.
 
+## b0.4.5-rmm.5 (2026-11-27)
+
+- Code review: every callback of the building-load event runs in a guard of its own
+  (`BuildingLoadCall`). A subscriber that faults is logged and passed over; before, a fault
+  in a `before` skipped every `after`, and the outermost subscriber (Technical Service
+  Storage) kept the lock it takes in its `before` - the next building load would have hung.
+- The summary line of the log has its two spaces again ("summary  83 hook(s) ok").
+- Self-test: one new check (a faulting subscriber is passed over, the outermost still gets
+  its `after`).
+
+## b0.4.5-rmm.4 (2026-11-27)
+
+- The save warning ("tesmioloader - save needs mods") tells a hard case from a soft one. A
+  missing resource or deposit keeps "Loading it will most likely crash the game." A missing
+  generated building only matters if it stands in the save - the manifest lists every
+  generated folder that was there when the game saved, built or not - so when only buildings
+  are missing the box says so instead, and the log has one line which of the two it is.
+- Self-test: two new checks on the text of the box (`g_lastSaveWarning`).
+
+## b0.4.5-rmm.3 (2026-11-26)
+
+- New service `tesmio.building_load` (`TSM_SERVICE_BUILDING_LOAD`, `TsmBuildingLoadApi` in
+  `tesmio_api.h`): the game reads the buildings of a saved game one at a time through one call
+  (`SOVIET64.exe+0x457617` -> `0x20B790` in 1.2.0.9), and only one patch fits on it. The loader
+  takes that call and hands the moment on: `subscribe(before, after, context)` from
+  `TsmPluginStart`; `before` runs in the order of subscription, `after` in reverse, with
+  `completed = 0` while an exception unwinds the load. A subscriber that guards the buildings
+  with a lock of its own passes `TSM_BUILDING_LOAD_OUTER`: its `before` then runs first and its
+  `after` last, whatever the order in which the plugins started (Technical Service Storage).
+- The service is only offered when the seven bytes in front of the call's displacement and the
+  opcode are the known ones (`BuildingLoadSiteKnown`); otherwise `consume()` returns null and a
+  plugin knows it is on its own. The patch is placed after every plugin has started and only
+  when somebody subscribed (`InstallBuildingLoadHook`). The displacement is not compared: a
+  plugin built before this service may have patched the call itself by then (Technical Service
+  Storage up to 0.3.7 does), and the loader then calls whatever the call pointed at and so runs
+  around that hook. When the call still points at the game's own function, its first 20 bytes
+  are compared first.
+- Reason: several plugins have to give buildings that already stand what their definition
+  gained since (storages), each for its own changes. No behaviour changes for a plugin that does
+  not subscribe; without a subscriber nothing is patched.
+- Self-test: five checks (no service without a game image, a subscription without a callback is
+  refused, four subscribers with the outermost one last to subscribe, order
+  `bX b1 b3 L a2+ a1+ aX+`, nothing taken after startup); 51 checks without a plugin DLL.
+- In the game (user, 2026-11-26 18:51): a saved game loaded through the hook, Technical Service
+  Storage appended a missing depot storage (`Storage migration [added] ... resource=road_salt`),
+  saved, clean shutdown. That run was before the outermost flag was added.
+
 ## b0.4.5-rmm.2 (2026-11-25)
 
 - Game addresses for WRSR 1.2.0.9 (PE stamp 0x6B05A574), the hotfix that followed 1.2.0.8 on the

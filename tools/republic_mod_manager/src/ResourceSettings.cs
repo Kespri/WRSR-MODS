@@ -21,15 +21,34 @@ namespace TesmioAutoload
         static Template T(string name, string group, string transport) { return new Template { Name = name, Group = group, Transport = transport }; }
         public static readonly Template[] Templates = {
             T("workers","basics","passanger"), T("eletric","basics","eletric"), T("vehicles","basics","vehicles"), T("trains","basics","vehicles"), T("heat","basics","heating"),
-            T("gravel","build","gravel"), T("rawgravel","build","gravel"), T("plants","build","covered"), T("steel","build","open"), T("aluminium","build","open"), T("prefabpanels","build","open"), T("bricks","build","open"), T("wood","build","open"), T("boards","build","open"), T("asphalt","build","open"), T("concrete","build","concrete"), T("cement","build","cement"), T("alumina","build","cement"),
+            T("gravel","build","gravel"), T("rawgravel","build","gravel"), T("plants","build","covered"), T("steel","build","open"), T("aluminium","build","open"), T("prefabpanels","build","open"), T("bricks","build","open"), T("wood","build","open"), T("boards","build","open"), T("asphalt","build","gravel"), T("concrete","build","concrete"), T("cement","build","cement"), T("alumina","build","cement"),
             T("oil","raw","oil"), T("chemicals","raw","covered"), T("coal","raw","gravel"), T("rawcoal","raw","gravel"), T("iron","raw","gravel"), T("rawiron","raw","gravel"), T("bauxite","raw","gravel"), T("rawbauxite","raw","gravel"), T("bitumen","raw","oil"), T("fuel","raw","oil"), T("kerosene","raw","oil"), T("lox","raw","cryo"), T("udmh","raw","hypergolic"), T("n2o4","raw","hypergolic"),
-            T("uranium","nuclear","gravel"), T("yellowcake","nuclear","gravel"), T("uf6","nuclear","nuclear1"), T("nuclearfuel","nuclear","nuclear2"), T("nuclearfuelburned","nuclear","nuclear2"),
+            T("uranium","nuclear","gravel"), T("yellowcake","nuclear","open"), T("uf6","nuclear","nuclear1"), T("nuclearfuel","nuclear","nuclear2"), T("nuclearfuelburned","nuclear","nuclear2"),
             T("fabric","consumer","covered"), T("alcohol","consumer","covered"), T("food","consumer","covered"), T("clothes","consumer","covered"), T("meat","consumer","cooler"), T("livestock","consumer","livestock"),
             T("ecomponents","industry","covered"), T("mcomponents","industry","covered"), T("plastics","industry","covered"), T("eletronics","industry","covered"), T("explosives","industry","covered"),
             T("water","water","water"), T("usagewater","water","water"), T("fertiliser_liquid","water","oil"), T("fertiliser","water","waste"),
             T("waste_gravel","waste","gravel"), T("waste_steel","waste","gravel"), T("waste_aluminium","waste","gravel"), T("waste_plastic","waste","open"), T("waste_bio","waste","waste"), T("waste_burnable","waste","waste"), T("waste_toxic","waste","waste"), T("waste_other","waste","waste"), T("waste_ash","waste","waste")
         };
         public static Template Find(string name) { return Templates.FirstOrDefault(t => t.Name.Equals((name ?? "").Trim(), StringComparison.OrdinalIgnoreCase)); }
+        // The classes a base resource has besides its primary one (read from the game's own
+        // table setup, 1.2.0.9). "general" is left out: no storage line of a building names it
+        // for goods, and ten of the twelve second classes are that one.
+        static readonly Dictionary<string, string[]> SecondClasses = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "livestock", new[] { "covered" } }, { "water", new[] { "sewage" } }, { "usagewater", new[] { "sewage" } },
+            { "waste_gravel", new[] { "waste" } }, { "waste_steel", new[] { "waste" } }, { "waste_aluminium", new[] { "waste" } }, { "waste_plastic", new[] { "waste" } }
+        };
+        // Every class a base resource can be stored in; empty for a name that is no base resource.
+        public static List<string> ClassesOf(string name)
+        {
+            var found = new List<string>();
+            Template template = Find(name);
+            if (template == null) return found;
+            found.Add(template.Transport);
+            string[] more;
+            if (SecondClasses.TryGetValue(template.Name, out more)) found.AddRange(more);
+            return found;
+        }
         // Material families as resources.ini names them, with the engine number each stands for.
         public static readonly string[] Families = { "none", "gravel", "steel", "aluminium", "plastic", "bio", "food", "burnable", "toxic", "other", "ash" };
         public static string FamilyName(string value)
@@ -40,6 +59,108 @@ namespace TesmioAutoload
         }
         // The first comma-separated token of a class line such as "oil, 1, 5, 5, 0".
         public static string Head(string value) { value = (value ?? "").Trim(); int comma = value.IndexOf(','); return comma < 0 ? value : value.Substring(0, comma).Trim(); }
+    }
+
+    // Which transport classes a resource can be stored in. A storage line of a building holds
+    // "tons x the resource's factor for the class", and the factor is zero for every class the
+    // resource does not have: the storage then reads 0.00 of 0.00 t in the game and takes
+    // nothing. The base resources come from the table above; the others from the list of the
+    // resources plugin - the classes of the resource they are cloned from, plus what their
+    // [custom:<name>] section names with transport / class. Both together, never less: this
+    // only feeds a warning, and a warning that is wrong is worse than one that is missing.
+    public static class ResourceClasses
+    {
+        // "RESOURCE_TRANSPORT_GRAVEL", "gravel" or "2" -> "gravel"; "" for anything else.
+        public static string ClassName(string value)
+        {
+            value = (value ?? "").Trim();
+            const string prefix = "RESOURCE_TRANSPORT_";
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) value = value.Substring(prefix.Length);
+            int number;
+            if (Int32.TryParse(value, out number)) return number >= 0 && number < ResourceCatalogData.TransportClasses.Length ? ResourceCatalogData.TransportClasses[number] : "";
+            return ResourceCatalogData.TransportClasses.FirstOrDefault(x => x.Equals(value, StringComparison.OrdinalIgnoreCase)) ?? "";
+        }
+        public static string Token(string className) { return "RESOURCE_TRANSPORT_" + (className ?? "").ToUpperInvariant(); }
+        // The lists of the resources plugins, as texts: [list] name = [slot,] template, display.
+        public static Dictionary<string, HashSet<string>> Read(IEnumerable<string> texts)
+        {
+            var map = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (string text in texts ?? Enumerable.Empty<string>())
+            {
+                string section = "";
+                foreach (string raw in (text ?? "").Replace("\r\n", "\n").Split('\n'))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0 || line[0] == ';' || line[0] == '#') continue;
+                    if (line[0] == '[' && line.EndsWith("]", StringComparison.Ordinal)) { section = line.Substring(1, line.Length - 2).Trim(); continue; }
+                    int eq = line.IndexOf('=');
+                    if (eq <= 0) continue;
+                    string key = line.Substring(0, eq).Trim(), value = line.Substring(eq + 1).Trim();
+                    if (section.Equals("list", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = value.Split(',').Select(x => x.Trim()).ToArray();
+                        int slot, at = parts.Length > 1 && (Int32.TryParse(parts[0], out slot) || parts[0].Equals("auto", StringComparison.OrdinalIgnoreCase)) ? 1 : 0;
+                        if (at >= parts.Length || parts[at].Length == 0) continue;
+                        HashSet<string> have;
+                        if (!map.TryGetValue(key, out have)) map[key] = have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        HashSet<string> cloned;
+                        foreach (string name in ResourceCatalogData.ClassesOf(parts[at])) have.Add(name);
+                        if (map.TryGetValue(parts[at], out cloned) && !ReferenceEquals(cloned, have)) foreach (string name in cloned.ToList()) have.Add(name);
+                    }
+                    else if (section.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) &&
+                        (key.Equals("transport", StringComparison.OrdinalIgnoreCase) || key.Equals("class", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        string resource = section.Substring(7).Trim(), name = ClassName(ResourceCatalogData.Head(value));
+                        if (resource.Length == 0 || name.Length == 0) continue;
+                        HashSet<string> have;
+                        if (!map.TryGetValue(resource, out have)) map[resource] = have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        have.Add(name);
+                    }
+                }
+            }
+            return map;
+        }
+        // What the resources plugins in the loader folder list today. Never throws: without a
+        // list there is simply nothing to warn about for a resource that is not a base one.
+        public static Dictionary<string, HashSet<string>> Load(string build)
+        {
+            var texts = new List<string>();
+            foreach (string plugin in new[] { "resources_plus", "resources" })
+            {
+                try
+                {
+                    string file = Path.Combine(Path.GetFullPath(build), "plugins", plugin + ".ini");
+                    if (File.Exists(file)) texts.Add(File.ReadAllText(file, System.Text.Encoding.UTF8));
+                }
+                catch (Exception) { }
+            }
+            return Read(texts);
+        }
+        // The classes a resource is known to have; empty when nothing is known about it.
+        public static List<string> Of(Dictionary<string, HashSet<string>> map, string resource)
+        {
+            resource = (resource ?? "").Trim();
+            var found = new List<string>(ResourceCatalogData.ClassesOf(resource));
+            HashSet<string> listed;
+            if (map != null && map.TryGetValue(resource, out listed)) foreach (string name in listed) if (!found.Contains(name, StringComparer.OrdinalIgnoreCase)) found.Add(name);
+            return found;
+        }
+        // A line "$STORAGE_IMPORT_SPECIAL <class> <tons> <resource>" (or EXPORT) whose class the
+        // resource does not have: { resource, class token as written, the tokens that fit }.
+        // Null for every other line, for a class this does not know and for a resource nothing
+        // is known about.
+        public static string[] Mismatch(Dictionary<string, HashSet<string>> map, string line)
+        {
+            string[] words = (line ?? "").Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length < 4) return null;
+            if (!words[0].Equals("$STORAGE_IMPORT_SPECIAL", StringComparison.OrdinalIgnoreCase) && !words[0].Equals("$STORAGE_EXPORT_SPECIAL", StringComparison.OrdinalIgnoreCase)) return null;
+            if (!words[1].StartsWith("RESOURCE_TRANSPORT_", StringComparison.OrdinalIgnoreCase)) return null;
+            string named = ClassName(words[1]);
+            if (named.Length == 0) return null;
+            List<string> has = Of(map, words[3]);
+            if (has.Count == 0 || has.Contains(named, StringComparer.OrdinalIgnoreCase)) return null;
+            return new[] { words[3], words[1], String.Join(" / ", has.Select(Token)) };
+        }
     }
 
     public sealed class LocalDetailField

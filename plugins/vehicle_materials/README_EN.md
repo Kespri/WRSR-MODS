@@ -1,4 +1,4 @@
-# 🚚 Vehicle Materials 0.4.3
+# 🚚 Vehicle Materials 0.4.14
 
 **TesmioLoader plugin for additional vehicle materials**
 
@@ -34,7 +34,7 @@ Freely configurable extra materials for vehicle production in *Workers & Resourc
 ### In three steps
 1. **Register the resources:** every material must exist in `resources.ini`, for example `glass` or `cable`. In Republic Mod Manager use the Resources Plus or Resources entry.
 2. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start. Then enter the materials with their coefficients and switch the plugin on (`enabled = 1`), most comfortably through Republic Mod Manager.
-3. **Adjust the production buildings:** every vehicle factory needs a storage for the new material (see [Preparing production buildings](#-preparing-production-buildings)). Then start the game.
+3. **Start the game:** the vehicle factories get the storage for the new material from the plugin itself (see [Preparing production buildings](#-preparing-production-buildings)).
 
 ---
 
@@ -101,7 +101,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 The package ships a launcher schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Vehicle Materials with four tabs, in German and English:
 
-- **General:** notices, the button for this guide and Troubleshooting (detailed log)
+- **General:** notices, the button for this guide, the card "Vehicle factories" (make storages ON or OFF, size of the storages) and Troubleshooting (detailed log)
 - **Resources:** the material list; the plus button offers only resources that Resources Plus or Resources has registered and creates the coefficient for every vehicle class; the trash button removes material and coefficients again
 - **Vehicle classes:** the coefficients as a table of material by class
 - **Advanced mapping:** vehicle types 0 to 15
@@ -112,28 +112,26 @@ The "Plugin active" switch in the header also sets `enabled = 1` when switched o
 
 ## 🏗️ Preparing production buildings
 
-⚠️ **Every new material needs its own storage line in every vehicle factory that is to build with it.** Otherwise it is neither delivered nor accepted. The plugin adds the vehicle's requirement only; it creates no storage. The factories know the transport classes **COVERED** and **OPEN** from the start; the transport class of the new line must match the resource (see the Resources editor, column transport class). Three ways are open for the storage line:
+A factory can use an extra material only when two things are true: it has a storage for it, and the material is listed as its consumption. Without the consumption entry the factory shows the storage, but lorries do not unload and nothing is built. **The plugin gives the factories both. You do not have to change any building.**
 
-1. **Copy a building** and enter the storage lines by hand, for example with the TesmioLoader plugin Buildings.
-2. **Vanilla Buildings** from the Workshop: adds the storage lines to the game's own buildings.
-3. **Manual entry** in the building's `building.ini`.
+- This covers the factories of the game, of the DLCs and of the Workshop, for road, rail, ship and aircraft.
+- New factories have the storages from the start. Factories that already stand get them, empty, when you load the saved game (this takes the TesmioLoader that comes with Republic Mod Manager).
+- Every storage holds 50 tons. Set the size with `factory_storage_capacity`.
+- When you take a material out of the list again (or set the vehicle part of a package to OFF), the plugin takes its storage out of the factories the next time the saved game is loaded. That only happens when the storage is empty; a storage with stock stays until it is empty.
+- A factory that already has a storage of its own for the material, from its `building.ini` or from a Vanilla Buildings rule set, keeps it as it is.
+- The game's files are not changed. The plugin enters everything in memory only.
 
-In all three cases it is the same `$STORAGE_IMPORT_SPECIAL` line, one per material:
+**Rather make the storages yourself?** With `factory_storages = 0` the plugin makes no storage. Every factory then needs a line of its own for each material in its `building.ini`:
 
 ```ini
-$STORAGE_IMPORT_CARPLANT RESOURCE_TRANSPORT_COVERED 250
-$STORAGE_IMPORT_CARPLANT RESOURCE_TRANSPORT_OPEN 300
-$STORAGE_EXPORT RESOURCE_TRANSPORT_VEHICLES 15
-; new:
 $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 glass
-$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable
 ```
 
-- `100` and `50` are the storage capacity
-- `glass` and `cable` are the exact resource IDs from resources.ini
-- the transport type must match the resource's transport class; in the example glass and cable are registered as OPEN
+- `100` is the storage capacity
+- `glass` is the exact resource ID from resources.ini
+- the transport type must match the resource's transport class; in the example glass is registered as OPEN
 
-This applies to the factories for road vehicles, rail vehicles, ships and aircraft. Buildings can be adjusted through a building mod of your own or a TesmioLoader plugin. Check in the game that the new storage slots appear on the building and get supplied.
+The consumption entry is made by the plugin in that case as well.
 
 ---
 
@@ -280,6 +278,17 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 
 ### Version compatibility
 
+- **0.4.14:** in Republic Mod Manager the rocket parts row on the vehicle classes tab has its own rocket icon instead of the airplane (RMM 0.8.12 or newer, an older one shows a gear there); the plugin itself is unchanged.
+- **0.4.13:** airplanes use the airplane values again - since the rocket DLC the game numbers the vehicle kinds differently, and airplanes ran with the rail values. New fifth class **rocket parts** with values of its own (tab "Vehicle classes"); a material without a rocket value asks nothing of rocket parts. Carriages and other horse-drawn vehicles need no custom material any more, and their works (horse wagon works, stud farm) get no storage for it - one they already had leaves as soon as it is empty.
+- **0.4.12:** internal: rebuilt with the shared storage routine; no change in behaviour.
+- **0.4.11:** internal: rebuilt with the shared storage routine; no change in behaviour.
+- **0.4.10:** when you change the size of the storages (`factory_storage_capacity`), factories that already stand take it the next time a saved game is loaded - bigger at once, smaller as soon as the stock fits.
+- **0.4.9:** internal clean-up; no change in behaviour.
+- **0.4.8:** an empty storage now also goes when the storage of another material still stands behind it.
+- **0.4.7:** the storage of a material that is no longer in the list leaves the factories again as soon as it is empty. Materials of content packages are ordinary entries of the list now (Republic Mod Manager 0.8.4 or newer); the separate package file of 0.4.4 is gone.
+- **0.4.6:** factories that already stand now get their new storage in a way that keeps their power, and go on building at once.
+- **0.4.5:** the vehicle factories get the storage and the consumption entry for every material from the plugin itself, including factories from the Workshop and factories that already stand. Before, every factory needed lines of its own in its building file. New settings `factory_storages` and `factory_storage_capacity`.
+- **0.4.4:** content packages can bring a material of their own. Switch it on in Republic Mod Manager on the package's page (card "Vehicle production") and the plugin reads the package's file from the folder `vehicle_materials.d` and appends the material to your own list. With such a file the plugin runs even if you never switched it on yourself; if you set "Plugin active" to OFF yourself, it stays off.
 - **0.4.3:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); any other game version is refused. Otherwise unchanged.
 - **0.4.2:** for WRSR 1.2.0.8 with the rocket DLC; another game version is refused. Otherwise unchanged.
 - **0.4.1:** for WRSR 1.1.1.13; another game version is refused. The plugin checks two more places in the game before it starts; if one does not match, it stays off and the game runs as usual
@@ -296,7 +305,7 @@ The plugin changes no game file and stores nothing in the saved game. Materials 
 | Plugin does not start | Resources Plus and Resources missing or switched off | subscribe to one of the two and switch it on in TesmioLauncher or Republic Mod Manager |
 | Configuration rejected | material not in resources.ini, comment behind a value, value out of range | read the log, correct names and values |
 | Vehicle does not demand the material | `enabled = 0` or coefficient 0 in this class | switch "Plugin active" on, set the coefficient |
-| Factory does not accept the material | no `$STORAGE_IMPORT_SPECIAL` in the building | adjust the building (see above) |
+| Factory has no storage for the material | `factory_storages = 0`, or the factory already stood and the saved game was loaded without the TesmioLoader from Republic Mod Manager | set `factory_storages = 1`; use the loader from Republic Mod Manager |
 | Wrong vehicle class | internal type differs from the expectation | `debug = 1`, set the mapping in `[mapping]` |
 
 ### Logging
@@ -307,7 +316,7 @@ Every message is in `tesmioloader.log` and in the detail log `logs\tesmioloader.
 Expected on a successful start:
 ```
 vehicle_materials  INFO: - [status] Hook active at SOVIET64.exe+0x3F8C50
-vehicle_materials  INFO: - [status] Automatic mapping: type1=road, type6=ship, type7=airplane, other=rail
+vehicle_materials  INFO: - [status] Automatic mapping: type1/2=road, type6=ship, type8/10=airplane, type7/9=rocket, other=rail; horse-drawn vehicles take no extra material
 vehicle_materials  INFO: - [status] v0.4.1 ready
 ```
 
@@ -367,7 +376,7 @@ Loaded from the Workshop, DLL and original INI stay in the package. The personal
 A: No. Vehicle Materials uses only resources that Resources Plus or Resources has registered.
 
 **Q: Why does nobody deliver the material to the factory?**
-A: The factory needs its own storage for it, a `$STORAGE_IMPORT_SPECIAL` line in its building.ini. The plugin does not create that storage.
+A: Then the factory lacks the storage for the material. The plugin makes it itself as long as `factory_storages = 1`; that is the default. The log has a line about it that starts with "Factories".
 
 **Q: Are the original materials replaced?**
 A: No. Steel, mechanical components and everything else stay; the new materials are added.
@@ -380,5 +389,5 @@ A: No. Republic Mod Manager offers the materials from resources.ini with +, crea
 
 ---
 
-**Last update:** Vehicle Materials 0.4.3  
+**Last update:** Vehicle Materials 0.4.14  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

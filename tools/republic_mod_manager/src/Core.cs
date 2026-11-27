@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.7.7: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.8.14: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -429,6 +429,17 @@ namespace TesmioAutoload
         public const string ManifestName = "rmm.mod.ini", LegacyManifestName = "soviet.mod.ini";
         // 0.4.80: a content package's INI fragments by kind (resources, deposits, needs, buildings).
         public readonly Dictionary<string, string> ContentFragments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // 0.8.0: extra materials for vehicle production (Vehicle Materials): the normalised
+        // [materials] text of the package and the resource names it carries.
+        public string VehicleFragment = ""; public readonly List<string> VehicleResources = new List<string>();
+        public readonly Dictionary<string, string> VehicleCaptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // 0.8.3: rule sets for Vanilla Buildings that belong to the vehicle part - the storage a
+        // vehicle factory needs for the material. Provided only while the vehicle part is on.
+        public string VehicleRules = "";
+        // 0.8.9: building sections this package shares with other packages ([content]
+        // shared_buildings). Whichever provided package comes first in the fixed order supplies
+        // such a section; the others step in when it is switched off. Both have to name it.
+        public readonly List<string> SharedBuildings = new List<string>();
         // A keyed editor schema (editor_type = keyed_*) shipped in the package: the
         // master-detail editor owns the INI, Session only deploys DLL, assets and switches.
         public string EditorSchema; public bool EditorManaged;
@@ -621,18 +632,61 @@ namespace TesmioAutoload
                     try { new LooseIni(text); } catch (Exception) { throw new FormatException(Msg.Key("err_inhaltsdatei_ungueltig", relative)); }
                     p.ContentFragments[key] = text; p.InputHashes.Add(path, SafeFiles.Hash(bytes));
                 }
+                {
+                    // 0.8.0: no editor takes this part - it becomes a file of its own that Vehicle
+                    // Materials reads, and only when the player says so on the package page.
+                    string relative = manifest.Get("content", "vehicles", "");
+                    if (relative.Length > 0)
+                    {
+                        string path = SafeFiles.Child(p.Root, relative);
+                        if (!File.Exists(path)) throw new FormatException(Msg.Key("err_inhaltsdatei_fehlt", "vehicles", relative));
+                        byte[] bytes = SafeFiles.Read(path, 1024 * 1024);
+                        try { p.VehicleFragment = VehicleParts.Normalize(SafeFiles.Decode(bytes), p.VehicleResources); } catch (Exception) { throw new FormatException(Msg.Key("err_inhaltsdatei_ungueltig", relative)); }
+                        VehicleParts.Captions(SafeFiles.Decode(bytes), p.VehicleCaptions);
+                        p.InputHashes.Add(path, SafeFiles.Hash(bytes));
+                    }
+                }
+                {
+                    // 0.8.3: rule sets that go with the vehicle part. They reach Vanilla Buildings
+                    // like the plain `rules`, but only while the player has the vehicle part on.
+                    string relative = manifest.Get("content", "vehicle_rules", "");
+                    if (relative.Length > 0)
+                    {
+                        string path = SafeFiles.Child(p.Root, relative);
+                        if (!File.Exists(path)) throw new FormatException(Msg.Key("err_inhaltsdatei_fehlt", "vehicle_rules", relative));
+                        byte[] bytes = SafeFiles.Read(path, 1024 * 1024); string text = SafeFiles.Decode(bytes);
+                        bool usable = p.VehicleFragment.Length > 0;
+                        try { new LooseIni(text); } catch (Exception) { usable = false; }
+                        if (!usable || ContentTargets.IdsOf("rules", text).Count == 0) throw new FormatException(Msg.Key("err_inhaltsdatei_ungueltig", relative));
+                        p.VehicleRules = text; p.InputHashes.Add(path, SafeFiles.Hash(bytes));
+                    }
+                }
+                {
+                    // 0.8.9: every name has to be a section of the package's own buildings file.
+                    string shared = manifest.Get("content", "shared_buildings", "");
+                    if (shared.Trim().Length > 0)
+                    {
+                        string buildings; p.ContentFragments.TryGetValue("buildings", out buildings);
+                        var sections = new HashSet<string>(buildings == null ? new List<string>() : ContentTargets.IdsOf("buildings", buildings), StringComparer.OrdinalIgnoreCase);
+                        foreach (string name in shared.Split(new[] { ',', '|' }).Select(x => x.Trim()).Where(x => x.Length > 0))
+                        {
+                            if (!sections.Contains(name)) throw new FormatException(Msg.Key("err_shared_building_missing", name));
+                            if (!p.SharedBuildings.Contains(name, StringComparer.OrdinalIgnoreCase)) p.SharedBuildings.Add(name);
+                        }
+                    }
+                }
                 foreach (string key in content)
                     // allow_settings belongs to older manifests; the [custom:] sections of a
                     // fragment are read anyway, so the key is not ours to complain about.
-                    if (!ContentTargets.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) && !key.Equals("assets", StringComparison.OrdinalIgnoreCase) && !key.Equals("allow_settings", StringComparison.OrdinalIgnoreCase)) p.Hints.Add(Msg.Key("hint_content_unknown_kind", key));
+                    if (!ContentTargets.Keys.Contains(key, StringComparer.OrdinalIgnoreCase) && !key.Equals("assets", StringComparison.OrdinalIgnoreCase) && !key.Equals("vehicles", StringComparison.OrdinalIgnoreCase) && !key.Equals("vehicle_rules", StringComparison.OrdinalIgnoreCase) && !key.Equals("shared_buildings", StringComparison.OrdinalIgnoreCase) && !key.Equals("allow_settings", StringComparison.OrdinalIgnoreCase)) p.Hints.Add(Msg.Key("hint_content_unknown_kind", key));
                 LoadAssets(p, manifest.Get("content", "assets", ""));
-                if (p.ContentFragments.Count == 0 && p.AssetFiles.Count == 0) throw new FormatException(Msg.Key("err_inhaltspaket_ohne_inhalt"));
+                if (p.ContentFragments.Count == 0 && p.AssetFiles.Count == 0 && p.VehicleFragment.Length == 0) throw new FormatException(Msg.Key("err_inhaltspaket_ohne_inhalt"));
                 foreach (string id in dependencies)
                 {
                     if (!SafeToken(id, 160)) throw new FormatException(Msg.Key("err_ungueltige_abhaengigkeits_id", id));
                     p.Dependencies.Add(new Dependency { Id = id, Constraint = manifest.Get("dependencies", id, "").Trim() });
                 }
-                p.Hints.Add(Msg.Key("hint_content_package", String.Join(", ", p.ContentFragments.Keys.Concat(p.AssetFiles.Count > 0 ? new[] { "assets" } : new string[0]))));
+                p.Hints.Add(Msg.Key("hint_content_package", String.Join(", ", p.ContentFragments.Keys.Concat(p.VehicleFragment.Length > 0 ? new[] { "vehicles" } : new string[0]).Concat(p.AssetFiles.Count > 0 ? new[] { "assets" } : new string[0]))));
                 p.Defaults = new Ini(""); p.Schema = new Ini("[launcher]\nlayout_version = 1\nvisible = 0\nid = " + p.Id + "\nconfig = none.ini\n");
                 return p;
             }

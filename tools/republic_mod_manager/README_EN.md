@@ -50,7 +50,7 @@ RMM lives as `rmm.exe` in the folder `tesmioloader`, next to `tesmioloader.dll`.
 
 The refresh button sits right next to the search box: it reads the package folders again after you subscribed to something or copied a file in between.
 
-**The header at the top.** Name, version and description of the plugin, on the right the "Plugin active" switch and the language of the window. RMM speaks German and English; "Automatic" picks German when Windows runs in German, otherwise English.
+**The header at the top.** Name, version and description of the plugin, on the right the "Plugin active" switch and the language of the window. RMM speaks German and English; "Automatic" picks German when Windows runs in German, otherwise English. The pages of the plugins whose settings come with RMM (such as MaxLegend's plugins, Buildings Plus, Resources Plus and Needs Plus) also exist in Bulgarian, Czech, Spanish, French, Hungarian, Italian, Japanese, Korean, Polish, Portuguese (Brazil), Romanian, Russian, Slovak, Serbian, Turkish, Ukrainian and Chinese (Simplified and Traditional). You see them when Windows runs in one of these languages and "Automatic" is set; the rest of the window stays English then.
 
 **The tabs below.** The tabs come from the plugin. A plugin without its own settings page gets a "General" tab that RMM builds from the comments of its INI file.
 
@@ -187,6 +187,23 @@ Switching off and saving takes entries and files out again. Your own entries and
 
 If the loader finds no matching plugin for a kind of content, the package page says so (for example "No matching plugin is set up for buildings") and skips that part.
 
+**Rule sets for game buildings.** A package can also bring rule sets for **Vanilla Buildings**, for example an extra storage for its resource in a building of the game. They arrive like the buildings do: as originals on the page of Vanilla Buildings, where you can switch each one on and off.
+
+**Vehicle production.** Some packages can make their resource a material for vehicle production. The package page then has a card "Vehicle production" with two choices:
+
+- **ON:** every vehicle factory needs this resource as well, or it builds nothing. This takes the plugin **Vehicle Materials**, installed and switched on.
+- **OFF:** vehicles are built as before.
+
+RMM never decides this for you. As long as you have neither chosen ON nor OFF and saved, nothing happens, and RMM asks before every game start so that you cannot miss it. The same goes when ON is chosen but Vehicle Materials is missing or switched off: the card and "Before the game starts" then say what is in the way.
+
+With ON, RMM enters the material with the package's values in the list on the page of **Vehicle Materials** and switches the plugin on if it was off. There it is an entry like any other: you can change the values for road, rail, ship, aircraft and rocket parts, and your values stay after an update of the package. If an update brings a value for a class your entry does not have yet (the rocket parts, for example), RMM adds only that one. OFF takes the entry out again, just like the trash button on the page of Vehicle Materials. If you delete the entry there yourself, the card "Vehicle production" of the package shows OFF afterwards. If you had entered the material yourself before, the card shows ON from the start and your values stay. Your own entry is yours: neither OFF nor switching the package off takes it out, and the card says so in a note. Switching the whole package off takes out only the entry the package made itself.
+
+**The storage in the vehicle factories.** A vehicle factory can only accept an extra material when it has a storage for it. A package can bring that storage along: with ON a rule set of the package then appears on the page of **Vanilla Buildings** and gives the game's vehicle factories the storage; with OFF it is gone again. The card tells you whether the package does that. Three things to know:
+
+- Only factories you build **afterwards** have the storage. Factories that already stand do not get it and build nothing any more with ON.
+- If Vanilla Buildings is missing or switched off, RMM says so on the card, in "Before the game starts" and before every start.
+- Vehicle factories from the Workshop are not covered. RMM leaves out the target files of a DLC you do not own.
+
 ---
 
 ## ✅ Before the game starts
@@ -285,7 +302,7 @@ The "Buildings" tab is a list with one row per building: switch, name, number, o
 
 Behind "Change..." are the details (number, donor, object name, name in the game, description, life) and a second tab for the lines. There the donor's `building.ini` is on the left and the list of your **commands** on the right. A command touches exactly one place: you click a line on the left, type the new line below and choose **Append** (to the end of the file), **Replace**, **Before** or **After**; **Remove line** beside the selected line takes it out. The list then shows the command as, for example, `Insert 1 | $STORAGE_FUEL ... | $STORAGE_IMPORT_SPECIAL ...`. Everything you do not touch stays as the donor has it - a new storage does not throw the others out. Lines that belong together (a connection with its points, a goods display with its placement) are picked and typed as one block. The view switches to **Result** - the file that will really be written at the next start, with the number of every storage for `$RESOURCE_VISUALIZATION` and a warning when water or sewage sits in front of a shown storage. While a command is red the plugin does not write the building. A building that is still written the older way with `line` rows opens the earlier window: there your lines stand beside the donor's, struck through where they remove something from the donor.
 
-Below the two lists you see what a command is made of. **Selected line** shows the line you clicked above - read only; it is the anchor. **New line / lines** is where you type what is to stand there. You can write several lines below each other (separate them with Enter): each becomes a command of its own. **Append** adds them to the end in order; **Before**, **After** and **Replace** put the first one at the picked place and the others right below it. In Buildings Plus, lines that do not start with `$` (points, position) belong to the line above. A double-click copies the clicked line down when you only want to change a value. The buttons sit below. A button is pale while something it needs is missing, and the line underneath tells you what that is. The lines window of a Vanilla Buildings rule set is built the same way and has the same buttons; there you also have several target files, and connections have commands of their own. If a command does not fit every target file, a red line above the lists says so, and the files concerned are marked red with an `x` in the choice at the top – the rule set changes nothing in the game for them. The list of rule sets then says beside the name, for example, "Only works for 1 of 20 buildings".
+Below the two lists you see what a command is made of. **Selected line** shows the line you clicked above - read only; it is the anchor. **New line / lines** is where you type what is to stand there. You can write several lines below each other (separate them with Enter): each becomes a command of its own. **Append** adds them to the end in order; **Before**, **After** and **Replace** put the first one at the picked place and the others right below it. In Buildings Plus, lines that do not start with `$` (points, position) belong to the line above. A double-click copies the clicked line down when you only want to change a value. To change a command that already exists, click it in the list **Commands** on the right - its line then stands below -, change it and click **Change**. The command stays where it is, and a command that hangs on its line follows. Every resource belongs to a storage class (gravel, cement, open, covered ...). When you write a storage line with a class the resource does not have - industrial salt in `RESOURCE_TRANSPORT_GRAVEL`, for example - the window warns you in orange and names the class that fits: such a storage would hold 0 tons in the game. The buttons sit below. A button is pale while something it needs is missing, and the line underneath tells you what that is. The lines window of a Vanilla Buildings rule set is built the same way and has the same buttons; there you also have several target files, and connections have commands of their own. If a command does not fit every target file, a red line above the lists says so, and the files concerned are marked red with an `x` in the choice at the top – the rule set changes nothing in the game for them. The list of rule sets then says beside the name, for example, "Only works for 1 of 20 buildings".
 
 **Package editors** bring their own tabs, lists and help texts. Some have buttons that open the package's guides, picker windows for buildings, research entries or game texts, picture previews or a tab for translations.
 
@@ -349,6 +366,12 @@ rmm.exe --activate on --save --build "<game>\tesmioloader" --package "<folder>"
 ```
 
 `on` switches it on, `off` off. It is the same click as in the window, only without a mouse: on a content package that switch reads "Provide in the game", on a plugin "Plugin active". Nothing is written until `--save` runs; without `--save` the option is refused.
+
+The choice on the card "Vehicle production" of a content package is made with `--vehicles`, again only together with `--save`:
+
+```bash
+rmm.exe --vehicles on --save --build "<game>\tesmioloader" --package "<folder>"
+```
 
 **Check the Steam login.** The game is started directly here and not through Steam, so it needs a logged-in Steam client. Whether one is there:
 

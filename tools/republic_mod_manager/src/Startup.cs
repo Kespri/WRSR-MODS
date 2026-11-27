@@ -18,6 +18,10 @@ namespace TesmioAutoload
         public int Index;
     }
 
+    // 0.8.0: a provided content package whose vehicle part is undecided or switched on in vain.
+    // Reason: "undecided", "missing", "off" or "disabled" (see ContentSession.VehicleTrouble).
+    public sealed class VehicleTrouble{public CatalogEntry Entry;public string Reason="",Resources="";}
+
     // A building line naming a resource that nothing publishes (see Startup.MissingResources).
     public sealed class MissingResource
     {
@@ -148,6 +152,21 @@ namespace TesmioAutoload
         // drop the whole rule set for that target; it only says so in the log, and the game runs
         // on as if the rule set were not there. Read from the file the plugin reads, and only
         // when the plugin loads and the rule set is switched on.
+        public static List<VehicleTrouble> VehicleTroubles(string build,List<CatalogEntry> entries){return VehicleTroubles(build,entries,"");}
+        public static List<VehicleTrouble> VehicleTroubles(string build,List<CatalogEntry> entries,string languageCode)
+        {
+            var result=new List<VehicleTrouble>();
+            foreach(CatalogEntry entry in (entries??new List<CatalogEntry>()).Where(e=>e.Kind=="content"&&!String.IsNullOrEmpty(e.Root)))
+            {
+                try
+                {
+                    var content=new ContentSession(Package.Load(entry.Root),build);string reason=content.VehicleTrouble;
+                    if(reason.Length>0)result.Add(new VehicleTrouble{Entry=entry,Reason=reason,Resources=VehicleParts.Names(content.Package,languageCode)});
+                }
+                catch(Exception){}
+            }
+            return result;
+        }
         public static List<RuleSpread> RuleSpreads(string build,List<LoadStep> steps,string workshopRoot)
         {
             var result=new List<RuleSpread>();

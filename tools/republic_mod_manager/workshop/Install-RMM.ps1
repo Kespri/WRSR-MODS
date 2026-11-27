@@ -4,7 +4,7 @@
 # "Manual Installation\tesmioloader" into the loader folder of the game (the folder
 # with tesmioloader.dll, normally <game>\tesmioloader) and can create a desktop
 # shortcut. It also replaces tesmioloader.dll with the corrected build that ships in
-# this package (b0.4.5-rmm.2, source in the GitHub repository); the previous file goes
+# this package (b0.4.5-rmm.3, source in the GitHub repository); the previous file goes
 # into the backup folder. The launcher (tesmiolauncher.exe) and tesmioloader.ini must
 # already be there - the loader itself comes from MaxLegend's Workshop item.
 #
@@ -231,7 +231,7 @@ foreach ($rel in $files) {
     $copied++
 }
 Ok ((T 'Dateien kopiert: ' 'Files copied: ') + $copied + (T ', behalten: ' ', kept: ') + $kept + (T ', ersetzt: ' ', replaced: ') + $replaced)
-Note (T 'tesmioloader.dll ist jetzt die Fassung aus diesem Paket (b0.4.5-rmm.2, gleiche API wie MaxLegends b0.4.5).' 'tesmioloader.dll is now the build from this package (b0.4.5-rmm.2, same API as the b0.4.5 by MaxLegend).')
+Note (T 'tesmioloader.dll ist jetzt die Fassung aus diesem Paket (b0.4.5-rmm.3, gleiche API wie MaxLegends b0.4.5).' 'tesmioloader.dll is now the build from this package (b0.4.5-rmm.3, same API as the b0.4.5 by MaxLegend).')
 
 # Leftovers of an earlier installation: the Workshop Bridge, and copies of the Plus
 # plugins that would win over the files in this Workshop item and never get an update.

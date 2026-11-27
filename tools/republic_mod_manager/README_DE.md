@@ -50,7 +50,7 @@ RMM liegt als `rmm.exe` im Ordner `tesmioloader`, neben der `tesmioloader.dll`. 
 
 Rechts neben dem Suchfeld sitzt der Aktualisieren-Knopf: Er liest die Paketordner neu, wenn du zwischendurch etwas abonniert oder kopiert hast.
 
-**Oben der Kopf.** Name, Version und Beschreibung des Plugins, rechts der Schalter „Plugin aktiv“ und die Sprache der Oberfläche. RMM spricht Deutsch und Englisch; „Automatisch“ nimmt Deutsch, wenn Windows auf Deutsch läuft, sonst Englisch.
+**Oben der Kopf.** Name, Version und Beschreibung des Plugins, rechts der Schalter „Plugin aktiv“ und die Sprache der Oberfläche. RMM spricht Deutsch und Englisch; „Automatisch“ nimmt Deutsch, wenn Windows auf Deutsch läuft, sonst Englisch. Die Seiten der Plugins, die ihre Einstellungen vom RMM mitbekommen (etwa die Plugins von MaxLegend, Buildings Plus, Resources Plus und Needs Plus), gibt es zusätzlich auf Bulgarisch, Tschechisch, Spanisch, Französisch, Ungarisch, Italienisch, Japanisch, Koreanisch, Polnisch, Portugiesisch (Brasilien), Rumänisch, Russisch, Slowakisch, Serbisch, Türkisch, Ukrainisch sowie Chinesisch (vereinfacht und traditionell). Du siehst sie, wenn Windows in einer dieser Sprachen läuft und „Automatisch“ eingestellt ist; der Rest des Fensters bleibt dann englisch.
 
 **Darunter die Reiter.** Die Reiter kommen vom Plugin. Ein Plugin ohne eigene Einstellungsseite bekommt einen Reiter „Allgemein“, den RMM aus den Kommentaren der INI-Datei baut.
 
@@ -187,6 +187,23 @@ Ausschalten und Speichern nimmt Einträge und Dateien wieder heraus. Deine eigen
 
 Findet der Loader für eine Inhaltsart kein passendes Plugin, sagt die Paketseite das (zum Beispiel „Für Gebäude ist kein passendes Plugin eingerichtet“) und überspringt diesen Teil.
 
+**Regelsätze für Spielgebäude.** Ein Paket kann auch Regelsätze für **Vanilla Buildings** mitbringen, zum Beispiel ein zusätzliches Lager für seine Ressource in einem Gebäude des Spiels. Sie kommen wie die Gebäude an: als Originale auf der Seite von Vanilla Buildings, wo du jeden einzeln ein- und ausschalten kannst.
+
+**Fahrzeugbau.** Manche Pakete können ihre Ressource zu einem Material für den Fahrzeugbau machen. Dann hat die Paketseite eine Karte „Fahrzeugbau“ mit zwei Möglichkeiten:
+
+- **EIN:** Jede Fahrzeugfabrik braucht zusätzlich diese Ressource, sonst baut sie nichts mehr. Dafür muss das Plugin **Vehicle Materials** installiert und eingeschaltet sein.
+- **AUS:** Fahrzeuge werden gebaut wie bisher.
+
+RMM entscheidet das nie für dich. Solange du weder EIN noch AUS gewählt und gespeichert hast, passiert nichts, und RMM fragt vor jedem Spielstart nach, damit du es nicht übersiehst. Dasselbe gilt, wenn EIN gewählt ist, aber Vehicle Materials fehlt oder ausgeschaltet ist: Dann steht auf der Karte und in „Vor dem Spielstart“, woran es liegt.
+
+Mit EIN trägt RMM das Material mit den Werten des Pakets in die Liste auf der Seite von **Vehicle Materials** ein und schaltet das Plugin ein, falls es aus war. Dort ist es ein Eintrag wie jeder andere: Du kannst die Werte für Straße, Schiene, Schiff, Flugzeug und Raketenteile ändern, und deine Werte bleiben auch nach einem Update des Pakets. Bringt ein Update einen Wert für eine Klasse, die dein Eintrag noch nicht hat (etwa die Raketenteile), trägt RMM nur diesen nach. AUS nimmt den Eintrag wieder heraus, genau wie der Papierkorb auf der Seite von Vehicle Materials. Löschst du den Eintrag dort selbst, zeigt die Karte „Fahrzeugbau“ des Pakets danach AUS. Hattest du das Material schon selbst eingetragen, steht die Karte von Anfang an auf EIN, und deine Werte bleiben. Dein eigener Eintrag gehört dir: Weder AUS noch das Ausschalten des Pakets nimmt ihn heraus, die Karte sagt das in einem Hinweis. Schaltest du das Paket ganz aus, nimmt RMM nur den Eintrag mit heraus, den das Paket selbst angelegt hat.
+
+**Das Lager in den Fahrzeugfabriken.** Eine Fahrzeugfabrik kann ein zusätzliches Material nur annehmen, wenn sie ein Lager dafür hat. Ein Paket kann dieses Lager gleich mitbringen: Mit EIN erscheint dann auf der Seite von **Vanilla Buildings** ein Regelsatz des Pakets, der den Fahrzeugfabriken des Spiels das Lager gibt; mit AUS verschwindet er wieder. Die Karte sagt dir, ob das Paket das tut. Drei Dinge solltest du wissen:
+
+- Das Lager gibt es nur an Fabriken, die du **danach neu baust**. Schon gebaute Fabriken bekommen es nicht nachträglich und bauen mit EIN nichts mehr.
+- Fehlt Vanilla Buildings oder ist es ausgeschaltet, meldet RMM das auf der Karte, in „Vor dem Spielstart“ und vor jedem Start.
+- Fahrzeugfabriken aus dem Workshop sind nicht erfasst. Zieldateien eines DLCs, das du nicht hast, lässt RMM weg.
+
 ---
 
 ## ✅ Vor dem Spielstart
@@ -285,7 +302,7 @@ Der Reiter „Gebäude“ ist eine Liste mit einer Zeile je Gebäude: Schalter, 
 
 Hinter „Ändern…“ liegen die Angaben (Nummer, Spender, Objektname, Name im Spiel, Beschreibung, Lebensdauer) und ein zweiter Reiter für die Zeilen. Dort steht links die `building.ini` des Spenders und rechts die Liste deiner **Befehle**. Ein Befehl fasst genau eine Stelle an: Du klickst links eine Zeile an, schreibst unten die neue Zeile und wählst **Anhängen** (ans Ende der Datei), **Ersetzen**, **Davor** oder **Danach**; **Zeile entfernen** neben der ausgewählten Zeile nimmt sie heraus. In der Liste steht der Befehl dann zum Beispiel als `Einfügen 1 | $STORAGE_FUEL … | $STORAGE_IMPORT_SPECIAL …`. Alles, was du nicht anfasst, bleibt wie beim Spender – ein neues Lager wirft die anderen nicht weg. Zeilen, die zusammengehören (ein Anschluss mit seinen Punkten, eine Warenanzeige mit ihrer Lage), wählst und schreibst du als Block. Die Ansicht lässt sich auf **Ergebnis** umschalten — dann siehst du die Datei, die beim nächsten Start wirklich entsteht, mit der Nummer jedes Lagers für `$RESOURCE_VISUALIZATION` und einer Warnung, wenn Wasser oder Abwasser vor einem angezeigten Lager steht. Solange ein Befehl rot ist, schreibt das Plugin das Gebäude nicht. Ein Gebäude, das noch in der älteren Schreibweise mit `line`-Zeilen vorliegt, öffnet das frühere Fenster: Dort stehen deine Zeilen neben denen des Spenders, und durchgestrichen ist, was sie beim Spender wegwerfen.
 
-Unter den beiden Listen steht, woraus ein Befehl entsteht. **Ausgewählte Zeile** zeigt die Zeile, die du oben angeklickt hast – nur zum Lesen; sie ist der Anker. In **Neue Zeile / Zeilen** schreibst du, was dort stehen soll. Du kannst mehrere Zeilen untereinander schreiben (mit Enter trennen): Jede wird ein eigener Befehl. **Anhängen** hängt sie der Reihe nach ans Ende; **Davor**, **Danach** und **Ersetzen** setzen die erste an die ausgewählte Stelle und die übrigen direkt darunter. Bei Buildings Plus gehören Zeilen ohne `$` am Anfang (Punkte, Position) zur Zeile darüber. Ein Doppelklick kopiert die angeklickte Zeile nach unten, wenn du nur einen Wert ändern willst. Darunter liegen die Knöpfe. Ein Knopf ist blass, solange ihm etwas fehlt, und die Zeile darunter sagt dir, was das ist. Das Zeilen-Fenster eines Regelsatzes von Vanilla Buildings ist genauso gebaut und hat dieselben Knöpfe; dort gibt es zusätzlich mehrere Zieldateien, und Anschlüsse haben eigene Befehle. Passt ein Befehl nicht in jede Zieldatei, steht das rot über den Listen, und die betroffenen Dateien sind in der Auswahl oben rot mit einem `x` markiert – bei ihnen ändert der Regelsatz im Spiel nichts. In der Liste der Regelsätze steht dann neben dem Namen zum Beispiel „Greift nur bei 1 von 20 Gebäuden“.
+Unter den beiden Listen steht, woraus ein Befehl entsteht. **Ausgewählte Zeile** zeigt die Zeile, die du oben angeklickt hast – nur zum Lesen; sie ist der Anker. In **Neue Zeile / Zeilen** schreibst du, was dort stehen soll. Du kannst mehrere Zeilen untereinander schreiben (mit Enter trennen): Jede wird ein eigener Befehl. **Anhängen** hängt sie der Reihe nach ans Ende; **Davor**, **Danach** und **Ersetzen** setzen die erste an die ausgewählte Stelle und die übrigen direkt darunter. Bei Buildings Plus gehören Zeilen ohne `$` am Anfang (Punkte, Position) zur Zeile darüber. Ein Doppelklick kopiert die angeklickte Zeile nach unten, wenn du nur einen Wert ändern willst. Einen Befehl, den es schon gibt, änderst du so: Klick ihn rechts in der Liste **Befehle** an – seine Zeile steht dann unten –, ändere sie und klick auf **Ändern**. Der Befehl bleibt, wo er ist, und ein Befehl, der an seiner Zeile hängt, zieht mit. Jede Ressource gehört zu einer Lagerklasse (Schüttgut, Trockengut, offen, gedeckt …). Schreibst du eine Lagerzeile mit einer Klasse, die die Ressource nicht hat – zum Beispiel Industriesalz in `RESOURCE_TRANSPORT_GRAVEL` –, warnt dich das Fenster in Orange und nennt die passende Klasse: So ein Lager würde im Spiel 0 Tonnen fassen. Darunter liegen die Knöpfe. Ein Knopf ist blass, solange ihm etwas fehlt, und die Zeile darunter sagt dir, was das ist. Das Zeilen-Fenster eines Regelsatzes von Vanilla Buildings ist genauso gebaut und hat dieselben Knöpfe; dort gibt es zusätzlich mehrere Zieldateien, und Anschlüsse haben eigene Befehle. Passt ein Befehl nicht in jede Zieldatei, steht das rot über den Listen, und die betroffenen Dateien sind in der Auswahl oben rot mit einem `x` markiert – bei ihnen ändert der Regelsatz im Spiel nichts. In der Liste der Regelsätze steht dann neben dem Namen zum Beispiel „Greift nur bei 1 von 20 Gebäuden“.
 
 **Paket-Editoren** bringen ihre eigenen Reiter, Listen und Hilfen mit. Manche haben Knöpfe, die Anleitungen des Pakets öffnen, Auswahlfenster für Gebäude, Forschungen oder Spieltexte, Bildvorschauen oder einen Reiter für Übersetzungen.
 
@@ -349,6 +366,12 @@ rmm.exe --activate on --save --build "<Spiel>\tesmioloader" --package "<Ordner>"
 ```
 
 `on` schaltet ein, `off` aus. Das ist derselbe Klick wie im Fenster, nur ohne Maus: bei einem Inhaltspaket heißt das "Im Spiel bereitstellen", bei einem Plugin "Plugin aktiv". Geschrieben wird erst durch `--save`; ohne `--save` weist RMM die Option ab.
+
+Die Wahl auf der Karte „Fahrzeugbau“ eines Inhaltspakets trifft `--vehicles`, ebenfalls nur zusammen mit `--save`:
+
+```bash
+rmm.exe --vehicles on --save --build "<Spiel>\tesmioloader" --package "<Ordner>"
+```
 
 **Steam-Anmeldung prüfen.** Weil das Spiel hier direkt und nicht über Steam startet, braucht es einen angemeldeten Steam-Client. Ob einer da ist, sagt dir:
 

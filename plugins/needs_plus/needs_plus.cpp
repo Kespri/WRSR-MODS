@@ -84,7 +84,7 @@
 #include "../../src/tesmio_plugin.h"
 
 #define PLUGIN_NAME    "needs_plus"
-#define PLUGIN_VERSION "0.1.5"
+#define PLUGIN_VERSION "0.1.7"
 
 // The DLL's own folder (RMM package or a local copy), resolved in DllMain,
 // and the INI actually read: plugins\needs_plus.ini.
@@ -1242,6 +1242,18 @@ static void ExtendTypeStorages(BYTE* b)
 // the vector reaches every type the game knows, built or not, and it runs
 // after "Initializing resources", so a mod resource is already published by
 // then.
+// The building number of a type ($TYPE_* in building.ini, the parser's rbp+0x1E18):
+// 3 is $TYPE_SHOP, 50 is $TYPE_HOTEL (1.2.0.9, 0x1271C0 and 0x127A1B).
+#define TD_NUMBER      0x368
+#define TD_SHOP        3
+#define TD_HOTEL       50
+
+static bool SellsToCitizens(const BYTE* td)
+{
+    int number = *(const int*)(td + TD_NUMBER);
+    return number == TD_SHOP || number == TD_HOTEL;
+}
+
 static void ExtendAllTypes(void)
 {
     ResVector* v = (ResVector*)(g_exeBase + P_BUILDING_TYPES);
@@ -1273,6 +1285,11 @@ static void ExtendAllTypes(void)
     {
         BYTE* td = v->begin + i * TYPE_STRIDE;
         if (!ReadablePtr(td, TYPEDESC_SCAN)) continue;
+        // Only the buildings that sell to citizens. The donor rule alone put
+        // furniture into the vehicle-parts warehouse of every airplane and rocket
+        // works (it stocks electronics) and table salt into every factory storage
+        // that holds food - slots nothing ever fills or empties.
+        if (!SellsToCitizens(td)) continue;
         types++;
 
         LONG before = 0;
@@ -1282,7 +1299,7 @@ static void ExtendAllTypes(void)
         for (int k = 0; k < g_needCount; k++) after += g_need[k].storages;
         if (after != before) touched++;
     }
-    Logf("needs_plus  %d building type(s) scanned, %d gained a slot - the build-menu "
+    Logf("needs_plus  %d shop or hotel type(s) scanned, %d gained a slot - the build-menu "
          "preview is right before anything is built", types, touched);
 }
 
@@ -1307,6 +1324,101 @@ static void StockShop(BYTE* b)
     {
         BYTE* stor = sv->begin + i * STORAGE_STRIDE;
         ExtendStorage(stor, *(int*)(stor + ST_CLASS), true);
+    }
+}
+
+// ------------------------------------------------- slots where nobody sells
+//
+// Before the pass over the building types was limited to shops and hotels it gave
+// a slot to every storage that held a donor - furniture in the vehicle-parts
+// warehouse of every airplane and rocket works, table salt next to the food of a
+// factory. A building keeps its slot list in the save (seen in the game: an old
+// works kept the furniture slot, a new one did not get it), so the slot stays
+// until something takes it out again.
+//
+// That is done here, while a saved game loads, for every building that is neither
+// a shop nor a hotel, and only for a slot that
+//   - is the last one of its storage (this plugin appended it, and nothing moves),
+//   - belongs to one of the needs and sits in a storage that holds its donor,
+//   - is empty, and
+//   - is not declared by the building's own type in any of its storages (a
+//     furniture works keeps its furniture storage).
+// Both slot vectors shrink by one entry; nothing is freed or moved.
+static volatile LONG g_trimFaulted;
+static volatile LONG g_trimmed;
+
+static bool TypeDeclares(ResVector* typeStorages, const void* rec)
+{
+    size_t span = (size_t)(typeStorages->end - typeStorages->begin);
+    for (size_t i = 0; i < span / STORAGE_STRIDE; i++)
+        if (SlotIndexOf(typeStorages->begin + i * STORAGE_STRIDE, rec) >= 0) return true;
+    return false;
+}
+
+static Need* NeedOfRecord(const void* rec)
+{
+    for (int i = 0; i < g_needCount; i++)
+        if (ResolveNeed(&g_need[i]) && g_need[i].rec == rec) return &g_need[i];
+    return NULL;
+}
+
+static void TrimBuilding(BYTE* b)
+{
+    if (!ReadablePtr(b + TYPEDESC_OFF, sizeof(void*))) return;
+    BYTE* td = *(BYTE**)(b + TYPEDESC_OFF);
+    if (!td || !ReadablePtr(td, TYPEDESC_SCAN)) return;
+    if (SellsToCitizens(td)) return;
+
+    ResVector* sv = (ResVector*)(b + B_STORAGES);
+    if (!ReadablePtr(sv, sizeof(*sv)) || !sv->begin || sv->end <= sv->begin) return;
+    size_t span = (size_t)(sv->end - sv->begin);
+    if (span % STORAGE_STRIDE || span > 64 * STORAGE_STRIDE || !ReadablePtr(sv->begin, span)) return;
+
+    // Without the type's own storages there is no telling what the building
+    // declares itself, so nothing is touched.
+    ResVector* tv = FindStoragesIn(td);
+    if (!tv) return;
+
+    for (size_t i = 0; i < span / STORAGE_STRIDE; i++)
+    {
+        BYTE* stor = sv->begin + i * STORAGE_STRIDE;
+        for (int guard = 0; guard < MAX_NEEDS; guard++)
+        {
+            if (!SlotVectorValid(stor)) break;
+            int slots = SlotCount(stor);
+            if (slots < 2) break;
+
+            Slot* last = (Slot*)(((ResVector*)stor)->begin + (size_t)(slots - 1) * SLOT_SIZE);
+            Need* n = NeedOfRecord(last->res);
+            if (!n) break;
+            if (SlotIndexOf(stor, n->donorRec) < 0) break;
+            if (!(last->content > -0.0001f && last->content < 0.0001f)) break;
+            if (TypeDeclares(tv, n->rec)) break;
+
+            // The parallel array has to agree, or this is a shape the cleanup
+            // was not written for.
+            ResVector* v2 = (ResVector*)(stor + ST_SLOTS2);
+            if (!ReadablePtr(v2, sizeof(*v2)) || !v2->begin ||
+                (size_t)(v2->end - v2->begin) != (size_t)slots * SLOT_SIZE) break;
+
+            v2->end -= SLOT_SIZE;
+            ((ResVector*)stor)->end -= SLOT_SIZE;
+            if (InterlockedIncrement(&g_trimmed) <= 10)
+                Logf("needs_plus  empty \"%s\" slot taken out of storage %d of a building "
+                     "that is not a shop or hotel (it sat next to \"%s\")",
+                     n->name, (int)i, n->like);
+        }
+    }
+}
+
+static void __cdecl TrimAfterLoad(void* building, void*, int completed)
+{
+    if (!completed || !building || !g_enabled || g_trimFaulted) return;
+    __try { TrimBuilding((BYTE*)building); }
+    __except (FaultFilter("needs_plus slot cleanup", GetExceptionInformation()))
+    {
+        InterlockedExchange(&g_trimFaulted, 1);
+        Logf("needs_plus  slot cleanup disabled after a fault - stray empty slots stay");
     }
 }
 
@@ -2050,6 +2162,17 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     Logf("needs_plus  %d need(s), demand %s, storage %s, at most %d demand(s) per citizen (%s when full)",
          g_needCount, g_doDemand ? "on" : "off", g_doStorage ? "on" : "off",
          g_maxDemands, g_replace ? "replace" : "skip");
+
+    // The loader reports each building of a saved game as it loads (loader from
+    // Republic Mod Manager, b0.4.5-rmm.3 or newer); MaxLegend's loader does not,
+    // and then the stray slots simply stay.
+    const TsmBuildingLoadApi* events = NULL;
+    if (H && H->structSize >= offsetof(TsmHost, consume) + sizeof(H->consume) && H->consume)
+        events = (const TsmBuildingLoadApi*)H->consume(TSM_SERVICE_BUILDING_LOAD, TSM_BUILDING_LOAD_VERSION);
+    if (events && events->subscribe && events->subscribe(NULL, TrimAfterLoad, NULL, 0))
+        Logf("needs_plus  empty slots of the goods outside shops and hotels are taken out as a saved game loads");
+    else
+        Logf("needs_plus  this loader does not report loaded buildings - empty slots outside shops and hotels stay");
     return 0;
 }
 

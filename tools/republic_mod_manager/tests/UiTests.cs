@@ -368,6 +368,7 @@ static class UiTests
                 AppOptions.IniLauncherWindow="0"; AppOptions.IniWatchSeconds="15"; AppOptions.IniVersionCheck="1";
                 LauncherOptions.ShowWindow=false; LauncherOptions.WatchSeconds=15; GameVersion.CheckEnabled=true;
                 var view=new UiState{Build=loader,Language="de"};
+                Check(Language.AutoCode(new System.Globalization.CultureInfo("zh-CN"))=="zh-CN"&&Language.AutoCode(new System.Globalization.CultureInfo("zh-SG"))=="zh-CN"&&Language.AutoCode(new System.Globalization.CultureInfo("zh-TW"))=="zh-TW"&&Language.AutoCode(new System.Globalization.CultureInfo("zh-HK"))=="zh-TW"&&Language.AutoCode(new System.Globalization.CultureInfo("pt-BR"))=="pt"&&Language.AutoCode(new System.Globalization.CultureInfo("de-DE"))=="de","Automatic language: Chinese becomes zh-CN or zh-TW by its written form, every other language its two-letter code");
                 string report=null;
                 using(var window=new OptionsWindow(new Language("de"),view,()=>"Republic Mod Manager 0.4.93\nSteam: Ready",new Font("Segoe UI",10),null))
                 {
@@ -595,6 +596,84 @@ static class UiTests
                         Check(editor.Insert.Count()==2&&said==""&&editor.TestSpreadNote=="","0.7.4: the last line of a chain may stand elsewhere - nothing hangs on it");
                     }
                 }
+                // 0.8.7: "Change" rewrites the picked command in place - kind, anchor and position
+                // stay - and an insert that hangs on the line the command wrote follows it.
+                {
+                    var plain=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","$STORAGE RESOURCE_TRANSPORT_COVERED 40","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop.ini"},f=>plain,new[]{"$QUALITY 1"},new[]{"$WORKERS_NEEDED 20 | $WORKERS_NEEDED 40"},new[]{"$STORAGE RESOURCE_TRANSPORT_COVERED 40"},new[]{"1 | $WORKERS_NEEDED 40 | $LIFESPAN 1","0 | end | $COST 5"},new Font("Segoe UI",10)))
+                    {
+                        Check(!editor.TestProblems.Any()&&!editor.TestChangeEnabled,"0.8.7: no command picked - Change is off ["+String.Join(",",editor.TestProblems)+"]");
+                        editor.TestSelectCommand(1);
+                        Check(editor.TestTyped=="$WORKERS_NEEDED 40"&&!editor.TestChangeEnabled&&editor.TestHint.StartsWith("Befehl"),"0.8.7: a picked command shows its line, Change waits for a difference ["+editor.TestTyped+" / "+editor.TestHint+"]");
+                        editor.TestType("$WORKERS_NEEDED 55");
+                        Check(editor.TestChangeEnabled&&editor.TestHint.Length>20&&!editor.TestHint.StartsWith("Befehl"),"0.8.7: a changed line switches Change on ["+editor.TestHint+"]");
+                        editor.TestChange();
+                        Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $WORKERS_NEEDED 55"&&editor.Insert.Count()==2&&editor.Insert.First()=="1 | $WORKERS_NEEDED 55 | $LIFESPAN 1"&&!editor.TestProblems.Any(),"0.8.7: Change rewrites the replace, and the insert that hung on its line follows ["+String.Join(" ; ",editor.Replace.Concat(editor.Insert))+" // "+String.Join(",",editor.TestProblems)+"]");
+                        Check(editor.TestTyped=="$WORKERS_NEEDED 55"&&!editor.TestChangeEnabled,"0.8.7: the command stays picked and shows its new line");
+                        editor.TestSelectCommand(4);editor.TestType("$COST 9");editor.TestChange();
+                        Check(editor.Insert.Count()==2&&editor.Insert.Last()=="0 | end | $COST 9"&&editor.Insert.First()=="1 | $WORKERS_NEEDED 55 | $LIFESPAN 1","0.8.7: an insert keeps its side and its anchor ["+String.Join(" ; ",editor.Insert)+"]");
+                        editor.TestSelectCommand(0);editor.TestType("$QUALITY 2");editor.TestChange();
+                        Check(editor.Add.Count()==1&&editor.Add.First()=="$QUALITY 2"&&!editor.TestProblems.Any(),"0.8.7: an add command is changed, not doubled ["+String.Join(" ; ",editor.Add)+"]");
+                        editor.TestType("$QUALITY 3\n$QUALITY 4");
+                        Check(!editor.TestChangeEnabled,"0.8.7: a rule set command holds one line - two typed lines leave Change off");
+                        editor.TestSelectCommand(2);editor.TestType("$X 1");
+                        Check(!editor.TestChangeEnabled,"0.8.7: a remove command has no line to change");
+                        editor.TestSelectLine(1);
+                        Check(!editor.TestChangeEnabled,"0.8.7: a click in the file ends the change of a command");
+                    }
+                    var one=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop_clothes"},f=>one,new string[0],new[]{"$WORKERS_NEEDED 20 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 10 chemicals"},new string[0],new[]{"1 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 10 chemicals | $QUALITY 1"},null,null,null,new Font("Segoe UI",10),true,()=>""))
+                    {
+                        editor.TestSelectCommand(0);editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 15 chemicals");
+                        Check(editor.TestChangeEnabled,"0.8.7 clone editor: a changed line switches Change on");
+                        editor.TestChange();
+                        Check(editor.Replace.Count()==1&&editor.Replace.First()=="$WORKERS_NEEDED 20 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 15 chemicals"&&editor.Insert.Count()==1&&editor.Insert.First()=="1 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 15 chemicals | $QUALITY 1"&&!editor.TestProblems.Any(),"0.8.7 clone editor: the storage line gets its new size in place and the insert behind it follows ["+String.Join(" ; ",editor.Replace.Concat(editor.Insert))+" // "+String.Join(",",editor.TestProblems)+"]");
+                        editor.TestSelectCommand(1);editor.TestType("$RESOURCE_VISUALIZATION 2\nposition 1 2 3");editor.TestChange();
+                        Check(editor.Insert.Count()==1&&editor.Insert.First()=="1 | $STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 15 chemicals | $RESOURCE_VISUALIZATION 2 | position 1 2 3","0.8.7 clone editor: a block with a data line is one command ["+String.Join(" ; ",editor.Insert)+"]");
+                        editor.TestType("position 9 9 9");
+                        Check(!editor.TestChangeEnabled,"0.8.7 clone editor: a block has to begin with a token");
+                    }
+                }
+                // 0.8.8: a storage line whose class the resource does not have gets an amber note -
+                // beside the command, in the box below the commands, and while it is typed.
+                {
+                    var classes=ResourceClasses.Read(new[]{"[list]\nindustrial_salt = alumina, Industrial Salt\nroad_salt = gravel, Road Salt\n"});
+                    var one=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop_clothes"},f=>one,new[]{"$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 20 industrial_salt","$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 24 road_salt"},new string[0],new string[0],new string[0],null,null,null,new Font("Segoe UI",10),true,()=>""))
+                    {
+                        Check(editor.TestClassNotes==""&&editor.TestCommandLabel(0).StartsWith("   "),"0.8.8 clone editor: without the classes of the resources nothing is said");
+                        editor.SetResourceClasses(classes);
+                        Check(editor.TestClassNotes.StartsWith("0:")&&editor.TestClassNotes.Contains("industrial_salt")&&editor.TestClassNotes.Contains("RESOURCE_TRANSPORT_GRAVEL")&&editor.TestClassNotes.Contains("RESOURCE_TRANSPORT_CEMENT")&&!editor.TestClassNotes.Contains("1:")&&!editor.TestProblems.Any(),"0.8.8 clone editor: industrial salt in a gravel storage is noted, road salt is not, and nothing turns red ["+editor.TestClassNotes+"]");
+                        Check(editor.TestCommandLabel(0).StartsWith("!  ")&&editor.TestCommandLabel(1).StartsWith("   ")&&editor.TestEffect.Contains("industrial_salt"),"0.8.8 clone editor: the command carries a mark and the box below names it before anything is picked ["+editor.TestEffect+"]");
+                        editor.TestSelectCommand(1);
+                        Check(!editor.TestEffect.Contains("industrial_salt")&&!editor.TestHintAmber,"0.8.8 clone editor: a command without a note shows none");
+                        editor.TestSelectCommand(0);
+                        Check(editor.TestEffect.Contains("industrial_salt")&&editor.TestHintAmber&&editor.TestHint.Contains("RESOURCE_TRANSPORT_CEMENT"),"0.8.8 clone editor: the picked command shows its note, the hint line too ["+editor.TestHint+"]");
+                        editor.TestType("$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_CEMENT 20 industrial_salt");
+                        Check(!editor.TestHintAmber&&editor.TestChangeEnabled,"0.8.8 clone editor: the right class typed - the hint is plain again");
+                        editor.TestChange();
+                        Check(editor.TestClassNotes==""&&editor.TestCommandLabel(0).StartsWith("   ")&&editor.Add.First().Contains("RESOURCE_TRANSPORT_CEMENT"),"0.8.8 clone editor: after Change the note is gone ["+editor.TestClassNotes+"]");
+                        // The picture: the wrong class back in, the command picked.
+                        editor.TestType("$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 20 industrial_salt");editor.TestChange();editor.TestSelectCommand(0);
+                        using(var frame=new Form{StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),Size=new Size(1080,700),Font=new Font("Segoe UI",10),BackColor=Color.White})
+                        {
+                            frame.Controls.Add(editor);frame.Show();Application.DoEvents();frame.PerformLayout();Application.DoEvents();
+                            using(var shot=new Bitmap(frame.Width,frame.Height)){frame.DrawToBitmap(shot,new Rectangle(0,0,frame.Width,frame.Height));shot.Save(Path.Combine(root,"ui-class-note.png"));}
+                            frame.Controls.Remove(editor);
+                        }
+                    }
+                    var plain=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","end"};
+                    using(var editor=new TargetLinesEditor(new Language("de"),new[]{"shop.ini"},f=>plain,new string[0],new string[0],new string[0],new string[0],new Font("Segoe UI",10)))
+                    {
+                        editor.SetResourceClasses(classes);
+                        editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 asphalt");
+                        Check(editor.TestHintAmber&&editor.TestHint.Contains("asphalt")&&editor.TestHint.Contains("RESOURCE_TRANSPORT_GRAVEL"),"0.8.8: a rule set line is judged while it is typed, base resources included ["+editor.TestHint+"]");
+                        editor.TestAdd();
+                        Check(editor.Add.Count()==1&&editor.TestClassNotes.StartsWith("0:")&&!editor.TestProblems.Any(),"0.8.8: the line can still be added - it is a note, not a refusal");
+                        editor.TestType("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 50 asphalt");
+                        Check(!editor.TestHintAmber,"0.8.8: asphalt in a gravel storage is fine");
+                    }
+                }
                 // 0.7.2: several lines in the new-line box are several commands, never one glued line.
                 {
                     var plain=new List<string>{"$NAME_STR \"Shop\"","$WORKERS_NEEDED 20","$STORAGE RESOURCE_TRANSPORT_COVERED 40","end"};
@@ -777,6 +856,43 @@ static class UiTests
                 Check(form.TestSaveAll(()=>{}),"saving removes the content package");
                 string removedIni=SafeFiles.Text(resourceIni);
                 Check(!form.ContentProvided&&!File.Exists(vfsPng)&&!removedIni.Contains("raw_salt")&&removedIni.Contains("glass=aluminium, Glass"),"removing takes entries and files away and leaves the rest untouched");
+            }
+            // 0.8.0: the card "vehicle production" of a content package - the player's own choice,
+            // nothing is written before he has made it.
+            string vehPkg=Path.Combine(collection,"veh_content");
+            Write(Path.Combine(vehPkg,"soviet.mod.ini"),"[mod]\nid=example.uiveh\nname=AAB Veh Content\nversion=1.0\nenabled=1\n[content]\nresources=tesmio\\resources.ini\nvehicles=tesmio\\vehicle_materials.ini\n");
+            Write(Path.Combine(vehPkg,"tesmio","resources.ini"),"[list]\nui_panes = aluminium, UI Panes\n\n[names:German]\nui_panes = Testscheiben\n");
+            Write(Path.Combine(vehPkg,"tesmio","vehicle_materials.ini"),"[materials]\nui_panes = 0.02, 0.01, 0.002, 0.01\n");
+            using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=vehPkg,Language="de"},null,false))
+            {
+                HiddenShow(form);
+                string vehFile=VehicleParts.FilePath(loader,"example.uiveh");
+                var vehEntries=new List<CatalogEntry>{new CatalogEntry{Root=vehPkg,Id="example.uiveh",Name="AAB Veh Content",Kind="content"}};
+                Check(form.vehiclesOn!=null&&form.vehiclesOff!=null&&!form.vehiclesOn.Checked&&!form.vehiclesOff.Checked&&form.vehiclesOn.Text.StartsWith("EIN")&&form.vehiclesOn.Text.Contains("Testscheiben")&&form.vehiclesOff.Text.StartsWith("AUS"),"a package with a vehicle part shows ON and OFF, none chosen, and names the resource as the player reads it");
+                form.TestSwitch(true);Application.DoEvents();
+                Check(form.TestSaveAll(()=>{})&&form.ContentProvided&&!File.Exists(vehFile),"providing the package without a choice writes no vehicle file");
+                Check(Startup.VehicleTroubles(loader,vehEntries,"de").Any(x=>x.Reason=="undecided"&&x.Resources=="Testscheiben"),"provided and undecided is what the start check names");
+                Check(Children(form).OfType<Label>().Any(x=>x.Text.StartsWith("Noch nicht entschieden")),"the card says that nothing is decided yet");
+                form.vehiclesOn.Checked=true;Application.DoEvents();
+                Check(form.IsDirty&&form.SaveEnabled,"choosing ON counts as an unsaved change");
+                Check(form.TestSaveAll(()=>{})&&!File.Exists(vehFile)&&VehicleParts.Listed(loader,new[]{"ui_panes"})&&new LooseIni(SafeFiles.Text(VehicleParts.OverlayPath(loader))).Get("road","ui_panes")=="0.02","saving enters the material in the list of Vehicle Materials");
+                Check(form.vehiclesOn!=null&&form.vehiclesOn.Checked&&!form.IsDirty,"the page shows ON as chosen after the save");
+                Check(form.StatusText=="Konfiguration gültig"&&form.DirtyMarks==0&&!form.SaveEnabled,"the footer says so after the save of a content package: valid, no amber mark, nothing to save");
+                Check(Startup.VehicleTroubles(loader,vehEntries,"de").All(x=>x.Reason!="undecided"),"a decision ends the question");
+                form.vehiclesOff.Checked=true;Application.DoEvents();
+                Check(form.TestSaveAll(()=>{})&&!VehicleParts.Listed(loader,new[]{"ui_panes"})&&Startup.VehicleTroubles(loader,vehEntries,"de").Count==0,"choosing OFF and saving takes the entry out of the list, and nobody asks again");
+                Check(!form.IsDirty&&form.vehiclesOff.Checked,"OFF is shown as chosen and nothing is unsaved after the save");
+                form.vehiclesOn.Checked=true;Application.DoEvents();
+                // 0.8.5: what the focus does on a real screen - while the page is rebuilt after the save, the old ON button goes and the old OFF button checks itself.
+                var staleOff=form.vehiclesOff;form.vehiclesOn.Disposed+=(s,e)=>{if(!staleOff.IsDisposed)staleOff.Checked=true;};
+                Check(form.TestSaveAll(()=>{})&&VehicleParts.Listed(loader,new[]{"ui_panes"}),"ON after a saved OFF enters the material again");
+                Check(!form.IsDirty&&form.vehiclesOn.Checked,"ON after a saved OFF leaves nothing unsaved and shows ON");
+                // The entry deleted on the page of Vehicle Materials, then ON chosen again on a page opened anew.
+                Write(VehicleParts.OverlayPath(loader),VehicleParts.WithoutMaterials(SafeFiles.Text(VehicleParts.OverlayPath(loader)),new[]{"ui_panes"}));
+                form.vehiclesOff.Checked=true;Application.DoEvents();Check(form.TestSaveAll(()=>{})&&!form.IsDirty,"OFF over a deleted entry is saved and leaves nothing unsaved");
+                Check(form.CliVehicles(true)==null&&form.IsDirty,"--vehicles on stages the same choice");
+                form.ContentOffPrompt=text=>DialogResult.OK;form.TestSwitch(false);Application.DoEvents();
+                Check(form.TestSaveAll(()=>{})&&!form.ContentProvided&&!File.Exists(vehFile)&&!VehicleParts.Listed(loader,new[]{"ui_panes"}),"the package switched off leaves no entry and no vehicle file behind");
             }
             // 0.4.81: --save runs the Save button's path headlessly and declines every question.
             using(var form=new MainForm(new UiState{Build=loader,WorkshopRoot=collection,SelectedSource=simple,Language="de"},null,false))

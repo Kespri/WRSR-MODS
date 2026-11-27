@@ -255,6 +255,34 @@ typedef struct TsmDepositApi
     void* (*texture)(int index);
 } TsmDepositApi;
 
+// Provided by the loader itself (b0.4.5-rmm.3 and later; MaxLegend's loader does not
+// have it, so consume() returns null there). The game reads the buildings of a saved game
+// one at a time through one call. A plugin that has to look at each building as it arrives
+// subscribes here instead of patching that call itself - only one patch fits on it.
+//
+// `before` runs right before the game loads one building. `after` runs right after it, with
+// completed = 1 - or with completed = 0 while an exception unwinds the load, and then it
+// must do nothing but undo what its `before` did. Either may be null. `before` is called in
+// the order of subscription, `after` in reverse. The callbacks run on the thread that loads
+// the game, must not throw and must return quickly: they run once per building.
+#define TSM_SERVICE_BUILDING_LOAD "tesmio.building_load"
+#define TSM_BUILDING_LOAD_VERSION 1u
+
+typedef void (__cdecl* TsmBuildingLoadFn)(void* building, void* context, int completed);
+
+// A subscriber that guards the buildings with a lock of its own asks to be the outermost one:
+// its `before` then runs before everybody else's and its `after` after everybody else's,
+// whatever the order in which the plugins started.
+#define TSM_BUILDING_LOAD_OUTER 1u
+
+typedef struct TsmBuildingLoadApi
+{
+    // Call from TsmPluginStart. Returns 1 when the subscription was taken, 0 when the list
+    // is full or startup is over. The hook itself is placed after every plugin has started;
+    // if that fails the log says so and no callback ever runs.
+    int (*subscribe)(TsmBuildingLoadFn before, TsmBuildingLoadFn after, void* context, unsigned flags);
+} TsmBuildingLoadApi;
+
 // Provided by `resources`. The mod resources published into the engine's own
 // resource vector, by the index the engine ended up giving each.
 #define TSM_SERVICE_RESOURCES "resources"

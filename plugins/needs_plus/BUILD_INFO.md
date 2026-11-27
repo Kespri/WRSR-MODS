@@ -10,6 +10,26 @@ Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) c
 the original so saves and content packages keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.1.7 (2026-11-27)
+
+- Clean-up of the slots 0.1.6 stopped giving: `TrimAfterLoad` subscribes `after` to the loader
+  service `tesmio.building_load`. For a building whose type is not a shop or hotel it takes the last
+  slot of a storage out when that slot belongs to a need, the storage holds the need's donor, the
+  slot is empty (content at slot +0x08 is 0) and no storage of the building's type (found with
+  `FindStoragesIn`) names the resource. Both slot vectors (+0x00, +0x18) lose their last entry by
+  moving `end`; nothing is freed or moved. A fault switches the clean-up off for the session.
+  Without the service (MaxLegend's loader) the slots stay and the log says so.
+
+## 0.1.6 (2026-11-27)
+
+- The pass over every building type at game start (`ExtendAllTypes`, after the type loader 0x136080)
+  now touches only shop types ($TYPE_SHOP, number 3 at type +0x368) and hotel types ($TYPE_HOTEL,
+  50). Before, the donor rule gave a slot to every storage of every type that held the donor: the
+  CARPLANT warehouse of the airplane and rocket-parts works (it stocks `eletronics`) showed an empty
+  `furniture` slot, and factory storages with `food` an empty `table_salt` slot. Built shops are
+  stocked as before (shop tick). A building that already stands keeps a slot it got earlier: the
+  slot list is part of the save.
+
 ## 0.1.5 (2026-11-25)
 
 - Ported to WRSR 1.2.0.9 (PE stamp 0x6B05A574). Person plan 0x877D80 -> 0x878270, storage build

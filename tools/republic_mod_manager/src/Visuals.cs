@@ -584,6 +584,8 @@ namespace TesmioAutoload
                 { g.FillPolygon(b,new[] {new Point(2,18),new Point(16,12),new Point(30,18),new Point(25,26),new Point(7,26)}); g.FillRectangle(b,11,6,10,9); g.DrawLine(p,16,1,16,10); g.DrawBezier(p,1,29,6,25,9,33,14,29); g.DrawBezier(p,14,29,21,25,23,33,31,29); }
                 else if (kind == "plane")
                 { g.FillPolygon(b,new[] {new Point(14,1),new Point(18,1),new Point(19,13),new Point(31,21),new Point(31,24),new Point(18,20),new Point(18,27),new Point(22,30),new Point(10,30),new Point(14,27),new Point(14,20),new Point(1,24),new Point(1,21),new Point(13,13)}); }
+                else if (kind == "rocket")
+                { g.FillPolygon(b,new[] {new Point(16,1),new Point(20,6),new Point(21,10),new Point(21,22),new Point(11,22),new Point(11,10),new Point(12,6)}); g.FillPolygon(b,new[] {new Point(11,15),new Point(6,22),new Point(6,26),new Point(11,23)}); g.FillPolygon(b,new[] {new Point(21,15),new Point(26,22),new Point(26,26),new Point(21,23)}); g.FillRectangle(b,13,23,6,2); g.FillPolygon(b,new[] {new Point(13,26),new Point(19,26),new Point(16,31)}); }
                 else if (kind == "search") { g.DrawEllipse(p,4,3,17,17); g.DrawLine(p,20,20,29,29); }
                 else if (kind == "folder")
                 { g.FillPolygon(b,new[] {new Point(2,9),new Point(12,9),new Point(15,13),new Point(30,13),new Point(27,27),new Point(2,27)}); g.FillRectangle(b,3,6,11,6); }

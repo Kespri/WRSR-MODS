@@ -40,7 +40,7 @@
 // counts the rounds of fixes on top of it. The host table, the API version and
 // every log line other tools read are unchanged - a plugin built for b0.3.6
 // runs here and one built here runs on b0.3.6.
-#define LOADER_VERSION "b0.4.5-rmm.2"
+#define LOADER_VERSION "b0.4.5-rmm.5"
 
 // ---------------------------------------------------------------- exported names
 
@@ -1745,6 +1745,201 @@ static void DropServices(const char* provider)
     }
 }
 
+// ---------------------------------------------------------------- building load event
+//
+// A saved game is read one building at a time, through one call. A plugin that has to look
+// at every building as it arrives - to give a building that already stands a storage its
+// definition gained since - needs that moment, and only one patch fits on the call. So the
+// loader takes it once and hands the moment on to whoever subscribed
+// (TSM_SERVICE_BUILDING_LOAD in tesmio_api.h).
+//
+// The patch is placed AFTER every plugin has started, and only when somebody subscribed. A
+// plugin built before this service existed may have patched the same call on its own by
+// then. The loader does not undo that: it calls whatever the call pointed at and so runs
+// around that plugin's hook.
+
+#define P_BUILDING_LOAD      0x20B790   // v1.2.0.9: void load(building*, stream*)
+#define P_BUILDING_LOAD_CALL 0x457617   // v1.2.0.9: the one call of it in the save reader
+
+// mov rdx,r14 / mov rcx,[rcx+r8*8] / call rel32 - the seven bytes in front of the
+// displacement and the opcode. The displacement itself is not compared: see above.
+static const BYTE kBuildingLoadArgs[8]  = { 0x49,0x8B,0xD6, 0x4A,0x8B,0x0C,0xC1, 0xE8 };
+static const BYTE kBuildingLoadHead[20] = { 0x40,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,
+                                            0x41,0x57,0x48,0x8D,0xAC,0x24,0x50,0xAB,0xFF,0xFF };
+
+#define MAX_BUILDING_LOAD_SUBSCRIBERS 16
+
+struct BuildingLoadSubscriber
+{
+    TsmBuildingLoadFn before, after;
+    void*             context;
+    const char*       plugin;
+};
+static BuildingLoadSubscriber g_blSub[MAX_BUILDING_LOAD_SUBSCRIBERS];
+static int  g_blCount;
+// Startup is over: the list is what the hook walks from now on, so it never changes again.
+static bool g_blSealed;
+
+typedef void (__fastcall* BuildingLoadFn)(void* building, void* stream);
+static BuildingLoadFn g_blPrevious;
+
+static bool BuildingLoadSiteKnown()
+{
+    if (!g_exeBase || g_exeSize < (SIZE_T)P_BUILDING_LOAD_CALL + 5) return false;
+    BYTE* site = g_exeBase + P_BUILDING_LOAD_CALL;
+    return ReadablePtr(site - 7, 12) &&
+           memcmp(site - 7, kBuildingLoadArgs, sizeof(kBuildingLoadArgs)) == 0;
+}
+
+static int api_BuildingLoadSubscribe(TsmBuildingLoadFn before, TsmBuildingLoadFn after, void* context, unsigned flags)
+{
+    if (!before && !after) return 0;
+    if (g_blSealed)
+    {
+        Logf("building-load  %s subscribed after startup - refused", g_currentPlugin);
+        return 0;
+    }
+    if (g_blCount >= MAX_BUILDING_LOAD_SUBSCRIBERS)
+    {
+        Logf("building-load  %s refused - only %d subscribers fit", g_currentPlugin, MAX_BUILDING_LOAD_SUBSCRIBERS);
+        return 0;
+    }
+    // An outer subscriber goes to the front: first `before`, last `after`.
+    int at = g_blCount++;
+    if (flags & TSM_BUILDING_LOAD_OUTER)
+    {
+        for (int i = at; i > 0; i--) g_blSub[i] = g_blSub[i - 1];
+        at = 0;
+    }
+    BuildingLoadSubscriber* s = &g_blSub[at];
+    s->before  = before;
+    s->after   = after;
+    s->context = context;
+    s->plugin  = g_currentPlugin;
+    Logf("building-load  %s subscribed%s", g_currentPlugin, (flags & TSM_BUILDING_LOAD_OUTER) ? " (outermost)" : "");
+    return 1;
+}
+
+static const TsmBuildingLoadApi g_buildingLoadApi = { api_BuildingLoadSubscribe };
+
+// Every callback runs in a guard of its own: a subscriber that faults is logged and passed
+// over, and the others - above all the outermost one, which may hold a lock from its
+// `before` until its `after` - still get their call.
+static void BuildingLoadCall(TsmBuildingLoadFn fn, void* building, void* context, int completed, const char* what)
+{
+    __try { fn(building, context, completed); }
+    __except (FaultFilter(what, GetExceptionInformation())) {}
+}
+
+static void BuildingLoadAfter(void* building, int completed)
+{
+    for (int i = g_blCount - 1; i >= 0; i--)
+        if (g_blSub[i].after) BuildingLoadCall(g_blSub[i].after, building, g_blSub[i].context, completed, "building-load after");
+}
+
+// The game's call lands here. No C++ object with a destructor may live in this function:
+// it uses __try/__finally so that every `before` gets its `after` even when the load faults.
+static void __fastcall h_BuildingLoad(void* building, void* stream)
+{
+    for (int i = 0; i < g_blCount; i++)
+        if (g_blSub[i].before) BuildingLoadCall(g_blSub[i].before, building, g_blSub[i].context, 0, "building-load before");
+
+    int completed = 0;
+    __try
+    {
+        g_blPrevious(building, stream);
+        completed = 1;
+    }
+    __finally
+    {
+        BuildingLoadAfter(building, completed);
+    }
+}
+
+// Before the plugins load: the service is only offered when the call site is the one the
+// address was taken from, so a plugin learns from consume() == null that it is on its own.
+static void ProvideBuildingLoad()
+{
+    if (!BuildingLoadSiteKnown())
+    {
+        Logf("building-load  the call at +0x%X is not the one this loader knows - service not offered",
+             P_BUILDING_LOAD_CALL);
+        return;
+    }
+    g_currentPlugin = "tesmioloader";
+    api_Provide(TSM_SERVICE_BUILDING_LOAD, TSM_BUILDING_LOAD_VERSION, &g_buildingLoadApi);
+    g_currentPlugin = "?";
+}
+
+// After every plugin has started.
+static void InstallBuildingLoadHook()
+{
+    g_blSealed = true;
+    if (!g_blCount) return;
+
+    const char* label = "building load";
+    BYTE* site = g_exeBase + P_BUILDING_LOAD_CALL;
+    if (!BuildingLoadSiteKnown())
+    {
+        Logf("hook FAILED  %-22s (the call site changed since startup) - %d subscriber(s) will not run", label, g_blCount);
+        InterlockedIncrement(&g_hooksFailed);
+        return;
+    }
+
+    int   displacement = *(int*)(site + 1);
+    BYTE* target       = site + 5 + displacement;
+    BYTE* original     = g_exeBase + P_BUILDING_LOAD;
+    bool  chained      = target != original;
+    if (chained ? !ReadablePtr(target, 16)
+                : (!ReadablePtr(original, sizeof(kBuildingLoadHead)) ||
+                   memcmp(original, kBuildingLoadHead, sizeof(kBuildingLoadHead)) != 0))
+    {
+        Logf("hook FAILED  %-22s (%s) - %d subscriber(s) will not run", label,
+             chained ? "the call points at unreadable memory" : "the game's loader does not begin as expected - wrong game build",
+             g_blCount);
+        InterlockedIncrement(&g_hooksFailed);
+        return;
+    }
+
+    // jmp [rip+0] / absolute address: the loader's own image is not guaranteed to be within
+    // reach of a 32-bit displacement from the call site.
+    BYTE* cave = AllocNear(site, 16);
+    if (!cave)
+    {
+        Logf("hook FAILED  %-22s (no allocation within reach of the call site)", label);
+        InterlockedIncrement(&g_hooksFailed);
+        return;
+    }
+    cave[0] = 0xFF; cave[1] = 0x25;
+    memset(cave + 2, 0, 4);
+    void* hook = (void*)&h_BuildingLoad;
+    memcpy(cave + 6, &hook, sizeof(hook));
+    DWORD caveProt = 0;
+    VirtualProtect(cave, 16, PAGE_EXECUTE_READ, &caveProt);
+    FlushInstructionCache(GetCurrentProcess(), cave, 16);
+
+    __int64 distance = cave - (site + 5);
+    DWORD   prot     = 0;
+    if (distance != (int)distance || !VirtualProtect(site, 5, PAGE_EXECUTE_READWRITE, &prot))
+    {
+        Logf("hook FAILED  %-22s (%s)", label,
+             distance != (int)distance ? "displacement out of range" : "VirtualProtect refused");
+        InterlockedIncrement(&g_hooksFailed);
+        VirtualFree(cave, 0, MEM_RELEASE);
+        return;
+    }
+
+    g_blPrevious = (BuildingLoadFn)target;
+    int relative = (int)distance;
+    memcpy(site + 1, &relative, 4);
+    VirtualProtect(site, 5, prot, &prot);
+    FlushInstructionCache(GetCurrentProcess(), site, 5);
+
+    Logf("hook ok      %-22s call=+0x%X, %d subscriber(s)%s", label, P_BUILDING_LOAD_CALL, g_blCount,
+         chained ? ", around a hook a plugin placed there itself" : "");
+    InterlockedIncrement(&g_hooksOk);
+}
+
 static TsmHost g_host;
 
 static void BuildHostTable()
@@ -1952,6 +2147,9 @@ static void LoadPlugins()
             Logf("plugin   %ls skipped - its path is longer than %d characters", candidate.file.c_str(), MAX_PATH);
     }
     StartPlugins();
+    // Every plugin has had its chance to subscribe, and any plugin that patches the call
+    // itself has done so: now the loader takes its place around whatever is there.
+    InstallBuildingLoadHook();
     Logf("plugin   %d loaded", g_pluginCount);
 }
 
@@ -2469,6 +2667,8 @@ static void AppendMissing(char* missing, size_t n, const char* what,
 
 // Set by the offline self-test, which has no desktop to put a box on.
 static bool g_noMessageBox;
+// The text of the last warning, for the self-test.
+static char g_lastSaveWarning[2600];
 
 // Returns how many items are missing (0 = the save can load), -1 when this
 // save was already checked this session or carries no manifest.
@@ -2584,6 +2784,11 @@ static int CheckSaveManifest(const char* saveDir)
         }
     }
 
+    // Everything listed so far (resources, deposits) breaks the save for sure; a generated
+    // building below only when it stands in the save - the manifest lists every generated
+    // folder that was there when the game saved, built or not.
+    const size_t hardMissing = strlen(missing);
+
     // buildings: the generated folder must still exist in one of the out dirs.
     {
         char keys[256][128] = {};
@@ -2624,11 +2829,23 @@ static int CheckSaveManifest(const char* saveDir)
         p = e + 2;
     }
 
-    char text[2300];
+    const bool onlyBuildings = hardMissing == 0;
+    const bool someBuildings = strlen(missing) > hardMissing;
+    char text[2600];
     _snprintf_s(text, sizeof(text), _TRUNCATE,
         "This save was written with tesmioloader content that is not enabled now:\r\n\r\n"
-        "%s\r\nLoading it will most likely crash the game. Enable the missing items "
-        "in Republic Mod Manager or the launcher, or load a different save.", missing);
+        "%s\r\n%s%s"
+        "Enable the missing items in Republic Mod Manager or the launcher, or load a different save.",
+        missing,
+        onlyBuildings ? "" : "Loading it will most likely crash the game.\r\n",
+        !someBuildings ? ""
+            : onlyBuildings
+            ? "These buildings only matter if one of them stands in this save: the game then reports "
+              "it as a missing Workshop item. If none of them is built, the save loads normally.\r\n\r\n"
+            : "The missing buildings only matter if one of them stands in this save.\r\n\r\n");
+    Logf("save   %s", onlyBuildings ? "only generated buildings are missing - harmless unless one of them stands in the save"
+                                     : "resources or deposits are missing - the save will most likely not load");
+    strncpy_s(g_lastSaveWarning, sizeof(g_lastSaveWarning), text, _TRUNCATE);
     if (!g_noMessageBox)
         MessageBoxA(NULL, text, "tesmioloader - save needs mods",
                     MB_ICONWARNING | MB_OK | MB_TOPMOST | MB_SETFOREGROUND);
@@ -2952,7 +3169,7 @@ static void Init()
     // now - resources, deposits, depletion. They load last so each sees a fully
     // built loader: every import already swapped, the VFS live, the crash
     // handler armed.
-    if (g_plugins) LoadPlugins();
+    if (g_plugins) { ProvideBuildingLoad(); LoadPlugins(); }
 
     Logf("summary  %ld hook(s) ok, %ld could not be placed, %d plugin(s) loaded, %d service(s) published",
          g_hooksOk, g_hooksFailed, g_pluginCount, g_serviceCount);
@@ -2994,6 +3211,19 @@ static void Check(bool ok, const char* what)
     printf("%s %s\n", ok ? "PASS" : "FAIL", what);
     if (!ok) t_failed++;
 }
+
+// The building-load event: every callback and the stand-in for the game's loader leave a mark.
+static char t_blTrace[128];
+static void t_blMark(const char* what, void* context, int completed)
+{
+    char piece[32];
+    _snprintf_s(piece, sizeof(piece), _TRUNCATE, "%s%s%s ", what, context ? (const char*)context : "", completed ? "+" : "");
+    strncat_s(t_blTrace, sizeof(t_blTrace), piece, _TRUNCATE);
+}
+static void __cdecl t_blBefore(void*, void* context, int completed) { t_blMark("b", context, completed); }
+static void __cdecl t_blAfter(void*, void* context, int completed)  { t_blMark("a", context, completed); }
+static void __fastcall t_blLoad(void*, void*)                       { t_blMark("L", NULL, 0); }
+static void __cdecl t_blFault(void*, void*, int)                    { t_blMark("F", NULL, 0); *(volatile int*)0 = 1; }
 
 static bool t_hideCable = false;
 static int         t_resCount(void) { return 3; }
@@ -3219,6 +3449,7 @@ int main(int argc, char** argv)
     t_plugin(0, "buildings_plus");
     char slot4[MAX_PATH]; _snprintf_s(slot4, sizeof(slot4), _TRUNCATE, "%s\\slot4", saves); t_copyManifest(slot1, slot4);
     Check(CheckSaveManifest(slot4) == 4, "with no resources and no deposits provider every name is reported (3 + 1)");
+    Check(strstr(g_lastSaveWarning, "most likely crash") != NULL, "missing resources keep the hard warning");
 
     // 9. the generated folder is gone
     g_pluginCount = 3;
@@ -3229,6 +3460,8 @@ int main(int argc, char** argv)
     _snprintf_s(p, sizeof(p), _TRUNCATE, "%s\\9300000001", wip); RemoveDirectoryA(p);
     char slot5[MAX_PATH]; _snprintf_s(slot5, sizeof(slot5), _TRUNCATE, "%s\\slot5", saves); t_copyManifest(slot1, slot5);
     Check(CheckSaveManifest(slot5) == 1, "a generated building whose folder is gone is reported");
+    Check(strstr(g_lastSaveWarning, "most likely crash") == NULL && strstr(g_lastSaveWarning, "only matter if one of them stands") != NULL,
+          "only a missing building gives the softer warning");
 
     // 10. a relative save path resolves the game folder to the working directory
     {
@@ -3274,6 +3507,30 @@ int main(int argc, char** argv)
         long wrote = 0;
         for (int i = 0; i < 8; i++) if (NoteRepeat(1, path, path) == 1) wrote++;
         Check(wrote == 1, "a file the engine opens eight times is named once");
+    }
+
+    // rmm.3: the building-load event. Subscribers run around the game's own loader.
+    {
+        g_blCount = 0; g_blSealed = false; t_blTrace[0] = 0;
+        Check(!BuildingLoadSiteKnown(), "without a game image the building-load call site is not known");
+        Check(api_BuildingLoadSubscribe(NULL, NULL, NULL, 0) == 0, "a subscription without a callback is refused");
+        Check(api_BuildingLoadSubscribe(t_blBefore, t_blAfter, (void*)"1", 0) == 1 &&
+              api_BuildingLoadSubscribe(NULL, t_blAfter, (void*)"2", 0) == 1 &&
+              api_BuildingLoadSubscribe(t_blBefore, NULL, (void*)"3", 0) == 1 &&
+              api_BuildingLoadSubscribe(t_blBefore, t_blAfter, (void*)"X", TSM_BUILDING_LOAD_OUTER) == 1, "four plugins subscribe to the building load, the last one as the outermost");
+        g_blPrevious = t_blLoad;
+        g_blSealed   = true;
+        h_BuildingLoad(NULL, NULL);
+        Check(strcmp(t_blTrace, "bX b1 b3 L a2+ a1+ aX+ ") == 0, "the outermost first, before in order, the game's loader, after in reverse order, the outermost last");
+        Check(api_BuildingLoadSubscribe(t_blBefore, NULL, NULL, 0) == 0 && g_blCount == 4, "after startup no subscription is taken");
+        // A subscriber that faults in its callbacks is passed over; the others still run.
+        g_blCount = 0; g_blSealed = false; t_blTrace[0] = 0;
+        api_BuildingLoadSubscribe(t_blBefore, t_blAfter, (void*)"X", TSM_BUILDING_LOAD_OUTER);
+        api_BuildingLoadSubscribe(t_blFault, t_blFault, NULL, 0);
+        g_blSealed = true;
+        h_BuildingLoad(NULL, NULL);
+        Check(strcmp(t_blTrace, "bX F L F aX+ ") == 0, "a subscriber that faults is passed over, the outermost still gets its after");
+        g_blCount = 0; g_blSealed = false; g_blPrevious = NULL;
     }
 
     CloseHandle(g_hLog);

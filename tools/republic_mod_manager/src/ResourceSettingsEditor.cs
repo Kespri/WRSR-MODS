@@ -513,6 +513,7 @@ namespace TesmioAutoload
                 List<string> shown=null;
                 try{shown=GameBuildings.DonorFileLines(state.Build,donor);}catch(Exception){}
                 var commands=new TargetLinesEditor(language,new[]{donor},f=>shown,Split(item,cAdd),Split(item,cReplace),Split(item,cRemove),Split(item,cInsert),null,null,null,Font,true,()=>DonorNameLine(item,nameField));
+                commands.SetResourceClasses(ResourceClasses.Load(state.Build));
                 commands.Changed=()=>Run(()=>
                 {
                     resourceSession.SetField(item.Id,cAdd,String.Join("\n",commands.Add));
@@ -571,6 +572,7 @@ namespace TesmioAutoload
             var editor=new TargetLinesEditor(language,files,file=>GameBuildings.TargetLines(root,shop,file),
                 Split(item,addField),Split(item,replaceField),Split(item,removeField),Split(item,insertField),
                 Split(item,addLink),Split(item,replaceLink),Split(item,removeLink),Font);
+            editor.SetResourceClasses(ResourceClasses.Load(root));
             editor.Changed=()=>Run(()=>
             {
                 resourceSession.SetField(item.Id,addField,String.Join("\n",editor.Add));

@@ -27,7 +27,7 @@ namespace TesmioAutoload
         // file (read only - it is the anchor, and it is clicked, never typed), the new line, and
         // the buttons that put the two together. A button is grey while its ingredients are
         // missing, and the hint line below says which.
-        Button addButton, replaceButton, beforeButton, afterButton, removeButton;
+        Button addButton, replaceButton, beforeButton, afterButton, removeButton, changeButton;
         TableLayoutPanel foot;
         bool editable, syncing;
         const int FootBase = 262, PickedOne = 40, PickedBlockExtra = 24;
@@ -157,7 +157,7 @@ namespace TesmioAutoload
                 if (e.Index < 0 || e.Index >= outcome.Commands.Count) return;
                 TargetCommand command = outcome.Commands[e.Index];
                 bool selected = (e.State & DrawItemState.Selected) != 0;
-                Color colour = selected ? Color.White : command.Problem.Length > 0 ? Color.FromArgb(150, 28, 28) : Theme.Ink;
+                Color colour = selected ? Color.White : command.Problem.Length > 0 ? Color.FromArgb(150, 28, 28) : classNotes.ContainsKey(e.Index) ? Amber : Theme.Ink;
                 using (var glyph = new Font("Consolas", 10))
                     TextRenderer.DrawText(e.Graphics, CommandLabel(e.Index), glyph, e.Bounds, colour, TextFormatFlags.Left | TextFormatFlags.NoPadding | TextFormatFlags.VerticalCenter);
             };
@@ -215,6 +215,9 @@ namespace TesmioAutoload
             actions.Controls.Add(replaceButton = Wide(language.T("target_replace"), MakeReplace, "target:make-replace"));
             actions.Controls.Add(beforeButton = Wide(language.T("target_before"), () => MakeInsert(false), "target:make-before"));
             actions.Controls.Add(afterButton = Wide(language.T("target_after"), () => MakeInsert(true), "target:make-after"));
+            // Apart from the four that make a new command: this one rewrites the picked command.
+            actions.Controls.Add(changeButton = Wide(language.T("target_change"), MakeChange, "target:make-change"));
+            changeButton.Margin = new Padding(14, 0, 8, 0);
             foot.Controls.Add(actions, 0, 4);
             hint.AutoSize = false; hint.Dock = DockStyle.Fill; hint.Font = new Font("Segoe UI", 9); hint.ForeColor = Theme.Muted; hint.UseMnemonic = false;
             hint.Margin = new Padding(2, 0, 0, 0); hint.AccessibleName = "target:hint";
@@ -357,7 +360,7 @@ namespace TesmioAutoload
         void UpdateActions()
         {
             if (addButton == null || outcome == null) return;
-            if (clone) { UpdateCloneActions(); return; }
+            if (clone) { UpdateCloneActions(); UpdateChange(); return; }
             bool on = editable, has = Picked.Length > 0, block = PickedBlock != null, typed = Typed.Length > 0, same = TypedIsPicked, link = TypedIsLink, many = TypedIsMany;
             // Replace swaps the picked line for the FIRST typed one, so that one has to differ.
             bool firstSame = many && has && TypedLines[0] == Picked;
@@ -366,6 +369,113 @@ namespace TesmioAutoload
             beforeButton.Enabled = afterButton.Enabled = on && has && !block && typed && !same && !link;
             removeButton.Enabled = on && has;
             hint.Text = !on ? "" : language.T(many && !block ? (has ? "target_hint_many_ready" : "target_hint_many_typed") : HintKey(has, block, typed, same, link));
+            UpdateChange();
+        }
+        // ---- a storage line whose class the resource does not have ----
+        // Such a storage holds 0.00 of 0.00 t in the game. The plugin applies the line all the
+        // same, so this is a note in amber, never a red problem: beside the command, in the box
+        // below the commands, and in the hint line while the line is still being typed.
+        Dictionary<string, HashSet<string>> resourceClasses;
+        readonly Dictionary<int, string> classNotes = new Dictionary<int, string>();
+        static readonly Color Amber = Color.FromArgb(139, 81, 0);
+        public void SetResourceClasses(Dictionary<string, HashSet<string>> map)
+        {
+            resourceClasses = map; NoteClasses(); FillCommands();
+            ShowEffect(commandList.SelectedIndex); UpdateActions();
+        }
+        string ClassNote(IEnumerable<string> rows)
+        {
+            if (resourceClasses == null) return "";
+            foreach (string row in rows ?? Enumerable.Empty<string>())
+            {
+                string[] wrong = ResourceClasses.Mismatch(resourceClasses, row);
+                if (wrong != null) return language.Format("target_class_note", wrong[0], wrong[1], wrong[2]);
+            }
+            return "";
+        }
+        void NoteClasses()
+        {
+            classNotes.Clear();
+            if (outcome == null) return;
+            for (int i = 0; i < outcome.Commands.Count; i++)
+            {
+                TargetCommand command = outcome.Commands[i];
+                if (command.Kind != "add" && command.Kind != "replace" && command.Kind != "insert") continue;
+                string note = ClassNote(clone ? command.FreshLines : new List<string> { command.Value });
+                if (note.Length > 0) classNotes[i] = note;
+            }
+        }
+        // ---- changing a command in place ----
+        // A picked command shows its new line in the box below. "Change" writes what stands there
+        // now back into that same command: its kind, its anchor and its place in the list stay.
+        // A command that only takes something out, and a connection command, has no line of its
+        // own to change.
+        TargetCommand ChangeTarget
+        {
+            get
+            {
+                if (outcome == null || commandList.SelectedIndex < 0 || commandList.SelectedIndex >= outcome.Commands.Count) return null;
+                TargetCommand command = outcome.Commands[commandList.SelectedIndex];
+                if (command.Kind != "add" && command.Kind != "replace" && command.Kind != "insert") return null;
+                List<string> field = Field(command.Kind);
+                if (command.Index < 0 || command.Index >= field.Count) return null;
+                if (command.Kind != "add" && command.Anchor.Length == 0) return null;
+                if (clone) return command.FreshLines != null && command.FreshLines.Count > 0 ? command : null;
+                return command.Value.Length > 0 ? command : null;
+            }
+        }
+        List<string> CommandLines(TargetCommand command)
+        { return clone ? command.FreshLines : new List<string> { command.Value }; }
+        // Something typed that differs from what the command writes now. A rule set writes one
+        // line per command; a Buildings Plus command takes a block, which begins with a token.
+        bool ChangeReady(TargetCommand command)
+        {
+            if (command == null || !editable) return false;
+            List<string> fresh = TypedLines;
+            if (fresh.Count == 0 || fresh.SequenceEqual(CommandLines(command))) return false;
+            if (clone) return BeginsToken(fresh[0]);
+            return fresh.Count == 1 && !TypedIsLink;
+        }
+        void UpdateChange()
+        {
+            if (changeButton == null) return;
+            TargetCommand command = editable ? ChangeTarget : null;
+            bool ready = ChangeReady(command);
+            changeButton.Enabled = ready;
+            if (command != null && (ready || editFromCommand)) hint.Text = language.T(ready ? "target_hint_change" : "target_hint_command");
+            // What stands in the box right now, before any button makes a command of it.
+            string typedNote = editable ? ClassNote(TypedLines) : "";
+            if (typedNote.Length > 0) hint.Text = typedNote;
+            hint.ForeColor = typedNote.Length > 0 ? Amber : Theme.Muted;
+        }
+        void MakeChange()
+        {
+            TargetCommand command = ChangeTarget;
+            if (!ChangeReady(command)) return;
+            int selected = commandList.SelectedIndex;
+            List<string> field = Field(command.Kind), fresh = TypedLines;
+            string made = String.Join(" | ", fresh);
+            string value = command.Kind == "add" ? made
+                : (command.Kind == "insert" ? (command.After ? "1" : "0") + " | " : "") + command.Anchor + " | " + made;
+            int twin = field.IndexOf(value);
+            if (twin >= 0 && twin != command.Index) { Pick(command.Kind, twin); return; }
+            // An insert that hangs on the line this command wrote follows it to the new line -
+            // left behind it would name a line nothing produces any more.
+            var followers = new List<KeyValuePair<int, string>>();
+            for (int i = 0; i < outcome.Commands.Count; i++)
+            {
+                TargetCommand other = outcome.Commands[i];
+                if (i == selected || other.Kind != "insert" || !other.FromOwn || other.AnchorOp != selected) continue;
+                if (other.Index < 0 || other.Index >= insert.Count) continue;
+                int want = clone && other.AnchorLines != null ? other.AnchorLines.Count : 1;
+                var anchor = new List<string> { fresh[0] };
+                for (int k = 1; k < want && k < fresh.Count && !BeginsToken(fresh[k]); k++) anchor.Add(fresh[k]);
+                string tail = clone ? String.Join(" | ", other.FreshLines ?? new List<string>()) : other.Value;
+                followers.Add(new KeyValuePair<int, string>(other.Index, (other.After ? "1" : "0") + " | " + String.Join(" | ", anchor) + " | " + tail));
+            }
+            field[command.Index] = value;
+            foreach (KeyValuePair<int, string> follower in followers) insert[follower.Key] = follower.Value;
+            Recompute(); Pick(command.Kind, command.Index);
         }
         static string HintKey(bool has, bool block, bool typed, bool same, bool link)
         {
@@ -398,7 +508,7 @@ namespace TesmioAutoload
                 result = TargetPlan.Result(outcome, lines);
                 blocks = TargetPlan.Connections(lines);
             }
-            CheckEverywhere();
+            CheckEverywhere(); NoteClasses();
             int bad = outcome.Commands.Count(x => x.Problem.Length > 0);
             count.Text = bad > 0 ? language.Format("target_count_bad", outcome.Commands.Count, bad) : language.Format("target_count", outcome.Commands.Count);
             count.ForeColor = bad > 0 ? Color.FromArgb(150, 28, 28) : Theme.Muted;
@@ -493,7 +603,7 @@ namespace TesmioAutoload
         string CommandLabel(int index)
         {
             TargetCommand command = outcome.Commands[index];
-            return (command.Problem.Length > 0 ? "x  " : "   ") + language.T("target_kind_" + command.Kind) + "  " + command.Text;
+            return (command.Problem.Length > 0 ? "x  " : classNotes.ContainsKey(index) ? "!  " : "   ") + language.T("target_kind_" + command.Kind) + "  " + command.Text;
         }
         static void Extent(ListBox list, IEnumerable<string> texts)
         {
@@ -575,6 +685,10 @@ namespace TesmioAutoload
             shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             effect.Controls.Add(shell);
             if (clone) foreach (string warning in cloneWarnings) { Label amber = Note(Said(warning), Color.FromArgb(139, 81, 0)); amber.AccessibleName = "target:warning"; AddLine(shell, amber); }
+            // The note of the picked command, or - with none picked - every note there is.
+            foreach (string note in index >= 0 && index < outcome.Commands.Count
+                ? (classNotes.ContainsKey(index) ? new[] { classNotes[index] } : new string[0]) : classNotes.Values.Distinct().ToArray())
+            { Label amberNote = Note(note, Amber); amberNote.AccessibleName = "target:class-note"; AddLine(shell, amberNote); }
             if (index < 0 || index >= outcome.Commands.Count) { AddLine(shell, Note(language.T(clone ? "clone_pick" : "target_pick"), Theme.Muted)); return; }
             TargetCommand command = outcome.Commands[index];
             if (command.Problem.Length > 0)
@@ -903,6 +1017,11 @@ namespace TesmioAutoload
         // Which of the five buttons are on: add, replace, before, after, remove - "1" or "0" each.
         internal string TestButtons
         { get { return String.Concat(new[] { addButton, replaceButton, beforeButton, afterButton, removeButton }.Select(x => x.Enabled ? "1" : "0")); } }
+        internal string TestClassNotes { get { return String.Join(" / ", classNotes.OrderBy(x => x.Key).Select(x => x.Key + ":" + x.Value)); } }
+        internal bool TestHintAmber { get { return hint.ForeColor == Amber; } }
+        internal string TestCommandLabel(int index) { return CommandLabel(index); }
+        internal void TestChange() { MakeChange(); }
+        internal bool TestChangeEnabled { get { return changeButton.Enabled; } }
         internal void TestView(bool result) { showResult = result; Refill(); }
         internal IEnumerable<string> TestResult { get { return result.Select(x => x.Text); } }
         internal int TestResultCommand(int index) { return index >= 0 && index < result.Count ? result[index].Command : -1; }

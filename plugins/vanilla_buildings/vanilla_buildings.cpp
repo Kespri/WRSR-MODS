@@ -44,7 +44,7 @@ static const size_t MAX_OPERATIONS = 512;
 
 #define SYM_READ_FILE "?C3DHelp_ReadFileIntoBuffer@@YAHPEBDPEAPEADPEAI_N@Z"
 
-#define PLUGIN_VERSION "0.4.7"
+#define PLUGIN_VERSION "0.4.18"
 #define PLUGIN_INI "plugins\\vanilla_buildings.ini"
 #define PLUGIN_LOG_NAME "tesmioloader.vanilla_buildings.log"
 
@@ -114,14 +114,21 @@ struct Decl
     std::string nameLine;  // what that becomes, resolved once per declaration
     bool nameExpanded;     // the synthesised replace was already added
     std::vector<Operation> operations;
+    // Several rule sets on one target: a rule set that only adds lines hands its operations
+    // to the one declaration that builds the overlay. mergedInto is the index of that
+    // declaration (-1 = this one builds its own); joined names the sections it took in.
+    int mergedInto;
+    std::vector<std::string> joined;
 
     Decl() : targetKind(0), openedLogged(0), unavailableLogged(0), enabled(true), valid(true),
-             nameExpanded(false) {}
+             nameExpanded(false), mergedInto(-1) {}
 };
 
 static std::vector<Decl> g_decl;
 static bool g_enabled = true;
 static bool g_debug = false;
+static bool g_retrofitStorages = true;
+static bool g_retrofitVehicleFactories = false;
 static char g_gameDir[MAX_PATH];
 static char g_mediaDir[MAX_PATH];
 static char g_mediaCanonical[MAX_PATH * 2];
@@ -1265,6 +1272,8 @@ struct RegistryConfig
     std::vector<Decl> declarations;
     bool enabled = true;
     bool debug = false;
+    bool retrofitStorages = true;
+    bool retrofitVehicleFactories = false;
 };
 
 static bool ConfigError(size_t line, const char* rule, const std::string& message)
@@ -1372,7 +1381,8 @@ static bool ParseRegistryText(const std::string& text, RegistryConfig* output)
                     "verbose remains supported; use debug in new configurations");
                 key = "debug";
             }
-            if (key != "enabled" && key != "debug")
+            if (key != "enabled" && key != "debug" && key != "retrofit_storages" &&
+                key != "retrofit_vehicle_factories")
                 return ConfigError(lineNo + 1, "unknown-key", "unknown general key: " + key);
             if (!globalKeys.insert(key).second)
                 return ConfigError(lineNo + 1, "duplicate-key", "repeated general key: " + key);
@@ -1380,6 +1390,8 @@ static bool ParseRegistryText(const std::string& text, RegistryConfig* output)
             if (!ParseBoolean(value, &valueBool))
                 return ConfigError(lineNo + 1, "boolean", key + " must be exactly 0 or 1");
             if (key == "enabled") parsed.enabled = valueBool;
+            else if (key == "retrofit_storages") parsed.retrofitStorages = valueBool;
+            else if (key == "retrofit_vehicle_factories") parsed.retrofitVehicleFactories = valueBool;
             else parsed.debug = valueBool;
             continue;
         }
@@ -1457,6 +1469,8 @@ static bool LoadRegistry(const char* path)
     g_decl.swap(config.declarations);
     g_enabled = config.enabled;
     g_debug = config.debug;
+    g_retrofitStorages = config.retrofitStorages;
+    g_retrofitVehicleFactories = config.retrofitVehicleFactories;
     return true;
 }
 
@@ -1509,8 +1523,22 @@ static bool PrepareTempDir(char* out, size_t outSize)
     return false;
 }
 
+// A rule set that does nothing but append lines: every command is a plain `add`
+// and it sets no name.
+static bool AddOnly(const Decl& d)
+{
+    if (!d.name.empty() || d.operations.empty()) return false;
+    for (const Operation& op : d.operations)
+        if (op.kind != OP_ADD) return false;
+    return true;
+}
+
 // Reject every enabled declaration of an ambiguous target, not just the later
 // one. Configuration order must never decide which building patch wins.
+// Appending lines does not depend on that order, so rule sets that only add
+// lines may share a target - with each other and with one rule set that edits
+// it. Their lines join the one declaration that builds the overlay. Two rule
+// sets that both edit a target stay ambiguous.
 static void ValidateTargets(std::vector<Decl>* declarations)
 {
     std::map<std::string, size_t> targets;
@@ -1529,6 +1557,29 @@ static void ValidateTargets(std::vector<Decl>* declarations)
         if (previous != targets.end())
         {
             Decl& other = (*declarations)[previous->second];
+            if (other.valid && d.valid && AddOnly(d))
+            {
+                other.operations.insert(other.operations.end(), d.operations.begin(), d.operations.end());
+                other.joined.push_back(d.section);
+                d.mergedInto = (int)previous->second;
+                continue;
+            }
+            if (other.valid && d.valid && AddOnly(other))
+            {
+                // The earlier declaration only added lines (its own and those it had taken
+                // in): this one edits the target, so it builds the overlay and the added
+                // lines follow its own commands.
+                const int carrier = (int)previous->second;
+                d.operations.insert(d.operations.end(), other.operations.begin(), other.operations.end());
+                d.joined.push_back(other.section);
+                d.joined.insert(d.joined.end(), other.joined.begin(), other.joined.end());
+                other.joined.clear();
+                for (size_t k = 0; k < i; ++k)
+                    if ((*declarations)[k].mergedInto == carrier) (*declarations)[k].mergedInto = (int)i;
+                other.mergedInto = (int)i;
+                previous->second = i;
+                continue;
+            }
             Fail(&other, "duplicate target; also declared in section [" + d.section + "] as " + d.target);
             Fail(&d, "duplicate target; also declared in section [" + other.section + "] as " + other.target);
         }
@@ -1708,10 +1759,28 @@ static bool BuildOverlays(void)
                 d.section.c_str(), d.target.c_str(), d.error.c_str());
             continue;
         }
+        // Its added lines travel with another rule set for the same target; see below.
+        if (d.mergedInto >= 0) continue;
         if (BuildOverlay(&d, tempDir, i)) ++g_activeSectionCount;
         else Report("WARN", d.section.c_str(), "target-rejected",
             "target=%s reason=%s; no rule for this target was applied; other valid targets continue",
             d.target.c_str(), d.error.c_str());
+    }
+    // A rule set whose added lines joined another one is active exactly when that one is.
+    for (size_t i = 0; i < g_decl.size(); ++i)
+    {
+        Decl& d = g_decl[i];
+        if (!d.enabled || !d.valid || d.mergedInto < 0) continue;
+        const Decl& carrier = g_decl[(size_t)d.mergedInto];
+        if (carrier.valid && !carrier.overlayPath.empty())
+        {
+            ++g_activeSectionCount;
+            Info("[%s] %Iu added line(s) -> %s, applied together with [%s]", d.section.c_str(),
+                d.operations.size(), d.canonical.c_str(), carrier.section.c_str());
+        }
+        else Report("WARN", d.section.c_str(), "target-rejected",
+            "target=%s reason=its added lines share this target with [%s], which was rejected: %s; no rule for this target was applied; other valid targets continue",
+            d.target.c_str(), carrier.section.c_str(), carrier.error.c_str());
     }
     Info("Buildings: %d enabled, %d active, %d rejected",
         g_enabledSectionCount, g_activeSectionCount,
@@ -1889,6 +1958,230 @@ static errno_t __cdecl h_WfopenS(FILE** stream, const wchar_t* path, const wchar
 
 // -------------------------------------------------------------------- exports
 
+// ------------------------------------------------------------ storage retrofit
+//
+// A rule set that adds a storage reaches buildings that are built afterwards: the game
+// keeps a storage list in every building of a saved game. With retrofit_storages = 1 the
+// storages that enabled rule sets add are appended, empty, to the buildings that already
+// stand - when a saved game is loaded (storage_retrofit.h). The moment "a building was
+// loaded" comes from the loader's building-load event; MaxLegend's loader has none, and
+// there the storages reach newly built buildings only, as before.
+//
+// This plugin serves only its own lines: a definition storage counts when an enabled rule
+// set whose overlay was built adds exactly that line (class, capacity, resource).
+
+#define STORAGE_RETROFIT_REPORT(level, rule, ...) Report(level, "Storage retrofit", rule, __VA_ARGS__)
+#include "../storage_retrofit.h"
+
+struct OwnedStorage
+{
+    std::string resource;
+    int         transportClass;
+    float       capacity;
+};
+static std::vector<OwnedStorage> g_ownedStorages;
+static volatile LONG g_retrofitAdded;
+static volatile LONG g_retrofitRemoved;
+// Loaded only to take storages out of buildings again: no rule set is enabled.
+static bool g_cleanupOnly;
+
+// The resources a rule set ever gave a building a storage for:
+// <loader>\plugins\vanilla_buildings.storages.txt, one per line. A storage of such a
+// resource that a building's definition no longer has leaves the building again when it is
+// empty - the rule line was removed, or its rule set switched off.
+static std::set<std::string> g_givenResources;
+static std::string g_givenPath;
+
+static std::string LowerName(const char* text)
+{
+    std::string result(text ? text : "");
+    for (char& c : result) if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+    return result;
+}
+
+static void LoadGivenResources()
+{
+    g_givenResources.clear();
+    g_givenPath = std::string(g_baseDir ? g_baseDir : "") + "\\plugins\\vanilla_buildings.storages.txt";
+    FILE* file = nullptr;
+    if (fopen_s(&file, g_givenPath.c_str(), "rb") != 0 || !file) return;
+    char line[256];
+    while (fgets(line, sizeof(line), file))
+    {
+        std::string name;
+        for (const char* p = line; *p; ++p)
+            if (*p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') name += *p;
+        if (name.empty() || name[0] == ';' || name.size() > 63) continue;
+        bool plain = true;
+        for (char c : name)
+            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) plain = false;
+        if (plain) g_givenResources.insert(LowerName(name.c_str()));
+    }
+    fclose(file);
+}
+
+static void SaveGivenResources()
+{
+    FILE* file = nullptr;
+    if (g_givenPath.empty() || fopen_s(&file, g_givenPath.c_str(), "wb") != 0 || !file) return;
+    fputs("; Written by the plugin Vanilla Buildings: the resources its rule sets gave buildings\r\n"
+          "; a storage for. A storage whose rule line is gone is taken out of the buildings\r\n"
+          "; again when it is empty. Do not edit.\r\n", file);
+    for (const std::string& name : g_givenResources)
+    {
+        fputs(name.c_str(), file);
+        fputs("\r\n", file);
+    }
+    fclose(file);
+}
+
+static bool RetrofitGone(const char* resource, int, void*)
+{
+    return g_givenResources.count(LowerName(resource)) != 0;
+}
+
+// "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable" -> class, capacity, resource;
+// $STORAGE_EXPORT_SPECIAL as well.
+// Anything else - another token, another class, a fifth word - is not a line this serves.
+static bool ParseStorageLine(const std::string& line, OwnedStorage* out)
+{
+    char token[64] = {}, transport[64] = {}, resource[64] = {}, extra[8] = {};
+    float capacity = 0;
+    if (sscanf_s(line.c_str(), " %63s %63s %f %63s %7s", token, (unsigned)sizeof(token),
+            transport, (unsigned)sizeof(transport), &capacity,
+            resource, (unsigned)sizeof(resource), extra, (unsigned)sizeof(extra)) != 4) return false;
+    if (_stricmp(token, "$STORAGE_IMPORT_SPECIAL") != 0 && _stricmp(token, "$STORAGE_EXPORT_SPECIAL") != 0) return false;
+    // Every class goods are stored in; water, electricity and the like are no such line.
+    const int transportClass = storage_retrofit::ClassNumber(transport);
+    if (transportClass < 0) return false;
+    if (!_finite(capacity) || capacity <= 0) return false;
+    out->resource = resource;
+    out->transportClass = transportClass;
+    out->capacity = capacity;
+    return true;
+}
+
+static bool OwnsStorage(const char* resource, int transportClass, float capacity)
+{
+    for (const OwnedStorage& s : g_ownedStorages)
+        if (s.transportClass == transportClass && fabsf(s.capacity - capacity) < 0.0005f &&
+            _stricmp(s.resource.c_str(), resource) == 0) return true;
+    return false;
+}
+
+// The lines a command puts INTO a definition: add | line, replace | old | line,
+// insert | 0/1 | anchor | line. What a command takes out is not collected.
+static void CollectStorageLines(const Decl& d)
+{
+    for (const Operation& op : d.operations)
+    {
+        size_t first;
+        if (op.kind == OP_ADD) first = 0;
+        else if (op.kind == OP_REPLACE) first = 1;
+        else if (op.kind == OP_INSERT) first = 2;
+        else continue;
+        for (size_t i = first; i < op.field.size(); ++i)
+        {
+            OwnedStorage s;
+            if (!ParseStorageLine(op.field[i], &s)) continue;
+            if (!OwnsStorage(s.resource.c_str(), s.transportClass, s.capacity)) g_ownedStorages.push_back(s);
+        }
+    }
+}
+
+static void CollectOwnedStorages()
+{
+    g_ownedStorages.clear();
+    for (const Decl& d : g_decl)
+    {
+        if (!d.enabled || !d.valid) continue;
+        // Only what really reached the game: a rule set whose overlay was built, or one
+        // whose added lines joined such a rule set.
+        const Decl& carrier = d.mergedInto >= 0 ? g_decl[(size_t)d.mergedInto] : d;
+        if (!carrier.valid || carrier.overlayPath.empty()) continue;
+        CollectStorageLines(d);
+    }
+}
+
+static bool RetrofitWanted(const char* resource, int transportClass, float capacity, void*)
+{
+    return OwnsStorage(resource, transportClass, capacity);
+}
+
+static void __cdecl RetrofitAfterLoad(void* building, void*, int completed)
+{
+    if (!completed) return;
+    // The detailed log lists the storages of every building one of the rule sets' storage
+    // lines belongs to - as the game loaded them, and again after a storage was put in.
+    if (g_debug) storage_retrofit::Describe((BYTE*)building, RetrofitWanted, nullptr, "loaded");
+    // First what is gone, then what is missing.
+    int removed = g_givenResources.empty() ? 0 : storage_retrofit::RemoveGone((BYTE*)building, RetrofitGone, nullptr);
+    if (removed > 0) InterlockedExchangeAdd(&g_retrofitRemoved, removed);
+    // A storage whose line names another size follows it.
+    if (!g_ownedStorages.empty()) storage_retrofit::Resize((BYTE*)building, RetrofitWanted, nullptr);
+    int added = g_ownedStorages.empty() ? 0 : storage_retrofit::AfterLoad((BYTE*)building, RetrofitWanted, nullptr);
+    if (g_debug && added > 0) storage_retrofit::Describe((BYTE*)building, RetrofitWanted, nullptr, "after-retrofit");
+    if (added > 0) InterlockedExchangeAdd(&g_retrofitAdded, added);
+}
+
+static void InstallStorageRetrofit()
+{
+    if (!g_retrofitStorages)
+    {
+        Info("Storage retrofit: off ([general] retrofit_storages = 0); storages of rule sets reach newly built buildings only, and none is taken out again");
+        return;
+    }
+    if (!g_cleanupOnly) CollectOwnedStorages();
+    // What the enabled rule sets give now goes on record; what is on record and no longer
+    // given leaves the buildings again.
+    const size_t recorded = g_givenResources.size();
+    for (const OwnedStorage& s : g_ownedStorages) g_givenResources.insert(LowerName(s.resource.c_str()));
+    if (g_givenResources.size() != recorded) SaveGivenResources();
+    if (g_ownedStorages.empty() && g_givenResources.empty())
+    {
+        Info("Storage retrofit: no enabled rule set adds a single-resource import or export storage - nothing to do");
+        return;
+    }
+    const TsmBuildingLoadApi* events = nullptr;
+    if (H && H->structSize >= offsetof(TsmHost, consume) + sizeof(H->consume) && H->consume)
+        events = (const TsmBuildingLoadApi*)H->consume(TSM_SERVICE_BUILDING_LOAD, TSM_BUILDING_LOAD_VERSION);
+    if (!events || !events->subscribe)
+    {
+        Info("Storage retrofit: this loader does not report loaded buildings (the loader from Republic Mod Manager, b0.4.5-rmm.3 or newer, does); storages of rule sets reach newly built buildings only");
+        return;
+    }
+    if (!storage_retrofit::Prepare())
+    {
+        Report("WARN", "SOVIET64.exe", "retrofit-unavailable",
+            "The game functions the storage retrofit needs are not the known ones; storages of rule sets reach newly built buildings only. Action: update the plugin for this game build");
+        return;
+    }
+    if (!events->subscribe(nullptr, RetrofitAfterLoad, nullptr, 0))
+    {
+        Report("WARN", "TesmioLoader", "retrofit-unavailable",
+            "The loader did not take the subscription to its building-load event; storages of rule sets reach newly built buildings only");
+        return;
+    }
+    // Nothing a building has is cloned or freed, and nothing it has changes its place: the
+    // storages it has are moved bit by bit into a block the game made, the new ones stand
+    // behind them, the old block is left alone. The earlier form - every storage replaced by
+    // a clone, the new one put where the definition has it - cost a building its power for
+    // the session (the game keeps addresses into the storages of a building) and crashed
+    // the game twice.
+    storage_retrofit::g_keepExisting = true;
+    storage_retrofit::g_appendOnly = true;
+    // A building with a storage of vehicles (a vehicle factory): still only on request.
+    storage_retrofit::g_serveVehicleStorages = g_retrofitVehicleFactories;
+    // Without the experiment no production line is touched at all - its own storages behind
+    // the definition are no business of this plugin.
+    storage_retrofit::g_skipProductionLines = !g_retrofitVehicleFactories;
+    Info("Storage retrofit: active for %Iu storage line(s) of enabled rule sets, %Iu resource(s) on record; buildings that already stand get the storages, empty, when a saved game is loaded, and lose the empty storage of a line that is gone; vehicle factories %s",
+        g_ownedStorages.size(), g_givenResources.size(), g_retrofitVehicleFactories ? "INCLUDED (experimental, retrofit_vehicle_factories = 1)" : "left out");
+    for (const OwnedStorage& s : g_ownedStorages)
+        if (g_debug) Report("DEBUG", PLUGIN_INI, "retrofit-line", "class=%d capacity=%.3f resource=%s",
+            s.transportClass, s.capacity, s.resource.c_str());
+}
+
 static bool HostIsUsable(const TsmHost* host)
 {
     return host && host->structSize >= offsetof(TsmHost, consume) + sizeof(host->consume) &&
@@ -1958,8 +2251,8 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             LogSummary("Initialization", false);
             return 1;
         }
-        Info("Configuration: enabled=%d debug=%d target_files=%Iu",
-            g_enabled ? 1 : 0, g_debug ? 1 : 0, g_decl.size());
+        Info("Configuration: enabled=%d debug=%d retrofit_storages=%d retrofit_vehicle_factories=%d target_files=%Iu",
+            g_enabled ? 1 : 0, g_debug ? 1 : 0, g_retrofitStorages ? 1 : 0, g_retrofitVehicleFactories ? 1 : 0, g_decl.size());
         if (!g_enabled)
         {
             LogSummaryStatus("Initialization", "was skipped because the plugin is disabled");
@@ -1983,6 +2276,16 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
         {
             if (!g_enabledSectionCount)
             {
+                LoadGivenResources();
+                if (g_retrofitStorages && !g_givenResources.empty())
+                {
+                    g_cleanupOnly = true;
+                    g_initialized = true;
+                    Info("No building section is enabled; the plugin stays loaded only to take the storages its rule sets gave out of the buildings again (%Iu resource(s) on record)",
+                         g_givenResources.size());
+                    LogSummary("Initialization", true);
+                    return 0;
+                }
                 Info("No building section is enabled; original requests remain unchanged");
                 LogSummaryStatus("Initialization", "was skipped because no building section is enabled");
             }
@@ -1995,6 +2298,7 @@ extern "C" __declspec(dllexport) int TsmPluginInit(const TsmHost* host, TsmPlugi
             return 1;
         }
         g_initialized = true;
+        LoadGivenResources();
         if (g_activeSectionCount < g_enabledSectionCount)
             LogSummaryStatus("Initialization", "completed with rejected building sections");
         else LogSummary("Initialization", true);
@@ -2019,6 +2323,12 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
     BeginLogPhase();
     try
     {
+        if (g_cleanupOnly && H && g_bound && g_initialized)
+        {
+            InstallStorageRetrofit();
+            LogSummary("Startup", true);
+            return 0;
+        }
         if (!H || !g_bound || !g_initialized || !g_activeSectionCount)
         {
             Report("FATAL", PLUGIN_INI, "startup-state", "No initialized overlays are available");
@@ -2073,6 +2383,7 @@ extern "C" __declspec(dllexport) int TsmPluginStart(void)
         // A successful IAT hook must never be unloaded while the process lives.
         Info("Read-only redirects installed for %d building(s), readers=%Iu; actual usage is reported by [overlay-opened]; originals remain unchanged",
             g_activeSectionCount, installed);
+        InstallStorageRetrofit();
         LogSummary("Startup", true);
         return 0;
     }
@@ -2306,6 +2617,118 @@ static int RunSelfTests(void)
     nameless.name = "Whatever";
     if (ExpandNameOperation(&nameless, noNameLines))
     { fprintf(stderr, "FATAL: self-test [name-absent] A target without a $NAME line was accepted\n"); failed++; }
+
+    // Several rule sets on one target: rule sets that only add lines join the one that
+    // edits it, whatever their order; two rule sets that both edit it are rejected.
+    {
+        std::vector<Decl> shared(3);
+        for (Decl& s : shared) s.target = "buildings_types\\sample.ini";
+        shared[0].section = "adds_a";
+        shared[0].operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable"));
+        shared[1].section = "edits";
+        shared[1].operations.push_back(TestOp(OP_REPLACE, "$WORKERS_NEEDED 10", "$WORKERS_NEEDED 20"));
+        shared[2].section = "adds_b";
+        shared[2].operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 glass_panes"));
+        ValidateTargets(&shared);
+        if (!shared[0].valid || !shared[1].valid || !shared[2].valid ||
+            shared[0].mergedInto != 1 || shared[1].mergedInto != -1 || shared[2].mergedInto != 1 ||
+            shared[1].operations.size() != 3 || shared[1].joined.size() != 2)
+        { fprintf(stderr, "FATAL: self-test [shared-target] Add-only rule sets did not join the editing one\n"); failed++; }
+        else if (!ValidateOperations(&shared[1], lines))
+        { fprintf(stderr, "FATAL: self-test [shared-target-rules] %s\n", shared[1].error.c_str()); failed++; }
+        else
+        {
+            std::string out = ApplyOperations(shared[1], lines, false);
+            if (!Has(out, "$WORKERS_NEEDED 20") || Has(out, "$WORKERS_NEEDED 10") ||
+                !Has(out, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable") ||
+                !Has(out, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 glass_panes"))
+            { fprintf(stderr, "FATAL: self-test [shared-target-output] Output mismatch\n%s\n", out.c_str()); failed++; }
+        }
+
+        std::vector<Decl> adds(2);
+        for (Decl& s : adds) s.target = "buildings_types\\sample.ini";
+        adds[0].section = "adds_a";
+        adds[0].operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable"));
+        adds[1].section = "adds_b";
+        adds[1].operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 glass_panes"));
+        ValidateTargets(&adds);
+        if (!adds[0].valid || !adds[1].valid || adds[0].mergedInto != -1 || adds[1].mergedInto != 0 ||
+            adds[0].operations.size() != 2)
+        { fprintf(stderr, "FATAL: self-test [shared-target-adds] Two add-only rule sets did not join\n"); failed++; }
+
+        std::vector<Decl> clash(2);
+        for (Decl& s : clash) s.target = "buildings_types\\sample.ini";
+        clash[0].section = "edits_a";
+        clash[0].operations.push_back(TestOp(OP_REPLACE, "$WORKERS_NEEDED 10", "$WORKERS_NEEDED 20"));
+        clash[1].section = "edits_b";
+        clash[1].operations.push_back(TestOp(OP_REMOVE, "$CONSUMPTION chemicals 0.20"));
+        ValidateTargets(&clash);
+        if (clash[0].valid || clash[1].valid)
+        { fprintf(stderr, "FATAL: self-test [shared-target-clash] Two editing rule sets on one target were accepted\n"); failed++; }
+
+        // A rule set with a name edits the name line: it is no add-only rule set.
+        std::vector<Decl> named(2);
+        for (Decl& s : named) s.target = "buildings_types\\sample.ini";
+        named[0].section = "named_a"; named[0].name = "One";
+        named[0].operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable"));
+        named[1].section = "named_b"; named[1].name = "Two";
+        named[1].operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 100 glass_panes"));
+        ValidateTargets(&named);
+        if (named[0].valid || named[1].valid)
+        { fprintf(stderr, "FATAL: self-test [shared-target-names] Two rule sets with a name on one target were accepted\n"); failed++; }
+    }
+
+    // Storage retrofit: which lines of a rule set count as a storage this plugin serves.
+    {
+        OwnedStorage s;
+        if (!ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable", &s) ||
+            s.resource != "cable" || s.transportClass != storage_retrofit::TRANSPORT_OPEN || s.capacity != 50.0f)
+        { fprintf(stderr, "FATAL: self-test [retrofit-line] An import storage line was not read\n"); failed++; }
+        if (!ParseStorageLine("  $storage_import_special   RESOURCE_TRANSPORT_GRAVEL  120.5   road_salt ", &s) ||
+            s.resource != "road_salt" || s.transportClass != storage_retrofit::TRANSPORT_GRAVEL || s.capacity != 120.5f)
+        { fprintf(stderr, "FATAL: self-test [retrofit-line-spacing] Spacing or case broke an import storage line\n"); failed++; }
+        if (!ParseStorageLine("$STORAGE_EXPORT_SPECIAL RESOURCE_TRANSPORT_CEMENT 20 cement", &s) ||
+            s.resource != "cement" || s.transportClass != 4 || s.capacity != 20.0f ||
+            !ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OIL 50 fuel", &s) || s.transportClass != 3)
+        { fprintf(stderr, "FATAL: self-test [retrofit-line-export] An export line or a goods class was not read\n"); failed++; }
+        if (ParseStorageLine("$STORAGE_IMPORT RESOURCE_TRANSPORT_OPEN 50", &s) ||
+            ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_WATER 50 water", &s) ||
+            ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 0 cable", &s) ||
+            ParseStorageLine("$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable extra", &s) ||
+            ParseStorageLine("$PRODUCTION glass 0.45", &s))
+        { fprintf(stderr, "FATAL: self-test [retrofit-line-other] A line that is no single-resource import storage was accepted\n"); failed++; }
+
+        g_ownedStorages.clear();
+        Decl owner;
+        owner.operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable"));
+        owner.operations.push_back(TestOp(OP_ADD, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_OPEN 50 cable"));
+        owner.operations.push_back(TestOp(OP_REPLACE, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 10 sand", "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 120 sand"));
+        owner.operations.push_back(TestOp(OP_INSERT, "1", "$WORKERS_NEEDED 10", "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_COVERED 30 glass"));
+        owner.operations.push_back(TestOp(OP_REMOVE, "$STORAGE_IMPORT_SPECIAL RESOURCE_TRANSPORT_GRAVEL 77 gravel"));
+        CollectStorageLines(owner);
+        if (g_ownedStorages.size() != 3 || !OwnsStorage("CABLE", storage_retrofit::TRANSPORT_OPEN, 50.0f) ||
+            !OwnsStorage("sand", storage_retrofit::TRANSPORT_GRAVEL, 120.0f) ||
+            !OwnsStorage("glass", storage_retrofit::TRANSPORT_COVERED, 30.0f) ||
+            OwnsStorage("sand", storage_retrofit::TRANSPORT_GRAVEL, 10.0f) ||
+            OwnsStorage("gravel", storage_retrofit::TRANSPORT_GRAVEL, 77.0f) ||
+            OwnsStorage("cable", storage_retrofit::TRANSPORT_GRAVEL, 50.0f) ||
+            OwnsStorage("cable", storage_retrofit::TRANSPORT_OPEN, 60.0f))
+        { fprintf(stderr, "FATAL: self-test [retrofit-owned] The storages a rule set puts into a definition were not collected as its own\n"); failed++; }
+        g_ownedStorages.clear();
+
+        RegistryConfig off;
+        if (!ParseRegistryText("[general]\nenabled = 1\nretrofit_storages = 0\n[a]\ntarget = buildings_types\\sample.ini\nadd = $WORKERS_NEEDED 20\n", &off) ||
+            off.retrofitStorages)
+        { fprintf(stderr, "FATAL: self-test [retrofit-switch] retrofit_storages = 0 was not read\n"); failed++; }
+        RegistryConfig vehicles;
+        if (!ParseRegistryText("[general]\nenabled = 1\nretrofit_vehicle_factories = 1\n[a]\ntarget = buildings_types\\sample.ini\nadd = $WORKERS_NEEDED 20\n", &vehicles) ||
+            !vehicles.retrofitVehicleFactories || !vehicles.retrofitStorages)
+        { fprintf(stderr, "FATAL: self-test [retrofit-vehicles] retrofit_vehicle_factories = 1 was not read\n"); failed++; }
+        RegistryConfig on;
+        if (!ParseRegistryText("[general]\nenabled = 1\n[a]\ntarget = buildings_types\\sample.ini\nadd = $WORKERS_NEEDED 20\n", &on) ||
+            !on.retrofitStorages || on.retrofitVehicleFactories)
+        { fprintf(stderr, "FATAL: self-test [retrofit-default] Without the key the retrofit must be on\n"); failed++; }
+    }
 
     if (!failed) printf("INFO: self-test [summary] All vanilla_buildings self-tests passed\n");
     return failed ? 1 : 0;
