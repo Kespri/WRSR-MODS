@@ -1,4 +1,4 @@
-# 📦 Needs Plus 0.1.9
+# 📦 Needs Plus 0.1.10
 
 **Erweiterung des TesmioLoader-Plugins needs**
 
@@ -176,6 +176,7 @@ Unverändert gegenüber dem Original: Die Lagerplätze der Läden sind Teil des 
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Bedürfnisse selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Needs Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.10: Nur intern: die Suche nach der Liste des Originals im Workshop-Ordner steht jetzt an einer Stelle für Resources Plus und Needs Plus; im Spiel ändert sich nichts.
 - 0.1.9: Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - 0.1.8: Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - 0.1.7: Beim Laden eines Spielstands verschwindet der leere Platz für Möbel, Speisesalz und Co. aus Werken, die ihn von einer früheren Version bekommen haben – nur wenn er leer ist und das Gebäude die Ware nicht selbst führt (eine Möbelfabrik behält ihr Möbel-Lager). Läden und Hotels bleiben, wie sie sind. Braucht den Loader aus dem Republic Mod Manager (ab b0.4.5-rmm.3).
@@ -258,5 +259,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Needs Plus eingeschalt
 
 ---
 
-**Letzte Aktualisierung:** Needs Plus 0.1.9  
+**Letzte Aktualisierung:** Needs Plus 0.1.10  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

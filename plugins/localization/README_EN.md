@@ -1,4 +1,4 @@
-# 🌐 Localization 0.4.3
+# 🌐 Localization 0.4.5
 
 **TesmioLoader plugin for custom texts and translations**
 
@@ -92,7 +92,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package contains a presentation schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Localization on two tabs, German and English: on **General** the notes, the button for this guide and the Troubleshooting card (verbose log), on **Plugin** the switch "Apply extension" and an overview of the text packs. Text packs themselves are not edited in the manager; they are folders with INI files.
+The package contains a presentation schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Localization on two tabs, in 20 languages: on **General** the notes, the button for this guide and the Troubleshooting card (verbose log), on **Plugin** the switch "Apply extension" and an overview of the text packs. Text packs themselves are not edited in the manager; they are folders with INI files.
 
 Republic Mod Manager never changes the INI in the package. It keeps your personal values in `tesmioloader\user_config\localization.ini` and writes the finished INI to `tesmioloader\plugins\localization.ini` on saving – that is where the plugin reads it.
 
@@ -230,6 +230,8 @@ Language files are not part of the savegame. Texts of a research or resource a s
 - Other plugins that replace `soviet*.btf` in the VFS are not merged.
 
 ### Version compatibility
+- **0.4.5:** technical services: the depot window shows the word for OFF in each language instead of the English "OFF".
+- **0.4.4:** the settings page and the three text packs that come with it (research, technical services, depletion) now come in 20 languages; the game shows the texts in your game language.
 - **0.4.3:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.2:** texts for WRSR 1.2.0.9; the plugin uses no game address and is otherwise unchanged.
 - **0.4.1:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
@@ -336,5 +338,5 @@ A: No. Republic Mod Manager offers the two switches; text packs are folders with
 
 ---
 
-**Last update:** Localization 0.4.3  
+**Last update:** Localization 0.4.5  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

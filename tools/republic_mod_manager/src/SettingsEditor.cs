@@ -54,8 +54,8 @@ namespace TesmioAutoload
             {
                 // 0.8.2: on the page of Vehicle Materials the player looks for package materials
                 // where his list and the coefficients are - repeat the note there.
-                string packageNote=VehiclePackagesNote();
-                if(packageNote.Length>0){var noteCard=BeginCard(0,language.T("notices"));AddNotice(noteCard,packageNote,false);}
+                string packageNote=VehiclePackagesNote(),listOff=VehicleListOffNote();
+                if(packageNote.Length>0||listOff.Length>0){var noteCard=BeginCard(0,language.T("notices"));AddNotice(noteCard,listOff,true);AddNotice(noteCard,packageNote,false);}
             }
             if(presentation.Links.Count>0&&(presentation.LinksTab.Length==0?(presentation.Tabs.Count==0||id==presentation.Tabs[0].Id):presentation.LinksTab==id)) AddPresentationLinks();
             foreach(var group in presentation.Groups.Where(g=>g.Tab==id)) AddGroup(group);
@@ -167,6 +167,14 @@ namespace TesmioAutoload
             var installed=VehicleParts.Installed(state.Build);
             return installed.Count>0?language.Format("vehicle_packages_note",String.Join(", ",installed)):"";
         }
+        // 0.8.17: "" unless this is the page of Vehicle Materials, the saved list names materials
+        // and "enabled" is nowhere the player's own - the plugin then asks for nothing.
+        string VehicleListOffNote()
+        {
+            if(session==null||!VehicleParts.Plugin.Equals(session.Package.Target??"",StringComparison.OrdinalIgnoreCase)) return "";
+            var listed=VehicleParts.ListedButOff(state.Build);
+            return listed.Count>0?language.Format("vehicle_list_off",String.Join(", ",listed)):"";
+        }
         // Everything a user should know about this entry before touching it: unmet
         // dependencies and double loading in red, the rest as quiet notes.
         void AddNotices()
@@ -219,6 +227,8 @@ namespace TesmioAutoload
             // 0.8.2: materials that content packages added for Vehicle Materials are no entries of
             // its own list - say so on its page, or a player looks for them in vain.
             string vehiclePackages=VehiclePackagesNote();
+            // 0.8.17: a list without "Plugin enabled" ON asks for nothing in the game.
+            string listOff=VehicleListOffNote(); if(listOff.Length>0) warnings.Add(listOff);
             if(update==null&&problems.Count==0&&notes.Count==0&&warnings.Count==0&&overlay.Length==0&&packageNotice.Length==0&&packageInfo.Length==0&&vehiclePackages.Length==0) return;
             var card=BeginCard(0,language.T("notices"));
             AddNotice(card,update,false);

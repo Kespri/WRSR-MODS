@@ -46,6 +46,9 @@ namespace TesmioAutoload
         }
         public string T(string key) { return selected.Get("strings", key, english.Get("strings", key, key)); }
         public string Format(string key, params object[] arguments) { return String.Format(CultureInfo.CurrentCulture,T(key),arguments); }
+        // 0.8.17: a text whose \n become line breaks in the template, before the arguments go in -
+        // a name or path with a backslash in it (2496571917\new...) stays as it is.
+        public string FormatLines(string key, params object[] arguments) { return String.Format(CultureInfo.CurrentCulture,T(key).Replace("\\n","\n"),arguments); }
         // Core messages arrive as keys with arguments (Msg.Key); everything else passes through.
         public string Localize(string text) { if (!Msg.IsKey(text)) return text; try { return Format(Msg.KeyOf(text), Msg.ArgsOf(text).Select(a => (object)Localize(a)).ToArray()); } catch (FormatException) { return Msg.Plain(text); } }
         public static List<KeyValuePair<string, string>> Available()

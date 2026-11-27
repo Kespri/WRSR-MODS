@@ -22,23 +22,23 @@ Texturen und Modelle liegen hier nicht - die kommen mit den Workshop-Paketen.
 
 | Plugin | Version | Was es macht |
 |---|---|---|
-| [Deposits Plus](plugins/deposits_plus) | 0.4.20 | Neue Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge |
-| [Localization](plugins/localization) | 0.4.3 | Übersetzungsdienst: Textpakete werden zu erweiterten Sprachdateien |
-| [Research Expansion](plugins/research_expansion) | 0.4.5 | Neue Forschungen und Änderungen am Forschungsbaum |
-| [Resources Button Fix](plugins/resources_button_fix) | 0.4.7 | Kompakte Werkzeugraster im Geländeeditor |
-| [Technical Service Storage](plugins/technical_service_storage) | 0.3.11 | Streugutlager, Materialprioritäten und Schneepflugtanks |
-| [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.4 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern |
-| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.20 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
-| [Vehicle Materials](plugins/vehicle_materials) | 0.4.16 | Zusätzliche Materialien für die Fahrzeugproduktion |
-| [Weather Roads](plugins/weather_roads) | 0.3.8 | Straßenschnee, Schmelze und Schutz nach dem Räumen |
+| [Deposits Plus](plugins/deposits_plus) | 0.4.21 | Neue Vorkommenstypen, natürliche Verteilung, sandige Wiese, Arbeitsfahrzeuge |
+| [Localization](plugins/localization) | 0.4.5 | Übersetzungsdienst: Textpakete werden zu erweiterten Sprachdateien |
+| [Research Expansion](plugins/research_expansion) | 0.4.6 | Neue Forschungen und Änderungen am Forschungsbaum |
+| [Resources Button Fix](plugins/resources_button_fix) | 0.4.8 | Kompakte Werkzeugraster im Geländeeditor |
+| [Technical Service Storage](plugins/technical_service_storage) | 0.3.12 | Streugutlager, Materialprioritäten und Schneepflugtanks |
+| [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.6 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern, Liste fehlender Ressourcen in Gebäudefenstern |
+| [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.21 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
+| [Vehicle Materials](plugins/vehicle_materials) | 0.4.17 | Zusätzliche Materialien für die Fahrzeugproduktion |
+| [Weather Roads](plugins/weather_roads) | 0.3.9 | Straßenschnee, Schmelze und Schutz nach dem Räumen |
 
 Diese drei reisen im Paket des Republic Mod Manager mit:
 
 | Plugin | Version | Was es macht |
 |---|---|---|
-| [Buildings Plus](plugins/buildings_plus) | 0.2.10 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
-| [Resources Plus](plugins/resources_plus) | 0.1.10 | Eigene Ressourcen aus `plugins\resources_plus.ini`, Fork von resources: behebt den Absturz beim Beenden, übernimmt einmal die Liste des Originals, Namen je Spielsprache, pausiert, solange das Original geladen ist |
-| [Needs Plus](plugins/needs_plus) | 0.1.9 | Eigene Bürgerbedürfnisse aus `plugins\needs_plus.ini`, Fork von needs: übernimmt einmal die Liste des Originals, doppelte Namen abgewiesen, pausiert, solange das Original geladen ist |
+| [Buildings Plus](plugins/buildings_plus) | 0.2.11 | Neue Gebäude aus einer Erklärung: Spendergebäude plus Befehle, die Zeilen anhängen, ersetzen, entfernen oder einfügen, beim Spielstart erzeugt |
+| [Resources Plus](plugins/resources_plus) | 0.1.11 | Eigene Ressourcen aus `plugins\resources_plus.ini`, Fork von resources: behebt den Absturz beim Beenden, übernimmt einmal die Liste des Originals, Namen je Spielsprache, pausiert, solange das Original geladen ist |
+| [Needs Plus](plugins/needs_plus) | 0.1.10 | Eigene Bürgerbedürfnisse aus `plugins\needs_plus.ini`, Fork von needs: übernimmt einmal die Liste des Originals, doppelte Namen abgewiesen, pausiert, solange das Original geladen ist |
 
 Jeder Plugin-Ordner hat eine eigene Anleitung in zwei Sprachen (`README_DE.md`, `README_EN.md`)
 und englische Build-Notizen (`BUILD_INFO.md`). Gemeinsame Dateien: `plugins/grit_spreader_api.h`
@@ -57,7 +57,7 @@ und über die Original-DLL installiert (gleiche API, gleiche Logzeilen; die Änd
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.8.16 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.8.17 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
 
 ## Installation
 

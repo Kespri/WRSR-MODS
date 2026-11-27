@@ -22,6 +22,11 @@ namespace TesmioAutoload
     // Reason: "undecided", "missing", "off" or "disabled" (see ContentSession.VehicleTrouble).
     public sealed class VehicleTrouble{public CatalogEntry Entry;public string Reason="",Resources="";}
 
+    // 0.8.17: a content package that is provided although no Workshop folder of it is found any
+    // more (unsubscribed). Vehicles: the materials it entered into the list of Vehicle Materials
+    // that still stand there.
+    public sealed class GoneContent{public string Id="",Name="",Vehicles="";}
+
     // A building line naming a resource that nothing publishes (see Startup.MissingResources).
     public sealed class MissingResource
     {
@@ -139,11 +144,15 @@ namespace TesmioAutoload
         }
         // 0.6.12: the buildings that name one resource - asked before that resource is hidden or
         // removed, because the game stops at start as soon as it reads one of them without it.
-        public static List<MissingResource> BuildingsNaming(string build,List<LoadStep> steps,string resourceId)
+        public static List<MissingResource> BuildingsNaming(string build,List<LoadStep> steps,string resourceId){return BuildingsNaming(build,steps,resourceId,null);}
+        // 0.8.17: pending - the declarations a page holds unsaved, by file name ("buildings_plus",
+        // "vanilla_buildings"); such a text is read instead of the file on disk, so a building that
+        // is only staged on another page counts as well.
+        public static List<MissingResource> BuildingsNaming(string build,List<LoadStep> steps,string resourceId,IDictionary<string,string> pending)
         {
             var result=new List<MissingResource>();
             if(String.IsNullOrEmpty(resourceId))return result;
-            try{CollectBuildingLines(Path.GetFullPath(build),steps,name=>name.Equals(resourceId,StringComparison.OrdinalIgnoreCase),result);}
+            try{CollectBuildingLines(Path.GetFullPath(build),steps,name=>name.Equals(resourceId,StringComparison.OrdinalIgnoreCase),result,pending);}
             catch(Exception){}
             return result;
         }
@@ -165,6 +174,31 @@ namespace TesmioAutoload
                 }
                 catch(Exception){}
             }
+            return result;
+        }
+        // 0.8.17: provided content packages without a Workshop folder. Their fragments live on in
+        // the state folders, so resources, buildings and vehicle materials stay in the game - the
+        // saved games need them - but no page is left to switch the package off.
+        public static List<GoneContent> GoneContentPackages(string build,List<CatalogEntry> entries)
+        {
+            var result=new List<GoneContent>();
+            try
+            {
+                var ids=new HashSet<string>((entries??new List<CatalogEntry>()).Where(e=>e.Kind=="content").Select(e=>e.Id??""),StringComparer.OrdinalIgnoreCase);
+                string root=ContentTargets.StateRoot(build);if(!Directory.Exists(root))return result;
+                HashSet<string> listed=null;
+                foreach(string dir in Directory.GetDirectories(root).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase))
+                {
+                    string receipt=Path.Combine(dir,"receipt.ini");if(!File.Exists(receipt))continue;
+                    LooseIni r;try{r=new LooseIni(SafeFiles.Text(receipt));}catch(Exception){continue;}
+                    if((r.Get("content","provided")??"")!="1")continue;
+                    string id=(r.Get("content","id")??"").Trim();if(id.Length==0||ids.Contains(id))continue;
+                    if(listed==null)listed=VehicleParts.OwnList(build);
+                    string vehicles=String.Join(", ",(r.Get("content","vehicles_added")??"").Split('|').Select(x=>x.Trim()).Where(x=>x.Length>0&&listed.Contains(x)));
+                    result.Add(new GoneContent{Id=id,Name=(r.Get("content","name")??id).Trim(),Vehicles=vehicles});
+                }
+            }
+            catch(Exception){}
             return result;
         }
         public static List<RuleSpread> RuleSpreads(string build,List<LoadStep> steps,string workshopRoot)
@@ -205,13 +239,15 @@ namespace TesmioAutoload
         }
         // The declarations of the two plugins a player writes building lines for, then the
         // folders under media_soviet\workshop_wip.
-        static void CollectBuildingLines(string root,List<LoadStep> steps,Func<string,bool> wanted,List<MissingResource> result)
+        static void CollectBuildingLines(string root,List<LoadStep> steps,Func<string,bool> wanted,List<MissingResource> result){CollectBuildingLines(root,steps,wanted,result,null);}
+        static void CollectBuildingLines(string root,List<LoadStep> steps,Func<string,bool> wanted,List<MissingResource> result,IDictionary<string,string> pending)
         {
             LoadStep vb=StepFor(steps,"vanilla_buildings"),bp=StepFor(steps,"buildings_plus");
-            if(bp!=null)ScanLines(root,"buildings_plus",bp,new[]{"buildings_plus","buildings"},new[]{"line","add","insert","replace"},wanted,result);
-            if(vb!=null)ScanLines(root,"vanilla_buildings",vb,new[]{"general"},new[]{"add","insert","replace"},wanted,result);
+            if(bp!=null)ScanLines(root,"buildings_plus",bp,new[]{"buildings_plus","buildings"},new[]{"line","add","insert","replace"},wanted,result,Pending(pending,"buildings_plus"));
+            if(vb!=null)ScanLines(root,"vanilla_buildings",vb,new[]{"general"},new[]{"add","insert","replace"},wanted,result,Pending(pending,"vanilla_buildings"));
             ScanGenerated(root,wanted,result);
         }
+        static string Pending(IDictionary<string,string> pending,string file){string text;return pending!=null&&pending.TryGetValue(file,out text)?text:null;}
         // 0.6.12: the game reads every folder under media_soviet\workshop_wip at start, whether or
         // not a declaration still stands behind it - a folder Buildings Plus generated stays when
         // its section goes (prune is off by default), and so does one somebody built by hand. A
@@ -250,15 +286,20 @@ namespace TesmioAutoload
             if(steps==null)return null;
             return steps.FirstOrDefault(s=>s.Target.Equals(target,StringComparison.OrdinalIgnoreCase)||s.Key.Equals(target,StringComparison.OrdinalIgnoreCase));
         }
-        static void ScanLines(string root,string file,LoadStep step,string[] reserved,string[] keys,Func<string,bool> wanted,List<MissingResource> result)
+        static void ScanLines(string root,string file,LoadStep step,string[] reserved,string[] keys,Func<string,bool> wanted,List<MissingResource> result,string pendingText)
         {
             // What the plugin reads: plugins\<name>.ini when there is one (the effective file
-            // an editor writes), else the INI beside its DLL.
+            // an editor writes), else the INI beside its DLL - or what a page holds unsaved.
             string pluginName=step.Name;
-            string path=SafeFiles.Child(root,"plugins\\"+file+".ini");
-            if(!File.Exists(path)&&step.Dll.Length>4)path=step.Dll.Substring(0,step.Dll.Length-4)+".ini";
-            if(!File.Exists(path))return;
-            LooseIni ini;try{ini=new LooseIni(SafeFiles.Text(path));}catch(Exception){return;}
+            LooseIni ini;
+            if(pendingText!=null){try{ini=new LooseIni(pendingText);}catch(Exception){return;}}
+            else
+            {
+                string path=SafeFiles.Child(root,"plugins\\"+file+".ini");
+                if(!File.Exists(path)&&step.Dll.Length>4)path=step.Dll.Substring(0,step.Dll.Length-4)+".ini";
+                if(!File.Exists(path))return;
+                try{ini=new LooseIni(SafeFiles.Text(path));}catch(Exception){return;}
+            }
             var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach(string section in ini.SectionNames())
             {

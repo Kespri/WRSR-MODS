@@ -1,4 +1,4 @@
-# 🏭 Deposits Plus 0.4.20
+# 🏭 Deposits Plus 0.4.21
 
 **Extension of the TesmioLoader plugin deposits**
 
@@ -113,7 +113,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Deposits Plus with four tabs, in German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Deposits Plus with four tabs, in 20 languages:
 
 - **General:** notices, buttons for this guide, the plugin switches "Game file adjustment" (the code patch), "Minimap layers" and "Terrain editor brushes", and the card "Natural generation"
 - **Sand structure:** the sandy meadow
@@ -521,6 +521,7 @@ MyGame\
 - **Within the 0.4 series:** updates carry save games and `tesmio_deposits.bin` over automatically; type numbers, map slots and tokens of running save games stay off limits (see above)
 - **With Deposit Depletion:** keeps working as before; the key `deplete` is passed on to the depletion plugin
 - **With Soviet Mod Loader:** SML brings deposits of its own. While it runs, this plugin pauses and says so in the log; if you want Deposits Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- **0.4.21:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
 - **0.4.20:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.19:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged.
 - **0.4.18:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged.
@@ -637,5 +638,5 @@ A: No. Republic Mod Manager shows every setting with a description, checks the v
 
 ---
 
-**Last update:** Deposits Plus 0.4.20  
+**Last update:** Deposits Plus 0.4.21  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

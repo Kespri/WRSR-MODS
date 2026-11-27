@@ -208,5 +208,5 @@ A: Jedes ist ein eigenes Workshop-Objekt. Abonnieren, Spiel starten, fertig; ein
 
 ---
 
-**Letzte Aktualisierung:** Republic Mod Manager 0.8.15  
+**Letzte Aktualisierung:** Republic Mod Manager 0.8.17  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

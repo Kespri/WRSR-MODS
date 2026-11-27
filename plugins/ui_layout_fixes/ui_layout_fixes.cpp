@@ -29,7 +29,7 @@
 
 namespace UiLayoutFixes
 {
-static const char* const PLUGIN_VERSION = "0.3.4";
+static const char* const PLUGIN_VERSION = "0.3.6";
 // Configuration comes through tesmio_config.h: <loader>\plugins\ui_layout_fixes.ini
 static const char* const LOG_NAME = "tesmioloader.ui_layout_fixes.log";
 
@@ -1378,6 +1378,119 @@ static void LoadConfig()
 }
 } // namespace TextWrap
 
+// -------------------------------------------------------------------------
+// RESOURCE_LIST module
+//
+// The warning box of a building window lists missing goods as one text:
+// "-Missing resources! - " (text id 2009) and the names joined by ", ". The
+// game does not wrap that text by width; it counts names: a line break after
+// the first 3 names, a second one after 6 more, then none. A production line
+// that takes extra materials (Vehicle Materials) lists 9 or more names, and the
+// second line runs past the window edge.
+//
+// Two sites build such a list (1.2.0.9):
+//  - the production line window, 0x7D3B13: every break also adds one line to
+//    the height of the box (addss xmm8, xmm7 at 0x7D3B56). Patched: the second
+//    count 6 becomes names_per_line, and the "only one more break" test
+//    (cmp esi,1 / jne at 0x7D3B20) is removed - a break every names_per_line
+//    names, as many lines as needed, the box grows with them;
+//  - a second building window, 0x788D33: it moves on by a fixed height after
+//    the warning text, so it gets no extra line - only the second count 6
+//    becomes names_per_line (at most three lines, as in the game).
+// The first line keeps its 3 names (it starts with the caption).
+namespace ResourceList
+{
+static const char* const MODULE = "RESOURCE_LIST";
+static const char* const SECTION = "resource_list";
+static const DWORD EXPECTED_IMAGE_SIZE = 0x00AE9000;
+static const DWORD EXPECTED_EXE_TIMESTAMP = 0x6B05A574;
+static const int DEFAULT_NAMES_PER_LINE = 4;
+
+// inc ebx; test esi,esi; jne +7; cmp ebx,3; je +0C; jmp +3B; cmp esi,1; jne +36; cmp ebx,6; jne +31
+static const DWORD RVA_LINE = 0x007D3B13;
+static const BYTE EXPECT_LINE[] = {
+    0xFF, 0xC3, 0x85, 0xF6, 0x75, 0x07, 0x83, 0xFB, 0x03, 0x74, 0x0C, 0xEB,
+    0x3B, 0x83, 0xFE, 0x01, 0x75, 0x36, 0x83, 0xFB, 0x06, 0x75, 0x31
+};
+static const DWORD LINE_JNE_OFFSET = 16;     // 75 36 -> 66 90
+static const DWORD LINE_COUNT_OFFSET = 20;   // 06 -> names_per_line
+
+// inc edi; test r13d,r13d; jne +7; cmp edi,3; je +0D; jmp +42; cmp r13d,1; jne +3C; cmp edi,6; jne +37
+static const DWORD RVA_OTHER = 0x00788D33;
+static const BYTE EXPECT_OTHER[] = {
+    0xFF, 0xC7, 0x45, 0x85, 0xED, 0x75, 0x07, 0x83, 0xFF, 0x03, 0x74, 0x0D,
+    0xEB, 0x42, 0x41, 0x83, 0xFD, 0x01, 0x75, 0x3C, 0x83, 0xFF, 0x06, 0x75,
+    0x37
+};
+static const DWORD OTHER_COUNT_OFFSET = 22;  // 06 -> names_per_line
+
+static int g_enabled = 1;
+static int g_namesPerLine = DEFAULT_NAMES_PER_LINE;
+static bool g_installed = false;
+
+static bool PatchBytes(BYTE* at, const BYTE* bytes, SIZE_T length, const char* label)
+{
+    DWORD old = 0, ignored = 0;
+    if (!VirtualProtect(at, length, PAGE_EXECUTE_READWRITE, &old))
+    {
+        ReportWindows("ERROR", MODULE, "protection", "Could not make the code writable", GetLastError(),
+            "Restart the game; this site stays as the game draws it");
+        return false;
+    }
+    memcpy(at, bytes, length);
+    if (!VirtualProtect(at, length, old, &ignored))
+        ReportWindows("WARN", MODULE, "protection-restore",
+            "The patch is active, but the page protection could not be restored", GetLastError(),
+            "Restart the game before changing plugins");
+    FlushInstructionCache(GetCurrentProcess(), at, length);
+    LogInfo("[%s] %s patched at SOVIET64.exe+0x%IX", MODULE, label, (SIZE_T)(at - g_exeBase));
+    return true;
+}
+
+static void Install()
+{
+    if (!g_enabled)
+    {
+        LogInfo("[%s] disabled by configuration", MODULE);
+        return;
+    }
+    const DWORD timestamp = ExeTimestamp();
+    if (g_exeSize != EXPECTED_IMAGE_SIZE || timestamp != EXPECTED_EXE_TIMESTAMP)
+    {
+        LogError(MODULE, "unsupported-build",
+            "expected SOVIET64.exe 1.2.0.9 (image=0x%X timestamp=0x%08X), found image=0x%llX timestamp=0x%08X; "
+            "the module remains inactive",
+            EXPECTED_IMAGE_SIZE, EXPECTED_EXE_TIMESTAMP, (unsigned long long)g_exeSize, timestamp);
+        return;
+    }
+    // Both sites are checked before either is written, so a changed game never gets half a patch.
+    if (!VerifyBytes(RVA_LINE, EXPECT_LINE, sizeof(EXPECT_LINE), MODULE, "line-signature",
+                     "production line warning list") ||
+        !VerifyBytes(RVA_OTHER, EXPECT_OTHER, sizeof(EXPECT_OTHER), MODULE, "other-signature",
+                     "building warning list"))
+        return;
+
+    const BYTE count = (BYTE)g_namesPerLine;
+    BYTE* line = g_exeBase + RVA_LINE;
+    BYTE* other = g_exeBase + RVA_OTHER;
+    const BYTE nop2[2] = { 0x66, 0x90 };
+    bool ok = PatchBytes(line + LINE_COUNT_OFFSET, &count, 1, "production line: names per line") &&
+              PatchBytes(line + LINE_JNE_OFFSET, nop2, sizeof(nop2), "production line: break limit removed");
+    ok = PatchBytes(other + OTHER_COUNT_OFFSET, &count, 1, "building window: names on the second line") && ok;
+    g_installed = ok;
+    if (ok)
+        LogInfo("[%s] active: missing-resource lists break after 3 names, then every %d names "
+                "(production line: as many lines as needed; other building window: at most three lines)",
+                MODULE, g_namesPerLine);
+}
+
+static void LoadConfig()
+{
+    g_enabled = TsmConfigInt(SECTION, "enabled", 1) != 0;
+    TextWrap::ReadIniInt(SECTION, "names_per_line", DEFAULT_NAMES_PER_LINE, 1, 9, &g_namesPerLine);
+}
+} // namespace ResourceList
+
 static void LoadConfig()
 {
     g_enabled = TsmConfigInt("general", "enabled", 1) != 0;
@@ -1385,12 +1498,13 @@ static void LoadConfig()
     {
         Customhouse::LoadConfig();
         TextWrap::LoadConfig();
+        ResourceList::LoadConfig();
     }
 }
 
 static bool HasEnabledModule()
 {
-    return Customhouse::g_enabled != 0 || TextWrap::g_enabled != 0;
+    return Customhouse::g_enabled != 0 || TextWrap::g_enabled != 0 || ResourceList::g_enabled != 0;
 }
 
 static const char* ActiveModules(char* out, size_t capacity)
@@ -1402,6 +1516,11 @@ static const char* ActiveModules(char* out, size_t capacity)
     {
         if (out[0]) strcat_s(out, capacity, "+");
         strcat_s(out, capacity, "TEXT_WRAP");
+    }
+    if (ResourceList::g_installed)
+    {
+        if (out[0]) strcat_s(out, capacity, "+");
+        strcat_s(out, capacity, "RESOURCE_LIST");
     }
     if (!out[0]) strcpy_s(out, capacity, "none");
     return out;
@@ -1513,6 +1632,8 @@ int TsmPluginStart(void)
         // A failed import redirection leaves this module inactive but hooks
         // nothing, so the other modules and the startup result are unaffected.
         UiLayoutFixes::TextWrap::Install();
+        // The same for the missing-resource lists: a site that does not match stays as it is.
+        UiLayoutFixes::ResourceList::Install();
 
         char active[64];
         UiLayoutFixes::LogInfo(

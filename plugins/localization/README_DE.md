@@ -1,4 +1,4 @@
-# 🌐 Localization 0.4.3
+# 🌐 Localization 0.4.5
 
 **TesmioLoader-Plugin für eigene Texte und Übersetzungen**
 
@@ -92,7 +92,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager (ab Version 0.6.3) zeigt Localization damit in zwei Reitern, deutsch und englisch: auf **Allgemein** die Hinweise, den Knopf für diese Anleitung und die Karte Fehlersuche (Ausführliches Protokoll), auf **Plugin** den Schalter „Erweiterung anwenden“ und eine Übersicht der Textpakete. Textpakete selbst werden nicht im Manager bearbeitet; sie sind Ordner mit INI-Dateien.
+Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager (ab Version 0.6.3) zeigt Localization damit in zwei Reitern, in 20 Sprachen: auf **Allgemein** die Hinweise, den Knopf für diese Anleitung und die Karte Fehlersuche (Ausführliches Protokoll), auf **Plugin** den Schalter „Erweiterung anwenden“ und eine Übersicht der Textpakete. Textpakete selbst werden nicht im Manager bearbeitet; sie sind Ordner mit INI-Dateien.
 
 Die INI im Paket ändert Republic Mod Manager nie. Deine persönlichen Werte legt er in `tesmioloader\user_config\localization.ini` ab und schreibt beim Speichern die fertige INI nach `tesmioloader\plugins\localization.ini` – dort liest das Plugin sie.
 
@@ -230,6 +230,8 @@ Sprachdateien sind nicht Teil des Spielstands. Texte einer Forschung oder Ressou
 - Andere Plugins, die `soviet*.btf` im VFS ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.5:** Technische Dienste: Im Depotfenster steht in jeder Sprache das eigene Wort für AUS statt „OFF“.
+- **0.4.4:** Die Einstellungsseite und die drei mitgelieferten Textpakete (Forschungen, Technische Dienste, Depletion) gibt es jetzt in 20 Sprachen; das Spiel zeigt die Texte in deiner Spielsprache.
 - **0.4.3:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.2:** Texte für WRSR 1.2.0.9; das Plugin nutzt keine Spieladresse und ist sonst unverändert.
 - **0.4.1:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
@@ -336,5 +338,5 @@ A: Nein. Die beiden Schalter bietet Republic Mod Manager an; Textpakete sind Ord
 
 ---
 
-**Letzte Aktualisierung:** Localization 0.4.3  
+**Letzte Aktualisierung:** Localization 0.4.5  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

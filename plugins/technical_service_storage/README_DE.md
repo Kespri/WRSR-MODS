@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.11
+# 🚛 Technical Service Storage 0.3.12
 
 **TesmioLoader-Plugin für Streugutlager, Materialprioritäten und Schneepflugtanks**
 
@@ -65,7 +65,7 @@ Erweitert in *Workers & Resources: Soviet Republic* 1.2.0.9 das Fenster des Tech
 
 ### 🆕 Neu in 0.3.1
 - ✅ **INI neben der DLL:** Fehlt `tesmioloader\plugins\technical_service_storage.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Der gewählte Pfad steht als `Configuration file:` im Protokoll.
-- ✅ Editor-Schema für Republic Mod Manager im Paket: Materialliste als Liste mit Plus-Knopf, alle Schalter in Karten auf vier Reitern, deutsch und englisch.
+- ✅ Editor-Schema für Republic Mod Manager im Paket: Materialliste als Liste mit Plus-Knopf, alle Schalter in Karten auf vier Reitern, in 20 Sprachen.
 - Parser, Prüfung, Verbrauch, Rückkehr, Tankgrößen, Prioritäten und Speicherformate sind gegenüber 0.3.0 unverändert.
 
 ---
@@ -108,7 +108,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Technical Service Storage damit in vier Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Technical Service Storage damit in vier Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise, Knopf für diese Anleitung, die Karte „Speichern im Spielstand“ (Lagerergänzung, Prioritäten und Tanks speichern, abgerissene Depots vergessen) und darunter „Fehlersuche“ (ausführliches Protokoll, Meldungsgrenze)
 - **Streumaterialien:** links die Materialliste (höchstens 32), rechts das gewählte Material mit seiner Schutzstärke; der Plus-Knopf legt ein Material an (interner Ressourcenname als Text, Vorschläge gruppiert nach eigenen Ressourcen aus dem Resources-Plugin und Vanilla-Ressourcen). Originalzeilen lassen sich mit dem Papierkorb ausblenden und wieder anzeigen
@@ -310,6 +310,7 @@ Ergänzte Lager können Teil des nativen Spielstands werden. Prioritäten und Ta
 - Ressourcen-Plugins (Resources Plus oder Resources) registrieren zusätzliche Materialien wie `road_salt`.
 
 ### Versionskompatibilität
+- **0.3.12:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
 - **0.3.11:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.3.10:** Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - **0.3.9:** Beim Nachtragen eines fehlenden Depotlagers bleiben die vorhandenen Lager des Depots unangetastet an ihrem Platz im Speicher; vorher wurden sie dabei durch Kopien ersetzt. Am Verhalten im Spiel ändert sich nichts.
@@ -420,5 +421,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Technical Service Storage 0.3.11  
+**Letzte Aktualisierung:** Technical Service Storage 0.3.12  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.5
+# 🔬 Research Expansion 0.4.6
 
 **TesmioLoader-Plugin für neue Forschungen und Änderungen am Forschungsbaum**
 
@@ -101,7 +101,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Research Expansion damit in vier Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Research Expansion damit in vier Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise, Knopf für diese Anleitung und die Plugin-Einstellungen (Erweiterung anwenden, Forschungs-Icons, Fehlersuche)
 - **Neue Forschungen:** links die Liste, rechts die gewählte Forschung mit Typ, Kosten, Vorgängern, Freischaltungen, Name und Beschreibung; gespeichert als Abschnitt `[research:<id>]`
@@ -256,6 +256,7 @@ Forschungen sind Teil des Spielstands: Eine neue Forschung, die ein Spielstand b
 Localization ist Pflicht. Andere Plugins, die `research.ini` ersetzen, werden nicht zusammengeführt.
 
 ### Versionskompatibilität
+- **0.4.6:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
 - **0.4.5:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.4:** Texte für WRSR 1.2.0.9; das Plugin nutzt keine Spieladresse und ist sonst unverändert.
 - **0.4.3:** Für WRSR 1.2.0.8 und TesmioLoader b0.4.5 neu gebaut; sonst unverändert.
@@ -358,5 +359,5 @@ A: Nein. Neue Forschungen, Änderungen an Vanilla-Forschungen und die Plugin-Ein
 
 ---
 
-**Letzte Aktualisierung:** Research Expansion 0.4.5  
+**Letzte Aktualisierung:** Research Expansion 0.4.6  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

@@ -9,6 +9,10 @@ folder>` generates the sections of a real INI from a real game folder into an ou
 so a declaration can be checked before it goes into the game (the game folder is only read; the catalog
 goes to `<out>\plugins`). History newest first.
 
+## 0.2.11 (2026-11-27)
+
+- Documentation only: the README says the settings page (a local schema of Republic Mod Manager, 20 languages since RMM 0.8.13) comes in 20 languages; code unchanged apart from the version string.
+
 ## 0.2.10 (2026-11-27)
 
 - Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.

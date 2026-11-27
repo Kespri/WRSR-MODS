@@ -1,4 +1,4 @@
-# 📦 Resources Plus 0.1.10
+# 📦 Resources Plus 0.1.11
 
 **Erweiterung des TesmioLoader-Plugins resources**
 
@@ -179,6 +179,7 @@ Unverändert gegenüber dem Original: Die Anzahl der Ressourcen ist Teil des Spi
 
 ### Versionskompatibilität
 - Mit Soviet Mod Loader: SML bringt Ressourcen selbst mit. Läuft er, pausiert dieses Plugin und schreibt eine Zeile ins Protokoll; willst du stattdessen Resources Plus, schalte `soviet_mod_loader` in der `tesmioloader.ini` aus (im Republic Mod Manager der Schalter „Plugin aktiv“)
+- 0.1.11: Nur intern: die Suche nach der Liste des Originals im Workshop-Ordner steht jetzt an einer Stelle für Resources Plus und Needs Plus; im Spiel ändert sich nichts.
 - 0.1.10: Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - 0.1.9: Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - 0.1.8: Fehler behoben: Ein fester Preis aus `[price]` kam am Zoll und im Handelsfenster nicht an, weil das Spiel den Preis danach noch einmal neu ausrechnet. Er wird jetzt auch hinter dieser zweiten Rechnung gesetzt. Im Log stehen Rubel und Dollar jetzt in der richtigen Spalte.
@@ -263,5 +264,5 @@ A: Republic Mod Manager schaltet das Original aus, sobald Resources Plus eingesc
 
 ---
 
-**Letzte Aktualisierung:** Resources Plus 0.1.10  
+**Letzte Aktualisierung:** Resources Plus 0.1.11  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

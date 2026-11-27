@@ -1,8 +1,8 @@
-# 🪟 UI Layout Fixes 0.3.4
+# 🪟 UI Layout Fixes 0.3.6
 
 **TesmioLoader plugin for targeted corrections to single info windows**
 
-Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1.2.0.9. Every window type is its own module with its own configuration, target checks and switch. Currently included: the **CUSTOMHOUSE** module (wider row spacing of the resource list in the customs house) and the **TEXT_WRAP** module (game captions you list by text id are wrapped and drawn line by line instead of running off their window; the route hint of the vehicle window is preset). There is deliberately no global row spacing.
+Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1.2.0.9. Every window type is its own module with its own configuration, target checks and switch. Currently included: the **CUSTOMHOUSE** module (wider row spacing of the resource list in the customs house) and the **TEXT_WRAP** module (game captions you list by text id are wrapped and drawn line by line instead of running off their window; the route hint of the vehicle window is preset) and the **RESOURCE_LIST** module (the list of missing resources in the warning box of a building no longer runs past the window). There is deliberately no global row spacing.
 
 ---
 
@@ -32,7 +32,7 @@ Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1
 ### In three steps
 1. **Subscribe:** the TesmioLoader finds the plugin in the Workshop folder by itself on the next game start.
 2. **Set the row spacing** if you like: `resource_row_pitch` from 25.0 to 60.0 in `ui_layout_fixes.ini`, most conveniently through Republic Mod Manager (default 30.0).
-3. **Restart the game completely** and open a customs house or a vehicle with a route problem. The detail log shows `[CUSTOMHOUSE] active` and `[TEXT_WRAP] active`.
+3. **Restart the game completely** and open a customs house or a vehicle with a route problem. The detail log shows `[CUSTOMHOUSE] active`, `[TEXT_WRAP] active` and `[RESOURCE_LIST] active`.
 
 ---
 
@@ -47,6 +47,7 @@ Bundles window-specific corrections for *Workers & Resources: Soviet Republic* 1
 ### 🆕 New in 0.3.0
 - ✅ Every Republic Mod Manager text in player style: notice boxes instead of group texts, General card removed, own help text in the add dialog, game captions picked through "Choose text...".
 - ✅ **TEXT_WRAP module:** long captions such as "View area where a possible issue exists on route!" in the vehicle window are drawn as one line and run off the window. The module intercepts the game's text lookup for every text id in the `[text_wrap_ids]` list, returns a re-wrapped copy and draws it line by line through the engine's hooked print functions. Rules: at most `max_chars` characters per line (default 58, overridable per text), words are never split, the lines get similar lengths, the game's paragraphs flow together (`keep_breaks = 1` keeps them), line spacing `line_spacing` as a multiple of the font size (default 1.15). If a text needs more than `max_lines` lines (default 4), the lines get wider step by step. No game code is changed; the module does not depend on the game build and works in every game language that separates words with spaces.
+- ✅ **RESOURCE_LIST module:** the warning box of a building lists the goods it is missing. The game does not wrap that list by width but after 3 names and then after 6 more. With the extra materials of Vehicle Materials a vehicle factory or a rocket part works soon has 9 names, and the second line runs past the window. The module puts only `names_per_line` names on each line after the first (default 4). In the window of a production line the box gets as many lines as it needs; a second building window with a fixed height keeps its three lines, only its second one gets shorter.
 - ✅ **Finding candidates:** `log_long_texts = 70` writes every text id the game shows whose longest line exceeds 70 characters once to the detail log, with its first 80 characters. In Republic Mod Manager you then add the id on the Text ids tab.
 - ✅ Republic Mod Manager: list editor with the tabs General, Customs house, Text wrap and Text ids.
 - ✅ **Shared configuration rule** (`tesmio_config.h`): the base is `tesmioloader\plugins\ui_layout_fixes.ini`, otherwise the INI beside the DLL (in the Workshop package). If `user_config\ui_layout_fixes.ini` exists in the loader folder, its keys win one by one. Both paths are logged at start.
@@ -88,11 +89,12 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package ships a launcher schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows UI Layout Fixes in four tabs, German and English:
+The package ships a launcher schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows UI Layout Fixes in four tabs, in 20 languages:
 
 - **General:** notes and the button for this guide
 - **Customs house:** module switch and row spacing of the resource list
 - **Text wrap:** module switch, characters per line, line limit, line spacing, paragraph handling and the log helper for long texts
+- **Building windows:** switch for the list of missing resources and the number of names per line
 - **Text ids:** the list of wrapped texts with a width of their own per entry; the route hint 1970 is preset and can be hidden. The "Choose text..." button in the add dialog lists every caption of your game language with search and minimum length
 
 The "Plugin active" switch in the header also sets `enabled = 1` when switched on. Republic Mod Manager writes the effective INI to `tesmioloader\plugins\ui_layout_fixes.ini`; the INI in the package stays untouched. Your own values and text ids are stored separately in `user_config\ui_layout_fixes.editor.ini` and merged in when you save. If you prefer editing the INI by hand, everything else is below.
@@ -157,6 +159,8 @@ log_long_texts = 0
 | `line_spacing` | 0.50 to 3.00, decimal point | 1.15 |
 | `keep_breaks` | 0 or 1 | 0 |
 | `log_long_texts` | 0 to 400, whole number (0 = off) | 0 |
+| `[resource_list] enabled` | 0 or 1 | 1 |
+| `names_per_line` | 1 to 9, whole number | 4 |
 | `[text_wrap_ids] <id>` | id 1 to 100000; value 0 or 20 to 200 | `1970 = 0` |
 
 For `resource_row_pitch`: `25.0` equals the native game value and adds no spacing; non-numeric, infinite or out-of-range values are discarded, the plugin logs a warning (`invalid-config`) and uses `30.0`, the module stays active.
@@ -186,7 +190,7 @@ Limit: if the game copies a text into a buffer of its own before printing, the p
 ## 💾 Compatibility
 
 ### Game and loader
-- Exactly supported game version 1.2.0.9 for CUSTOMHOUSE; other versions are refused because memory addresses and signatures depend on the version. TEXT_WRAP changes no game code and depends only on the text ids
+- Exactly supported game version 1.2.0.9 for CUSTOMHOUSE and RESOURCE_LIST; other versions are refused because memory addresses and signatures depend on the version. TEXT_WRAP changes no game code and depends only on the text ids
 - Compatible with the resources plugin, which hooks the same text lookup; the hooks chain in load order
 - Only languages that separate words with spaces are wrapped (Chinese and Japanese stay unchanged)
 - No dependency on the Localization plugin or any other TesmioLoader plugin
@@ -196,6 +200,8 @@ Limit: if the game copies a text into a buffer of its own before printing, the p
 The plugin changes neither game files nor savegames.
 
 ### Version compatibility
+- **0.3.6:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
+- **0.3.5:** new module RESOURCE_LIST: the list of missing resources in the warning box of a building no longer runs past the window (tab "Building windows").
 - **0.3.4:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.3.3:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
 - **0.3.2:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
@@ -305,5 +311,5 @@ A: No. Republic Mod Manager shows every switch and value with descriptions and c
 
 ---
 
-**Last update:** UI Layout Fixes 0.3.4  
+**Last update:** UI Layout Fixes 0.3.6  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

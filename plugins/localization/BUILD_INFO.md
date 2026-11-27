@@ -8,6 +8,14 @@ reserved range 2,000,000..2,999,999). Output: extended `soviet<Language>.btf` ov
 loader's VFS (`<loader>\vfs\media_soviet`), removed again on a start with `enabled = 0`.
 User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.5 (2026-11-27)
+
+- Text pack technical_service_storage: material_priority.off and building_warning.off in the 18 translated languages carry that language's word for OFF (they had the English OFF, following a rule of the translator guide that was meant for the settings pages only); code unchanged apart from the version string.
+
+## 0.4.4 (2026-11-27)
+
+- The settings page (`config\languages`) and the three text packs (`research_expansion`, `technical_service_storage`, `tesmio_lang`: one soviet<Language>.ini per game language) in 18 more languages, translated for the user and checked (keys, placeholders, `\n`, no BOM); code unchanged apart from the version string.
+
 ## 0.4.3 (2026-11-27)
 
 - Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.

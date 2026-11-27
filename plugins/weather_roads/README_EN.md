@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.8
+# ❄️ Weather Roads 0.3.9
 
 **TesmioLoader plugin for road snow, melting and protection after plowing**
 
@@ -66,7 +66,7 @@ Controls in *Workers & Resources: Soviet Republic* 1.2.0.9 how fast snow builds 
 ### 🆕 New in 0.3.0
 - ✅ Every text in Republic Mod Manager and in this guide rewritten: shorter, in players' language, switches with ON and OFF instead of 1 and 0, line breaks in longer explanations. The note on the interplay with Technical Service Storage now sits in the "Notes" card.
 - ✅ **INI beside the DLL:** when `tesmioloader\plugins\weather_roads.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package. The chosen path is logged as `configuration file:`.
-- ✅ Schema for Republic Mod Manager in the package: five tabs with every setting, German and English.
+- ✅ Schema for Republic Mod Manager in the package: five tabs with every setting, in 20 languages.
 
 ---
 
@@ -105,7 +105,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package contains a presentation schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Weather Roads in five tabs, German and English:
+The package contains a presentation schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Weather Roads in five tabs, in 20 languages:
 
 - **General:** notes, a button for this guide; plugin, save road protection, detailed events
 - **Snow and melting:** snow build-up, natural melting, appearance of plowed areas
@@ -240,6 +240,7 @@ Without the plugin the savegame loads normally; the extra file is then not appli
 - The weather call chain accounts for the hook of `daynight`; other combinations are not verified.
 
 ### Version compatibility
+- **0.3.9:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
 - **0.3.8:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.3.7:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
 - **0.3.6:** for WRSR 1.2.0.8 with the rocket DLC; otherwise unchanged
@@ -345,5 +346,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Weather Roads 0.3.8  
+**Last update:** Weather Roads 0.3.9  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

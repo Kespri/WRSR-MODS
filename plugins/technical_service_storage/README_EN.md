@@ -1,4 +1,4 @@
-# 🚛 Technical Service Storage 0.3.11
+# 🚛 Technical Service Storage 0.3.12
 
 **TesmioLoader plugin for grit storages, material priorities and snowplow tanks**
 
@@ -65,7 +65,7 @@ Extends the Technical Services window of *Workers & Resources: Soviet Republic* 
 
 ### 🆕 New in 0.3.1
 - ✅ **INI beside the DLL:** when `tesmioloader\plugins\technical_service_storage.ini` is missing, the DLL reads the INI from its own folder, i.e. from the Workshop package. The chosen path is logged as `Configuration file:`.
-- ✅ Editor schema for Republic Mod Manager in the package: the material list as a list with a plus button, every switch in cards on four tabs, German and English.
+- ✅ Editor schema for Republic Mod Manager in the package: the material list as a list with a plus button, every switch in cards on four tabs, in 20 languages.
 - Parser, validation, consumption, return, tank sizes, priorities and file formats are unchanged from 0.3.0.
 
 ---
@@ -108,7 +108,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package contains an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Technical Service Storage in four tabs, German and English:
+The package contains an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Technical Service Storage in four tabs, in 20 languages:
 
 - **General:** notes, a button for this guide, the card "Saving in the save game" (storage migration, saving priorities and tanks, forgetting demolished depots) and below it "Troubleshooting" (detailed log, message limit)
 - **Grit materials:** the material list on the left (up to 32), the selected material with its protection strength on the right; the plus button adds a material (internal resource name as text, suggestions grouped into custom resources from the Resources plugin and vanilla resources). Original lines can be hidden with the trash button and shown again
@@ -310,6 +310,7 @@ Added storages can become part of the native savegame. Priorities and tanks live
 - Resource plugins (Resources Plus or Resources) register additional materials such as `road_salt`.
 
 ### Version compatibility
+- **0.3.12:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
 - **0.3.11:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.3.10:** texts only: manual, Workshop text and settings page brought up to date; nothing changes in the game.
 - **0.3.9:** when a missing depot storage is added, the storages the depot has stay untouched where they are in memory; before, they were replaced by copies in the process. Nothing changes in the game.
@@ -420,5 +421,5 @@ A: Yes, following the rules in [Configuration](#-configuration). Republic Mod Ma
 
 ---
 
-**Last update:** Technical Service Storage 0.3.11  
+**Last update:** Technical Service Storage 0.3.12  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

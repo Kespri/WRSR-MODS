@@ -32,7 +32,7 @@
 #include <string>
 
 #define PLUGIN_INI "plugins\\resources_button_fix.ini"
-#define PLUGIN_VERSION "0.4.7"
+#define PLUGIN_VERSION "0.4.8"
 #define PLUGIN_LOG_NAME "tesmioloader.resources_button_fix.log"
 
 static const size_t MAX_INI_BYTES = 16u * 1024u * 1024u;

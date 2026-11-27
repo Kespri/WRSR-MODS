@@ -72,6 +72,9 @@ namespace TesmioAutoload
             // 0.8.0: the game starts, but vehicles do not use the package's resource - amber.
             foreach(VehicleTrouble open in Startup.VehicleTroubles(build,list,language.Code))
             { Line(trouble,language.Format("startcheck_vehicles_"+open.Reason,open.Entry.Name,open.Resources),Theme.Amber,open.Entry.Root); any=true; }
+            // 0.8.17: provided, but no longer subscribed - it stays in the game without a page.
+            foreach(GoneContent gone in Startup.GoneContentPackages(build,list))
+            { Line(trouble,language.Format(gone.Vehicles.Length>0?"startcheck_content_gone_vehicles":"startcheck_content_gone",gone.Name,gone.Vehicles),Theme.Amber,""); any=true; }
             foreach(CatalogEntry entry in list.Where(e=>e.Updated).OrderBy(e=>e.Name,StringComparer.CurrentCultureIgnoreCase))
             { Line(trouble,language.Format("startcheck_update_row",entry.Name,entry.PreviousVersion,entry.Version),Theme.Amber,entry.Root); any=true; }
             if(!any)Line(trouble,language.T("startcheck_clean"),Color.FromArgb(26,132,61),null);
@@ -100,6 +103,9 @@ namespace TesmioAutoload
             var card=new Card(title){Dock=DockStyle.Top,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink};
             var inner=new TableLayoutPanel{ColumnCount=1,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,Margin=Padding.Empty};
             inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            // 0.8.17: an AutoSize row in a percent column measures a wrapping label at the wrong
+            // width - a row of three lines lost its last one. Every label gets the width it wraps at.
+            inner.SizeChanged+=(s,e)=>{int width=Math.Max(80,inner.ClientSize.Width);foreach(Control c in inner.Controls)if(c is Label&&c.MaximumSize.Width!=width-c.Margin.Horizontal)c.MaximumSize=new Size(width-c.Margin.Horizontal,0);};
             card.Controls.Add(inner); card.Tag=inner;
             stack.RowStyles.Add(new RowStyle(SizeType.AutoSize)); stack.Controls.Add(card);
             return card;
@@ -117,7 +123,7 @@ namespace TesmioAutoload
                 label.Click+=(s,e)=>{Jump=root;DialogResult=DialogResult.OK;Close();};
             }
             int row=inner.RowCount++; inner.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            label.Dock=DockStyle.Top; inner.Controls.Add(label,0,row);
+            label.Dock=DockStyle.Top; if(inner.ClientSize.Width>80)label.MaximumSize=new Size(inner.ClientSize.Width-label.Margin.Horizontal,0); inner.Controls.Add(label,0,row);
         }
     }
 }

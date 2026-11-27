@@ -1,9 +1,17 @@
 # UI Layout Fixes – build notes
 
-- Plugin version 0.3.4. Target: SOVIET64.exe 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4.
+- Plugin version 0.3.6. Target: SOVIET64.exe 1.2.0.9 (PE stamp 0x6B05A574), TesmioLoader API 4.
 - Source folder: `my_plugins\ui_layout_fixes\`. Build: `build.bat` (Microsoft Visual C++ x64,
   `/O2 /MT /W3 /EHsc /LD`, kernel32.lib). Output: `build\plugins\ui_layout_fixes.dll` and
   `build\plugins\ui_layout_fixes.ini`.
+
+## 0.3.6 (2026-11-27)
+
+- The package settings page (`config\languages`) in 18 more languages - bg, cs, es, fr, hu, it, ja, ko, pl, pt, ro, ru, sk, sr, tr, uk, zh-CN, zh-TW - translated for the user and checked (keys, placeholders, `\n`, paths); code unchanged apart from the version string.
+
+## 0.3.5 (2026-11-27)
+
+- New module RESOURCE_LIST (`[resource_list] enabled`, `names_per_line` 1..9, default 4). The missing-resource text (id 2009 plus the names) is broken by counting names, not by width: 3, then 6, then no more. Production line window (`SOVIET64.exe+0x7D3B13`): the count 6 becomes `names_per_line` (+0x7D3B27) and `cmp esi,1 / jne` (+0x7D3B23) becomes `66 90`, so a break follows every `names_per_line` names and every break adds a line to the box height (`addss xmm8, xmm7` at +0x7D3B56). Second building window (`+0x788D33`, fixed height after the warning text): only its count 6 at +0x788D49. Both sequences (23 and 25 bytes) are compared before either is written; image size and PE stamp must be 1.2.0.9. Found by the text id: `movl $0x7d9, %edx` at +0x788C56 and +0x7D3A43; three other uses (+0x7C5362, +0x7D4062, +0x7D8D74) break differently or not at all and are left alone.
 
 ## 0.3.4 (2026-11-27)
 

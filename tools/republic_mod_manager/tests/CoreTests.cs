@@ -931,6 +931,85 @@ static class CoreTests
             var afterHide=new LocalResourceSession(resourceSpec,build);
             C(29,!afterHide.Items().Any(x=>x.Id=="wire")&&afterHide.SuppressedIds().Count==0&&!SafeFiles.Text(resIni).Contains("wire"));
         });
+        // 0.8.17: an update that drops a whole kind - the entries the package had added leave the
+        // effective INI with the next save, and the receipt forgets the kind.
+        Test("an update that no longer brings a kind takes its entries out of the target INI (0.8.17)",()=>
+        {
+            Action<int,bool> C=(n,ok)=>{if(!ok)throw new Exception("dropped kind check "+n+" failed");};
+            string pkg=Path.Combine(root,"content","drop_pack");
+            Write(Path.Combine(pkg,"soviet.mod.ini"),"[mod]\nid=example.drop\nname=Drop Pack\nversion=1.0\nenabled=1\n[content]\nresources=tesmio\\resources.ini\nbuildings=tesmio\\buildings.ini\n");
+            Write(Path.Combine(pkg,"tesmio","resources.ini"),"[list]\nraw_drop = rawgravel, Raw Drop\n");
+            Write(Path.Combine(pkg,"tesmio","buildings.ini"),"[drop_mine]\ndonor = bauxite_mine\nname = Drop Mine\nline = $PRODUCTION raw_drop 3.0\n");
+            string build=MakeBuild(root,"content-drop");
+            File.WriteAllBytes(Path.Combine(build,"plugins","resources.dll"),p.Dll);Write(Path.Combine(build,"plugins","resources.ini"),"[list]\nsand = bauxite, Sand\n\n[base_price]\n\n[price]\n\n[resources]\nhook = 2\n");
+            File.WriteAllBytes(Path.Combine(build,"plugins","buildings_plus.dll"),p.Dll);Write(Path.Combine(build,"plugins","buildings_plus.ini"),"[buildings_plus]\nenabled = 1\nprune = 0\n");
+            Write(Path.Combine(build,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nresources=1\nbuildings_plus=1\n");
+            LocalEditorSpec bpSpec=LocalEditorSpec.Load(Path.GetFullPath(Path.Combine(args[0],"..","..","settings_schemas","buildings_plus.launcher.ini")));
+            Func<string,LocalResourceSession> sessions=plugin=>plugin=="resources"?new LocalResourceSession(resourceSpec,build):plugin=="buildings_plus"?new LocalResourceSession(bpSpec,build):null;
+            string bpIni=Path.Combine(build,"plugins","buildings_plus.ini");
+            var on=new ContentSession(Package.Load(pkg),build);on.PendingOn=true;on.Commit(NoGame,sessions);
+            C(1,new LooseIni(SafeFiles.Text(bpIni)).HasSection("drop_mine")&&on.Added.ContainsKey("buildings"));
+            // The new version brings no buildings any more.
+            Write(Path.Combine(pkg,"soviet.mod.ini"),"[mod]\nid=example.drop\nname=Drop Pack\nversion=1.1\nenabled=1\n[content]\nresources=tesmio\\resources.ini\n");
+            var upd=new ContentSession(Package.Load(pkg),build);
+            C(2,upd.UpdatePending&&upd.NeedsWrite&&!upd.HasKind("buildings")&&upd.Targets.ContainsKey("buildings")&&upd.Targets["buildings"]=="buildings_plus");
+            upd.Commit(NoGame,sessions);
+            C(3,!new LooseIni(SafeFiles.Text(bpIni)).HasSection("drop_mine")&&!upd.Added.ContainsKey("buildings")&&SafeFiles.Text(Path.Combine(build,"plugins","resources.ini")).Contains("raw_drop"));
+            C(4,ContentLayer.Recorded(build,"buildings_plus").Count==0&&!SafeFiles.Text(upd.ReceiptPath).Contains("target.buildings"));
+            // The next session has nothing left to do for that kind.
+            var after=new ContentSession(Package.Load(pkg),build);C(5,!after.NeedsWrite&&!after.Targets.ContainsKey("buildings"));
+        });
+        // 0.8.17: a list of Vehicle Materials without "enabled" of the player's asks for nothing.
+        Test("a list of Vehicle Materials without an enabled of the player's is reported (0.8.17)",()=>
+        {
+            string b=MakeBuild(root,"vm-listoff");File.WriteAllBytes(Path.Combine(b,"plugins","vehicle_materials.dll"),p.Dll);Write(Path.Combine(b,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nvehicle_materials=1\n");
+            Check(VehicleParts.ListedButOff(b).Count==0,"no list, no note");
+            Write(Path.Combine(b,"user_config","vehicle_materials.ini"),"[resources]\ncount = 2\nresource0 = glass\nresource1 = cable\n");
+            Check(VehicleParts.ListedButOff(b).SequenceEqual(new[]{"cable","glass"}),"a list without enabled");
+            Write(Path.Combine(b,"user_config","vehicle_materials.ini"),"[general]\nenabled = 1\n[resources]\ncount = 1\nresource0 = glass\n");
+            Check(VehicleParts.ListedButOff(b).Count==0,"enabled = 1");
+            Write(Path.Combine(b,"user_config","vehicle_materials.ini"),"[general]\nenabled = 0\n[resources]\ncount = 1\nresource0 = glass\n");
+            Check(VehicleParts.ListedButOff(b).Count==0,"an explicit 0 is the player's choice");
+            Write(Path.Combine(b,"tesmioloader.ini"),"[tesmioloader]\nplugins=1\n[plugins]\nvehicle_materials=0\n");Write(Path.Combine(b,"user_config","vehicle_materials.ini"),"[resources]\ncount = 1\nresource0 = glass\n");
+            Check(VehicleParts.ListedButOff(b).Count==0,"switched off in the loader is another note");
+        });
+        // 0.8.17: a provided content package that is no longer subscribed is named before the start.
+        Test("a provided content package without a Workshop folder is reported with its vehicle materials (0.8.17)",()=>
+        {
+            string b=MakeBuild(root,"content-gone");
+            string state=ContentTargets.StateDir(b,"example.gone");
+            Write(Path.Combine(state,"receipt.ini"),"[content]\nid = example.gone\nname = Gone Pack\nprovided = 1\nvehicles = on\nvehicles_added = cable | panes\n");
+            Write(Path.Combine(ContentTargets.StateDir(b,"example.off"),"receipt.ini"),"[content]\nid = example.off\nname = Off Pack\nprovided = 0\n");
+            Write(Path.Combine(b,"user_config","vehicle_materials.ini"),"[general]\nenabled = 1\n[resources]\ncount = 1\nresource0 = cable\n");
+            var gone=Startup.GoneContentPackages(b,new List<CatalogEntry>());
+            Check(gone.Count==1&&gone[0].Id=="example.gone"&&gone[0].Name=="Gone Pack"&&gone[0].Vehicles=="cable","named, with the material that still stands in the list");
+            Check(Startup.GoneContentPackages(b,new List<CatalogEntry>{new CatalogEntry{Root=b,Id="example.gone",Kind="content"}}).Count==0,"a package that is found is no case");
+        });
+        // 0.8.17: the lock before hiding a resource reads what another page holds unsaved.
+        Test("the resource lock also reads declarations a page holds unsaved (0.8.17)",()=>
+        {
+            string b=MakeBuild(root,"lock-pending");
+            Write(Path.Combine(b,"plugins","buildings_plus.ini"),"[buildings_plus]\nenabled = 1\n\n[old_mine]\ndonor = gravelmine\nline = $PRODUCTION gravel 1.0\n");
+            var steps=new List<LoadStep>{new LoadStep{Name="buildings_plus",Target="buildings_plus",Key="buildings_plus",Dll=Path.Combine(b,"plugins","buildings_plus.dll")}};
+            Check(Startup.BuildingsNaming(b,steps,"cable").Count==0,"the saved file names no cable");
+            var pending=new Dictionary<string,string>{{"buildings_plus","[buildings_plus]\nenabled = 1\n\n[cable_works]\ndonor = gravelmine\nadd = $PRODUCTION cable 0.5\n"}};
+            var found=Startup.BuildingsNaming(b,steps,"cable",pending);
+            Check(found.Count==1&&found[0].Section=="cable_works","the unsaved section is found");
+            Check(Startup.BuildingsNaming(b,steps,"gravel",pending).Count==0,"the unsaved text replaces the file");
+        });
+        // 0.8.17: a plugins\resources.ini that Soviet Mod Loader generated is no seed for a fork.
+        Test("a fork is not seeded from a list Soviet Mod Loader generated, but from its baseline (0.8.17)",()=>
+        {
+            string b=MakeBuild(root,"fork-sml");
+            Write(Path.Combine(b,"plugins","resources.ini"),"; generated by Soviet Mod Loader - do not edit\n[list]\nsand = bauxite, Sand\nraw_salt = rawgravel, Raw Salt\n");
+            Check(ForkSeed.SmlGenerated(Path.Combine(b,"plugins","resources.ini")),"the generated file is recognised");
+            Check(ForkSeed.Ensure(b,"resources_plus","resources_plus.ini")==""&&!File.Exists(Path.Combine(b,"plugins","resources_plus.ini")),"without a baseline nothing is copied");
+            Write(Path.Combine(b,"soviet_mod_loader","base","resources.ini"),"[list]\nsand = bauxite, Sand\n");
+            string from=ForkSeed.Ensure(b,"resources_plus","resources_plus.ini");string made=SafeFiles.Text(Path.Combine(b,"plugins","resources_plus.ini"));
+            Check(from.EndsWith(Path.Combine("base","resources.ini"))&&made.Contains("sand = bauxite")&&!made.Contains("raw_salt"),"seeded from the baseline");
+            string own=MakeBuild(root,"fork-own");Write(Path.Combine(own,"plugins","resources.ini"),"; my list\n[list]\nsand = bauxite, Sand\n");
+            Check(ForkSeed.Ensure(own,"resources_plus","resources_plus.ini").EndsWith(Path.Combine("plugins","resources.ini")),"an ordinary file is the seed as before");
+        });
 
         // 0.6.8: an original resource can be left out of the effective list.
         Test("an original resource can be hidden and shown again, with its custom section, prices and names (0.6.8)",()=>

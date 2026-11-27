@@ -1,4 +1,4 @@
-# 📦 Needs Plus 0.1.9
+# 📦 Needs Plus 0.1.10
 
 **Extension of the TesmioLoader plugin needs**
 
@@ -176,6 +176,7 @@ Unchanged from the original: the storage slots of the shops are part of the save
 
 ### Version compatibility
 - With Soviet Mod Loader: SML brings needs of its own. While it runs, this plugin pauses and says so in the log; if you want Needs Plus instead, switch `soviet_mod_loader` off in `tesmioloader.ini` (in Republic Mod Manager the "Plugin active" switch)
+- 0.1.10: internal only: the search for the original's list in the Workshop folder now lives in one place for Resources Plus and Needs Plus; nothing changes in the game.
 - 0.1.9: rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - 0.1.8: texts only: manual, Workshop text and settings page brought up to date; nothing changes in the game.
 - 0.1.7: when a saved game loads, the empty slot for furniture, table salt and the like disappears from works that got it from an earlier version - only while it is empty and only if the building does not stock the good itself (a furniture factory keeps its furniture storage). Shops and hotels stay as they are. Needs the loader from Republic Mod Manager (b0.4.5-rmm.3 or newer).
@@ -258,5 +259,5 @@ A: Republic Mod Manager switches the original off as soon as Needs Plus is switc
 
 ---
 
-**Last update:** Needs Plus 0.1.9  
+**Last update:** Needs Plus 0.1.10  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

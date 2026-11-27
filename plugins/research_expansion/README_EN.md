@@ -1,4 +1,4 @@
-# 🔬 Research Expansion 0.4.5
+# 🔬 Research Expansion 0.4.6
 
 **TesmioLoader plugin for new research and changes to the research tree**
 
@@ -101,7 +101,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Research Expansion in four tabs, German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Research Expansion in four tabs, in 20 languages:
 
 - **General:** notes, the button for this guide and the plugin settings (apply extension, research icons, troubleshooting)
 - **New research:** the list on the left, the selected research on the right with type, cost, parents, unlocks, name and description; saved as a section `[research:<id>]`
@@ -256,6 +256,7 @@ Research is part of the savegame: a new research a savegame already knows should
 Localization is mandatory. Other plugins that replace `research.ini` are not merged.
 
 ### Version compatibility
+- **0.4.6:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
 - **0.4.5:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.4:** texts for WRSR 1.2.0.9; the plugin uses no game address and is otherwise unchanged.
 - **0.4.3:** rebuilt for WRSR 1.2.0.8 and TesmioLoader b0.4.5; otherwise unchanged.
@@ -358,5 +359,5 @@ A: No. New research, edits of Vanilla research and the plugin settings are offer
 
 ---
 
-**Last update:** Research Expansion 0.4.5  
+**Last update:** Research Expansion 0.4.6  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

@@ -1679,10 +1679,19 @@ namespace TesmioAutoload
         {
             if(!ResourceConsistency.SpeaksForResources(state.Build,localSpec.Plugin))return false;
             List<MissingResource> users;
-            try{users=Startup.BuildingsNaming(state.Build,Startup.Order(state.Build,entries),id);}catch(Exception){return false;}
+            // 0.8.17: a building that another page holds unsaved counts as well - it would be written
+            // with the same "save all" that hides the resource.
+            var pending=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+            foreach(Workspace other in parked.Values)
+            {
+                if(other==null||other.ResourceSession==null||other.LocalSpec==null||!other.ResourceSession.Dirty)continue;
+                string plugin=other.LocalSpec.Plugin??"";
+                if(plugin.Equals("buildings_plus",StringComparison.OrdinalIgnoreCase)||plugin.Equals("vanilla_buildings",StringComparison.OrdinalIgnoreCase))try{pending[plugin]=other.ResourceSession.Effective();}catch(Exception){}
+            }
+            try{users=Startup.BuildingsNaming(state.Build,Startup.Order(state.Build,entries),id,pending);}catch(Exception){return false;}
             if(users.Count==0)return false;
             string rows=String.Join("\n",users.Take(8).Select(u=>language.Format(u.Folder?"resource_needed_row_folder":"resource_needed_row",u.Plugin,u.Section)));
-            string text=language.Format("resource_needed_by_buildings",id,rows).Replace("\\n","\n");
+            string text=language.FormatLines("resource_needed_by_buildings",id,rows);
             if(ResourceBlockedNote!=null)ResourceBlockedNote(text);
             else MessageWindow.Show(this,language,Text,text,MessageWindow.Kind.Warning,DialogResult.OK);
             return true;
@@ -1690,7 +1699,7 @@ namespace TesmioAutoload
         void HideOriginalResource(string id)
         {
             if(BuildingsStillNeed(id))return;
-            ResourceCleanupPlan cleanup=ResourceConsistency.PlanRemoval(state.Build,entries,id);string message=language.Format("resource_hide_save_warning",id).Replace("\\n","\n");
+            ResourceCleanupPlan cleanup=ResourceConsistency.PlanRemoval(state.Build,entries,id);string message=language.FormatLines("resource_hide_save_warning",id);
             if(cleanup.Plugins.Count>0)message+="\n\n"+language.Format("resource_remove_dependencies",String.Join(", ",cleanup.Plugins.Distinct(StringComparer.CurrentCultureIgnoreCase)));
             DialogResult answer=ResourceRemovePrompt!=null?ResourceRemovePrompt(message):Question(message,false);if(answer!=DialogResult.OK)return;
             resourceSession.Suppress(id);resourceSession.StageDependencyWrites(cleanup.Writes);selectedLocalResource="";BuildLocalResourceEditor();
@@ -1698,7 +1707,7 @@ namespace TesmioAutoload
         void RemoveLocalResource(string id)
         {
             if(BuildingsStillNeed(id))return;
-            ResourceCleanupPlan cleanup=ResourceConsistency.PlanRemoval(state.Build,entries,id);string message=language.Format("resource_remove_save_warning",id).Replace("\\n","\n");
+            ResourceCleanupPlan cleanup=ResourceConsistency.PlanRemoval(state.Build,entries,id);string message=language.FormatLines("resource_remove_save_warning",id);
             if(cleanup.Plugins.Count>0)message+="\n\n"+language.Format("resource_remove_dependencies",String.Join(", ",cleanup.Plugins.Distinct(StringComparer.CurrentCultureIgnoreCase)));
             DialogResult answer=ResourceRemovePrompt!=null?ResourceRemovePrompt(message):Question(message,false);if(answer!=DialogResult.OK)return;
             resourceSession.Remove(id);resourceSession.StageDependencyWrites(cleanup.Writes);selectedLocalResource="";BuildLocalResourceEditor();

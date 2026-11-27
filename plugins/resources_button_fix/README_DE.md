@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 0.4.7
+# 🧰 Resources Button Fix 0.4.8
 
 **TesmioLoader-Plugin für kompakte Werkzeugraster im Geländeeditor**
 
@@ -85,7 +85,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Resources Button Fix damit in drei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Resources Button Fix damit in drei Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise, Knopf für diese Anleitung und die Fehlersuche (Detail-Log)
 - **Ressourcenfenster:** Anordnung (Spalten, Blöcke, Größe, Abstände) sowie Position, Fenster und Alles-löschen-Knopf
@@ -241,6 +241,7 @@ Die Datei wird als vollständiger neuer Konfigurationssatz geprüft. Ist nur ein
 Das Plugin verändert weder Spieldateien noch Spielstände; es ordnet nur Schaltflächen im Speicher des laufenden Spiels.
 
 ### Versionskompatibilität
+- **0.4.8:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
 - **0.4.7:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.6:** `maximum_blocks` steht jetzt auf 4 statt 2. Mit Inhaltspaketen kommen schnell mehr als 12 Pinsel zusammen; der dreizehnte lag sonst weit neben dem Fenster. Gezeichnet werden weiter nur so viele Blöcke wie nötig.
 - **0.4.5:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
@@ -339,5 +340,5 @@ A: Nein. Republic Mod Manager zeigt alle Einstellungen mit Beschreibung und prü
 
 ---
 
-**Letzte Aktualisierung:** Resources Button Fix 0.4.7  
+**Letzte Aktualisierung:** Resources Button Fix 0.4.8  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

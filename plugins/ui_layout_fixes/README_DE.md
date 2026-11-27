@@ -1,8 +1,8 @@
-# 🪟 UI Layout Fixes 0.3.4
+# 🪟 UI Layout Fixes 0.3.6
 
 **TesmioLoader-Plugin für gezielte Korrekturen an einzelnen Infofenstern**
 
-Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic* 1.2.0.9. Jede Fensterart ist ein eigenes Modul mit eigener Konfiguration, Zielprüfung und eigenem Schalter. Derzeit enthalten: das Modul **CUSTOMHOUSE** (größerer Zeilenabstand der Ressourcenliste im Zollhaus) und das Modul **TEXT_WRAP** (Spieltexte, die du per Text-ID einträgst, werden umgebrochen und zeilenweise gezeichnet, statt aus ihrem Fenster zu laufen; vorbelegt ist der Routenhinweis im Fahrzeugfenster). Es gibt bewusst keinen globalen Zeilenabstand.
+Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic* 1.2.0.9. Jede Fensterart ist ein eigenes Modul mit eigener Konfiguration, Zielprüfung und eigenem Schalter. Derzeit enthalten: das Modul **CUSTOMHOUSE** (größerer Zeilenabstand der Ressourcenliste im Zollhaus) und das Modul **TEXT_WRAP** (Spieltexte, die du per Text-ID einträgst, werden umgebrochen und zeilenweise gezeichnet, statt aus ihrem Fenster zu laufen; vorbelegt ist der Routenhinweis im Fahrzeugfenster) und das Modul **RESOURCE_LIST** (die Liste der fehlenden Ressourcen im Warnkasten eines Gebäudes läuft nicht mehr aus dem Fenster). Es gibt bewusst keinen globalen Zeilenabstand.
 
 ---
 
@@ -32,7 +32,7 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 ### In drei Schritten
 1. **Abonnieren:** Der TesmioLoader findet das Plugin beim nächsten Spielstart von selbst im Workshop-Ordner.
 2. **Zeilenabstand einstellen**, wenn gewünscht: `resource_row_pitch` von 25.0 bis 60.0 in `ui_layout_fixes.ini`, am bequemsten über Republic Mod Manager (Standard 30.0).
-3. **Spiel vollständig neu starten** und ein Zollhaus oder ein Fahrzeug mit Routenproblem öffnen. Im Detail-Log stehen `[CUSTOMHOUSE] active` und `[TEXT_WRAP] active`.
+3. **Spiel vollständig neu starten** und ein Zollhaus oder ein Fahrzeug mit Routenproblem öffnen. Im Detail-Log stehen `[CUSTOMHOUSE] active`, `[TEXT_WRAP] active` und `[RESOURCE_LIST] active`.
 
 ---
 
@@ -47,6 +47,7 @@ Bündelt fensterbezogene Korrekturen für *Workers & Resources: Soviet Republic*
 ### 🆕 Neu in 0.3.0
 - ✅ Alle Texte für Republic Mod Manager im Spieler-Stil: Hinweiskästen statt Gruppentexte, Karte Allgemein entfernt, eigener Hilfetext im Hinzufügen-Dialog, Auswahl der Spieltexte über „Text auswählen…“.
 - ✅ **Modul TEXT_WRAP:** Lange Spieltexte wie der Hinweis „Zeigt den Bereich an, in dem ein mögliches Problem auf der Route besteht!“ im Fahrzeugfenster werden vom Spiel einzeilig gezeichnet und laufen aus dem Fenster. Das Modul fängt die Textabfrage des Spiels für jede Text-ID aus der Liste `[text_wrap_ids]` ab, liefert eine umgebrochene Kopie und zeichnet sie über die gehookten Zeichenfunktionen der Engine Zeile für Zeile. Regeln: höchstens `max_chars` Zeichen je Zeile (Standard 58, je Text überschreibbar), Wörter werden nie getrennt, die Zeilen werden gleich lang verteilt, die Absätze des Spiels fließen zusammen (`keep_breaks = 1` behält sie), Zeilenabstand `line_spacing` als Vielfaches der Schriftgröße (Standard 1.15). Braucht ein Text mehr als `max_lines` Zeilen (Standard 4), werden die Zeilen schrittweise breiter. Es wird kein Spielcode geändert; das Modul hängt nicht am Spiel-Build und gilt für jede Spielsprache mit Leerzeichen zwischen den Wörtern.
+- ✅ **Modul RESOURCE_LIST:** Im Warnkasten eines Gebäudes stehen die Waren, die ihm fehlen. Das Spiel bricht diese Liste nicht nach Breite um, sondern nach 3 Namen und dann nach 6 weiteren. Mit den Zusatzmaterialien von Vehicle Materials hat eine Fahrzeugfabrik oder ein Raketenteilwerk schnell 9 Namen, und die zweite Zeile läuft aus dem Fenster. Das Modul setzt nach der ersten Zeile nur noch `names_per_line` Namen in jede Zeile (Standard 4). Im Fenster einer Fertigungslinie wächst der Kasten um so viele Zeilen wie nötig; ein zweites Gebäudefenster mit fester Höhe behält seine drei Zeilen, dort wird nur die zweite kürzer.
 - ✅ **Kandidaten finden:** `log_long_texts = 70` schreibt jede Text-ID, die das Spiel anzeigt und deren längste Zeile über 70 Zeichen hat, einmal ins Detail-Log, mit den ersten 80 Zeichen. In Republic Mod Manager trägst du die ID dann auf dem Reiter Text-IDs ein.
 - ✅ Republic Mod Manager: Listen-Editor mit den Reitern Allgemein, Zollhaus, Textumbruch und Text-IDs.
 - ✅ **Gemeinsame Konfigurationsregel** (`tesmio_config.h`): Basis ist `tesmioloader\plugins\ui_layout_fixes.ini`, sonst die INI neben der DLL (im Workshop-Paket). Liegt `user_config\ui_layout_fixes.ini` im Loader-Ordner, gewinnen dessen Schlüssel einzeln. Beide Pfade stehen beim Start im Detail-Log.
@@ -88,11 +89,12 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt UI Layout Fixes damit in vier Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Launcher-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt UI Layout Fixes damit in vier Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise und der Knopf für diese Anleitung
 - **Zollhaus:** Modulschalter und Zeilenabstand der Ressourcenliste
 - **Textumbruch:** Modulschalter, Zeichen je Zeile, Zeilenlimit, Zeilenabstand, Absatzverhalten und die Log-Hilfe für lange Texte
+- **Gebäudefenster:** Schalter für die Liste der fehlenden Ressourcen und die Zahl der Namen je Zeile
 - **Text-IDs:** die Liste der umgebrochenen Texte mit eigener Breite je Eintrag; der Routenhinweis 1970 ist vorbelegt und kann ausgeblendet werden. Der Knopf „Text auswählen…“ im Hinzufügen-Dialog zeigt alle Texte deiner Spielsprache mit Suche und Mindestlänge
 
 Der Schalter „Plugin aktiv“ im Kopf setzt beim Einschalten auch `enabled = 1`. Republic Mod Manager schreibt die wirksame INI nach `tesmioloader\plugins\ui_layout_fixes.ini`; die INI im Paket bleibt unverändert. Deine eigenen Werte und Text-IDs liegen getrennt in `user_config\ui_layout_fixes.editor.ini` und werden beim Speichern eingemischt. Wer die INI lieber von Hand bearbeitet, findet alles Weitere unten.
@@ -157,6 +159,8 @@ log_long_texts = 0
 | `line_spacing` | 0.50 bis 3.00, Dezimalpunkt | 1.15 |
 | `keep_breaks` | 0 oder 1 | 0 |
 | `log_long_texts` | 0 bis 400, ganze Zahl (0 = aus) | 0 |
+| `[resource_list] enabled` | 0 oder 1 | 1 |
+| `names_per_line` | 1 bis 9, ganze Zahl | 4 |
 | `[text_wrap_ids] <id>` | ID 1 bis 100000; Wert 0 oder 20 bis 200 | `1970 = 0` |
 
 Für `resource_row_pitch` gilt: `25.0` entspricht dem nativen Spielwert und bewirkt keinen größeren Abstand; nichtnumerische, unendliche oder außerhalb liegende Werte werden verworfen, das Plugin protokolliert eine Warnung (`invalid-config`) und verwendet `30.0`, das Modul bleibt aktiv.
@@ -186,7 +190,7 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 ## 💾 Kompatibilität
 
 ### Spiel und Loader
-- Exakt unterstützte Spielversion 1.2.0.9 für CUSTOMHOUSE; andere Versionen werden abgelehnt, weil Speicheradressen und Signaturen versionsabhängig sind. TEXT_WRAP ändert keinen Spielcode und hängt nur an den Text-IDs
+- Exakt unterstützte Spielversion 1.2.0.9 für CUSTOMHOUSE und RESOURCE_LIST; andere Versionen werden abgelehnt, weil Speicheradressen und Signaturen versionsabhängig sind. TEXT_WRAP ändert keinen Spielcode und hängt nur an den Text-IDs
 - Verträgt sich mit dem Resources-Plugin, das dieselbe Textabfrage hookt; die Hooks reihen sich in Ladereihenfolge
 - Nur Sprachen mit Leerzeichen zwischen den Wörtern werden umgebrochen (Chinesisch und Japanisch bleiben unverändert)
 - Keine Abhängigkeit zum Localization-Plugin oder zu anderen TesmioLoader-Plugins
@@ -196,6 +200,8 @@ Grenze: Kopiert das Spiel einen Text vor dem Zeichnen in einen eigenen Puffer, e
 Das Plugin verändert weder Spieldateien noch Spielstände.
 
 ### Versionskompatibilität
+- **0.3.6:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
+- **0.3.5:** Neues Modul RESOURCE_LIST: Die Liste der fehlenden Ressourcen im Warnkasten eines Gebäudes läuft nicht mehr aus dem Fenster (Reiter „Gebäudefenster“).
 - **0.3.4:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.3.3:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
 - **0.3.2:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
@@ -305,5 +311,5 @@ A: Nein. Republic Mod Manager zeigt alle Schalter und Werte mit Beschreibung und
 
 ---
 
-**Letzte Aktualisierung:** UI Layout Fixes 0.3.4  
+**Letzte Aktualisierung:** UI Layout Fixes 0.3.6  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

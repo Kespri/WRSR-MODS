@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.20
+# 🏗️ Vanilla Buildings 0.4.21
 
 **TesmioLoader plugin for temporary changes to building files**
 
@@ -52,7 +52,7 @@ Adjusts Vanilla, DLC and Workshop buildings in *Workers & Resources: Soviet Repu
 - ✅ **`insert` with a position:** `insert = 0 | ANCHOR | LINE` inserts before the anchor, `insert = 1 | ANCHOR | LINE` after it. For `$COST_RESOURCE_AUTO`, 1 adds the material to the phase of the `$COST_WORK` anchor line, 0 to the phase before it.
 - ✅ **INI beside the DLL:** when `tesmioloader\plugins\vanilla_buildings.ini` does not exist, the DLL reads the INI from its own folder, i.e. from the Workshop package. The plugin runs straight from the Steam subscription.
 - ✅ The chosen configuration file is logged at start.
-- ✅ Editor schema for Republic Mod Manager in the package: rule sets with targets and commands as a list, German and English.
+- ✅ Editor schema for Republic Mod Manager in the package: rule sets with targets and commands as a list, in 20 languages.
 
 ---
 
@@ -91,7 +91,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Vanilla Buildings in two tabs, German and English:
+The package ships an editor schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Vanilla Buildings in two tabs, in 20 languages:
 
 - **General:** notes, the button for this guide, the card Saved games (Keep storages of buildings that already stand in step, Experimental: also retrofit vehicle factories) and the Troubleshooting card (detailed log); the plugin is switched on and off with "Plugin active" in the header
 - **Buildings:** one row per rule set with its switch, its name, the first target file and the buttons Change and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (the target files) and **Lines** (the line editor: pick the target file at the top, click its lines on the left, and turn them into Append/Replace/Before/After/Remove, or use Change on a command you clicked; two views, **Original** and **Result** – the result shows, read only, the file the game will read and marks every line a command adds or replaces; connections are handled as blocks, clicking a point line takes the whole connection; a command that does not fit this file is red with the reason, and while one is red the plugin writes nothing at all for that file; every command is checked against all target files of the rule set, and a target file where it does not fit is marked red). Every row in a field is one INI line; the count sits below the field, which can be dragged open at its grip. "Choose buildings…" opens the list of every building of the game, the DLCs and the subscribed Workshop items, grouped by kind with search and filters; checked buildings are entered as target lines
@@ -260,6 +260,7 @@ Files in the game folder stay untouched.
 Other plugins that replace the same building file are not merged with these changes. Vehicle Materials gives the vehicle factories the storage for its materials itself; no rule set is needed for that here.
 
 ### Version compatibility
+- **0.4.21:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
 - **0.4.20:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.19:** texts only: manual, Workshop text and settings page brought up to date; nothing changes in the game.
 - **0.4.18:** vehicle factories, the dry dock and the rocket part works (production lines) are only touched by the storage follow-up when the experimental switch for vehicle factories is on. They keep storages of their own behind those of their definition, and those are to be left alone.
@@ -374,5 +375,5 @@ A: No. Republic Mod Manager shows the rule sets as a list with targets and comma
 
 ---
 
-**Last update:** Vanilla Buildings 0.4.20  
+**Last update:** Vanilla Buildings 0.4.21  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

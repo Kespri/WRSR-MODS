@@ -11,9 +11,9 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Republic Mod Manager")]
 [assembly: System.Reflection.AssemblyProduct("Republic Mod Manager (RMM)")]
 [assembly: System.Reflection.AssemblyDescription("Plugin manager for TesmioLoader - Workers & Resources: Soviet Republic")]
-[assembly: System.Reflection.AssemblyVersion("0.8.16.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.8.16.0")]
-[assembly: System.Reflection.AssemblyInformationalVersion("0.8.16")]
+[assembly: System.Reflection.AssemblyVersion("0.8.17.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.8.17.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("0.8.17")]
 
 namespace TesmioAutoload
 {
@@ -34,6 +34,29 @@ namespace TesmioAutoload
                     }
             }
             catch (Exception) { }
+        }
+        // 0.8.17: a modal window that open() shows is drawn into path and closed (Cancel). The timer
+        // looks every 100 ms for up to 10 s - one tick that came too early left the window open
+        // and the snapshot hanging - and finds the window among the open forms rather than as the
+        // active one, which an off-screen window need not be; only a modal one counts (the dim layer
+        // the RMM lays over its main window is a visible form too). False when nothing opened.
+        static bool CaptureModal(Form owner, string path, Action open)
+        {
+            bool drawn = false; int ticks = 0, seen = 0;
+            var timer = new System.Windows.Forms.Timer { Interval = 100 };
+            timer.Tick += (s, e) =>
+            {
+                Form dialog = Form.ActiveForm;
+                if (dialog == null || dialog == owner || !dialog.Modal) dialog = Application.OpenForms.Cast<Form>().LastOrDefault(f => f != owner && f.Visible && f.Modal && f.Width > 0 && f.Height > 0);
+                if (dialog == null) { if (++ticks >= 100) timer.Stop(); return; }
+                // Give the window the half second the single tick of before had to lay itself out.
+                if (++seen < 5) return;
+                timer.Stop(); Application.DoEvents();
+                using (var image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(0, 0, dialog.Width, dialog.Height)); image.Save(path); }
+                drawn = true; dialog.Close();
+            };
+            try { timer.Start(); open(); } finally { timer.Stop(); timer.Dispose(); }
+            return drawn;
         }
         [STAThread] static int Main(string[] args)
         {
@@ -159,13 +182,8 @@ namespace TesmioAutoload
                         if (snapshotWindow == "add")
                         {
                             // The add dialog is modal: a timer inside its message loop draws and closes it.
-                            var timer = new System.Windows.Forms.Timer { Interval = 500 };
-                            timer.Tick += (s, e) =>
-                            {
-                                timer.Stop(); Form dialog = Form.ActiveForm;
-                                if (dialog != null && dialog != form) { using (var image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(0, 0, dialog.Width, dialog.Height)); image.Save(screenshot); } dialog.Close(); }
-                            };
-                            timer.Start(); form.TestOpenAddDialog(); form.Close();
+                            bool drawn = CaptureModal(form, screenshot, () => form.TestOpenAddDialog()); form.Close();
+                            if (!drawn) { Console.Error.WriteLine("FAIL no dialog opened, no snapshot written"); return 1; }
                             return 0;
                         }
                         if (snapshotWindow == "hide" || snapshotWindow == "contentoff" || snapshotWindow == "needed")
@@ -173,13 +191,8 @@ namespace TesmioAutoload
                             // The question before an original resource is hidden, or before a content
                             // package with resources is switched off: modal, drawn and closed (Cancel)
                             // by a timer like the add dialog, so nothing changes.
-                            var timer = new System.Windows.Forms.Timer { Interval = 500 };
-                            timer.Tick += (s, e) =>
-                            {
-                                timer.Stop(); Form dialog = Form.ActiveForm;
-                                if (dialog != null && dialog != form) { using (var image = new Bitmap(dialog.Width, dialog.Height)) { dialog.DrawToBitmap(image, new Rectangle(0, 0, dialog.Width, dialog.Height)); image.Save(screenshot); } dialog.Close(); }
-                            };
-                            timer.Start(); if (snapshotWindow == "hide") form.TestAskHideOriginal(); else if (snapshotWindow == "needed") form.TestAskHideNeeded(); else form.TestAskContentOff(); form.Close();
+                            bool drawn = CaptureModal(form, screenshot, () => { if (snapshotWindow == "hide") form.TestAskHideOriginal(); else if (snapshotWindow == "needed") form.TestAskHideNeeded(); else form.TestAskContentOff(); }); form.Close();
+                            if (!drawn) { Console.Error.WriteLine("FAIL no question opened (nothing to ask for this entry), no snapshot written"); return 1; }
                             return 0;
                         }
                         if (snapshotWindow == "texts")

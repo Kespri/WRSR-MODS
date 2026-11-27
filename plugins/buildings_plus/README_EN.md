@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.10
+# 🏭 Buildings Plus 0.2.11
 
 **TesmioLoader plugin for new buildings from a configuration file**
 
@@ -86,7 +86,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-Republic Mod Manager (version 0.7.0 and later) brings the settings page itself. It shows Buildings Plus in three tabs, German and English:
+Republic Mod Manager (version 0.7.0 and later) brings the settings page itself. It shows Buildings Plus in three tabs, in 20 languages:
 
 - **General:** notes, the card "Generated folders" with the switches Fill in the owner id and Clean up folders (prune), the card "Saved games" with Keep storages of buildings that already stand in step (retrofit_storages), plus the card "Troubleshooting" with Always rewrite (always) and Detailed log
 - **Buildings:** one row per building with its switch, name, number, donor, state and the buttons Change, Open and Delete. "Add" and "Change…" open the very same window with two tabs: **Details** (object name, Workshop id, donor, name in the game, description, life) and **Lines** (the donor's building.ini on the left, your commands on the right; you click a line, type the new one below it and choose Append, Replace, Before or After, Remove line, or Change for a command you clicked - the "Result" view shows the file that comes out of it)
@@ -287,6 +287,7 @@ A Workshop item without a DLL of its own can bring buildings along (`[content] b
 Resources in `$PRODUCTION`, `$CONSUMPTION` and `$STORAGE_*` must exist in the game (base game, Resources Plus or Resources). Deposits for mines come from Deposits Plus. Vanilla Buildings changes existing buildings, Buildings Plus adds new ones.
 
 ### Version compatibility
+- **0.2.11:** texts only: the guide now says that Republic Mod Manager shows the settings page in 20 languages; nothing changes in the game.
 - **0.2.10:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.2.9:** texts only: manual, Workshop text and settings page brought up to date; nothing changes in the game.
 - **0.2.8:** the storage follow-up only touches the generated buildings. Before, it looked at every building and could have taken an empty storage out of one that has nothing to do with Buildings Plus.
@@ -413,5 +414,5 @@ A: With `prune = 1` the generated folder disappears at the next start; otherwise
 
 ---
 
-**Last update:** Buildings Plus 0.2.10  
+**Last update:** Buildings Plus 0.2.11  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

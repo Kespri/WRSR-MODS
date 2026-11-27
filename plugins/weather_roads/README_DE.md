@@ -1,4 +1,4 @@
-# ❄️ Weather Roads 0.3.8
+# ❄️ Weather Roads 0.3.9
 
 **TesmioLoader-Plugin für Straßenschnee, Schmelze und Schutz nach dem Räumen**
 
@@ -66,7 +66,7 @@ Steuert in *Workers & Resources: Soviet Republic* 1.2.0.9, wie schnell sich Schn
 ### 🆕 Neu in 0.3.0
 - ✅ Alle Texte in Republic Mod Manager und in dieser Anleitung neu geschrieben: kürzer, in der Sprache der Spieler, Schalter mit EIN und AUS statt 1 und 0, Zeilenumbrüche in längeren Erklärungen. Der Hinweis auf das Zusammenspiel mit Technical Service Storage steht jetzt in der Karte „Hinweise“.
 - ✅ **INI neben der DLL:** Fehlt `tesmioloader\plugins\weather_roads.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Der gewählte Pfad steht als `configuration file:` im Protokoll.
-- ✅ Schema für Republic Mod Manager im Paket: fünf Reiter mit allen Einstellungen, deutsch und englisch.
+- ✅ Schema für Republic Mod Manager im Paket: fünf Reiter mit allen Einstellungen, in 20 Sprachen.
 
 ---
 
@@ -105,7 +105,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager (ab Version 0.6.3) zeigt Weather Roads damit in fünf Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Darstellungsschema. Republic Mod Manager (ab Version 0.6.3) zeigt Weather Roads damit in fünf Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise, Knopf für diese Anleitung; Plugin, Straßenschutz speichern, Detailereignisse
 - **Schnee und Schmelze:** Schneeaufbau, natürliches Abschmelzen, Darstellung geräumter Bereiche
@@ -240,6 +240,7 @@ Ohne das Plugin lädt der Spielstand normal; die Zusatzdatei wird dann nicht ang
 - Die Wetteraufruf-Verkettung berücksichtigt den Hook von `daynight`; weitere Kombinationen sind nicht geprüft.
 
 ### Versionskompatibilität
+- **0.3.9:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
 - **0.3.8:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.3.7:** Für WRSR 1.2.0.9 (Hotfix zum Raketen-DLC); sonst unverändert
 - **0.3.6:** Für WRSR 1.2.0.8 mit dem Raketen-DLC; sonst unverändert
@@ -345,5 +346,5 @@ A: Ja, mit den Regeln aus [Konfiguration](#-konfiguration). Republic Mod Manager
 
 ---
 
-**Letzte Aktualisierung:** Weather Roads 0.3.8  
+**Letzte Aktualisierung:** Weather Roads 0.3.9  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

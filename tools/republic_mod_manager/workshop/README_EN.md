@@ -208,5 +208,5 @@ A: Each one is a Workshop item of its own. Subscribe, start the game, done; you 
 
 ---
 
-**Last update:** Republic Mod Manager 0.8.15  
+**Last update:** Republic Mod Manager 0.8.17  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

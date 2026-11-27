@@ -1,4 +1,4 @@
-# 🏭 Buildings Plus 0.2.10
+# 🏭 Buildings Plus 0.2.11
 
 **TesmioLoader-Plugin für neue Gebäude aus einer Konfigurationsdatei**
 
@@ -86,7 +86,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Die Einstellungsseite bringt Republic Mod Manager (ab Version 0.7.0) selbst mit. Er zeigt Buildings Plus in drei Reitern, deutsch und englisch:
+Die Einstellungsseite bringt Republic Mod Manager (ab Version 0.7.0) selbst mit. Er zeigt Buildings Plus in drei Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise, die Karte „Erzeugte Ordner“ mit den Schaltern Besitzer-ID nachtragen und Ordner aufräumen (prune), die Karte „Spielstände“ mit Lager an schon gebauten Gebäuden nachführen (retrofit_storages), dazu die Karte „Fehlersuche“ mit Immer neu schreiben (always) und Ausführliches Protokoll
 - **Gebäude:** eine Zeile je Gebäude mit Schalter, Name, Nummer, Spender, Zustand und den Knöpfen Ändern, Öffnen und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (Objektname, Workshop-ID, Spender, Name im Spiel, Beschreibung, Lebensdauer) und **Zeilen** (links die building.ini des Spenders, rechts deine Befehle; du klickst eine Zeile an, schreibst die neue darunter und wählst Anhängen, Ersetzen, Davor oder Danach, Zeile entfernen oder Ändern für einen angeklickten Befehl – die Ansicht „Ergebnis“ zeigt die Datei, die daraus entsteht)
@@ -287,6 +287,7 @@ Ein Workshop-Objekt ohne eigene DLL kann Gebäude mitbringen (`[content] buildin
 Ressourcen aus `$PRODUCTION`, `$CONSUMPTION` und `$STORAGE_*` müssen im Spiel existieren (Grundspiel, Resources Plus oder Resources). Vorkommen für Minen kommen aus Deposits Plus. Vanilla Buildings ändert bestehende Gebäude, Buildings Plus legt neue an.
 
 ### Versionskompatibilität
+- **0.2.11:** Nur Texte: Die Anleitung sagt jetzt, dass Republic Mod Manager die Einstellungsseite in 20 Sprachen zeigt; im Spiel ändert sich nichts.
 - **0.2.10:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.2.9:** Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - **0.2.8:** Das Nachführen der Lager fasst nur noch die erzeugten Gebäude an. Vorher sah es sich jedes Gebäude an und hätte dort ein leeres Lager herausnehmen können, das nicht von Buildings Plus stammt.
@@ -413,5 +414,5 @@ A: Mit `prune = 1` verschwindet der erzeugte Ordner beim nächsten Start, sonst 
 
 ---
 
-**Letzte Aktualisierung:** Buildings Plus 0.2.10  
+**Letzte Aktualisierung:** Buildings Plus 0.2.11  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

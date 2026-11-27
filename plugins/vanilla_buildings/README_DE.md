@@ -1,4 +1,4 @@
-# 🏗️ Vanilla Buildings 0.4.20
+# 🏗️ Vanilla Buildings 0.4.21
 
 **TesmioLoader-Plugin für temporäre Änderungen an Gebäudedateien**
 
@@ -52,7 +52,7 @@ Passt Gebäude des Spiels, der DLCs und des Workshops in *Workers & Resources: S
 - ✅ **`insert` mit Position:** `insert = 0 | ANKER | ZEILE` fügt vor dem Anker ein, `insert = 1 | ANKER | ZEILE` danach. Bei `$COST_RESOURCE_AUTO` hängt 1 das Material an die Phase der `$COST_WORK`-Ankerzeile, 0 an die Phase davor.
 - ✅ **INI neben der DLL:** Fehlt `tesmioloader\plugins\vanilla_buildings.ini`, liest die DLL die INI aus dem eigenen Ordner, also aus dem Workshop-Paket. Das Plugin läuft damit direkt aus dem Steam-Abo.
 - ✅ Die gewählte Konfigurationsdatei steht beim Start im Log.
-- ✅ Editor-Schema für Republic Mod Manager im Paket: Regelsätze mit Zielen und Befehlen als Liste, deutsch und englisch.
+- ✅ Editor-Schema für Republic Mod Manager im Paket: Regelsätze mit Zielen und Befehlen als Liste, in 20 Sprachen.
 
 ---
 
@@ -91,7 +91,7 @@ Für alle, die das Plugin ohne Steam-Abo benutzen wollen. Eine DLL in `tesmioloa
 
 ## 🧰 Republic Mod Manager
 
-Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Vanilla Buildings damit in zwei Reitern, deutsch und englisch:
+Das Paket enthält im Ordner `config` ein Editor-Schema. Republic Mod Manager (ab Version 0.6.3) zeigt Vanilla Buildings damit in zwei Reitern, in 20 Sprachen:
 
 - **Allgemein:** Hinweise, Knopf für diese Anleitung, die Karte Spielstände (Lager an schon gebauten Gebäuden nachführen, Versuch: auch Fahrzeugfabriken nachrüsten) und die Karte Fehlersuche (Ausführliches Protokoll); ein- und ausgeschaltet wird das Plugin mit „Plugin aktiv“ oben im Kopf
 - **Gebäude:** eine Zeile je Regelsatz mit Schalter, Kennung, erster Zieldatei und den Knöpfen Ändern und Löschen. „Hinzufügen“ und „Ändern…“ öffnen dasselbe Fenster mit zwei Reitern: **Angaben** (die Zieldateien) und **Zeilen** (der Zeilen-Editor: oben die Zieldatei wählen, links ihre Zeilen anklicken, daraus Anhängen/Ersetzen/Davor/Danach/Entfernen bauen oder einen angeklickten Befehl mit Ändern anpassen; zwei Ansichten **Original** und **Ergebnis** – das Ergebnis zeigt schreibgeschützt die Datei, die das Spiel lesen wird, und markiert jede Zeile, die ein Befehl anlegt oder ersetzt; Anschlüsse fasst er als Block an, ein Klick auf eine Punktzeile nimmt den ganzen Anschluss; ein Befehl, der in dieser Datei nicht greift, steht rot mit Begründung, und solange einer rot ist, schreibt das Plugin für diese Datei gar nichts; jeder Befehl wird gegen alle Zieldateien des Regelsatzes geprüft, eine Zieldatei, in die er nicht passt, steht rot). Jede Zeile in einem Feld ist eine INI-Zeile; unter dem Feld steht die Anzahl, am Griff lässt es sich aufziehen. „Gebäude auswählen…“ öffnet die Liste aller Gebäude des Spiels, der DLCs und der abonnierten Workshop-Objekte, nach Art gruppiert mit Suche und Filtern; angehakte Gebäude werden als Zielzeilen eingetragen
@@ -260,6 +260,7 @@ Dateien im Spielordner bleiben unverändert.
 Andere Plugins, die dieselbe Gebäudedatei ersetzen, werden nicht mit diesen Änderungen zusammengeführt. Vehicle Materials gibt den Fahrzeugfabriken das Lager für seine Materialien selbst; dafür brauchst du hier keinen Regelsatz.
 
 ### Versionskompatibilität
+- **0.4.21:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
 - **0.4.20:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.19:** Nur Texte: Anleitung, Workshop-Text und Einstellungsseite auf den aktuellen Stand gebracht; im Spiel ändert sich nichts.
 - **0.4.18:** Fahrzeugfabriken, Trockendock und Raketenteile-Werke (Fertigungslinien) fasst das Nachführen der Lager nur noch an, wenn der Versuchsschalter für Fahrzeugfabriken an ist. Sie führen eigene Lager hinter denen ihrer Definition, und die sollen in Ruhe bleiben.
@@ -374,5 +375,5 @@ A: Nein. Republic Mod Manager zeigt die Regelsätze als Liste mit Zielen und Bef
 
 ---
 
-**Letzte Aktualisierung:** Vanilla Buildings 0.4.20  
+**Letzte Aktualisierung:** Vanilla Buildings 0.4.21  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

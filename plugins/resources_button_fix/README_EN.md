@@ -1,4 +1,4 @@
-# 🧰 Resources Button Fix 0.4.7
+# 🧰 Resources Button Fix 0.4.8
 
 **TesmioLoader plugin for compact tool grids in the terrain editor**
 
@@ -85,7 +85,7 @@ For everyone who wants to use the plugin without the Steam subscription. A DLL i
 
 ## 🧰 Republic Mod Manager
 
-The package ships a launcher schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Resources Button Fix in three tabs, German and English:
+The package ships a launcher schema in the `config` folder. Republic Mod Manager (version 0.6.3 and later) shows Resources Button Fix in three tabs, in 20 languages:
 
 - **General:** notes, a button for this guide and Troubleshooting (detail log)
 - **Resources window:** arrangement (columns, blocks, size, spacing) plus position, window and delete-all button
@@ -241,6 +241,7 @@ The file is checked as a complete new configuration set. If only one line is inv
 The plugin changes neither game files nor savegames; it only arranges buttons in the memory of the running game.
 
 ### Version compatibility
+- **0.4.8:** the settings page in Republic Mod Manager now comes in 20 languages; nothing changes in the game.
 - **0.4.7:** rebuilt for TesmioLoader b0.4.6; otherwise unchanged.
 - **0.4.6:** `maximum_blocks` is 4 now instead of 2. With content packages there are soon more than 12 brushes; the thirteenth used to sit far beside the window. Still only as many blocks are drawn as needed.
 - **0.4.5:** for WRSR 1.2.0.9 (hotfix for the rocket DLC); otherwise unchanged
@@ -339,5 +340,5 @@ A: No. Republic Mod Manager shows every setting with a description and checks th
 
 ---
 
-**Last update:** Resources Button Fix 0.4.7  
+**Last update:** Resources Button Fix 0.4.8  
 **For:** WRSR 1.2.0.9 | TesmioLoader API 4

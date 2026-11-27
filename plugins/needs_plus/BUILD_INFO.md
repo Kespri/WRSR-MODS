@@ -10,6 +10,10 @@ Build: the standard line (`cl /O2 /MT /W3 /EHsc /std:c++17 /LD`, kernel32.lib) c
 the original so saves and content packages keep working.
 User documentation: README_DE.md / README_EN.md. History newest first, technical notes below.
 
+## 0.1.10 (2026-11-27)
+
+- Code review of 2026-11-19, finding (e): the Workshop search for the original's INI (`SmallestDllBelow`, `FindOriginalIniInWorkshop`) was a copy in Resources Plus and Needs Plus; both now include `my_plugins/workshop_original.h` (`WorkshopOriginalIni(baseDir, key, out, size)`), the code compared token for token with the old copy. Behaviour unchanged.
+
 ## 0.1.9 (2026-11-27)
 
 - Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.
