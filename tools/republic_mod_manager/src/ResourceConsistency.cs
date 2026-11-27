@@ -86,7 +86,7 @@ namespace TesmioAutoload
                             issues.Add(Msg.Key("consistency_resource_missing",package.Name,id,collection.Id));
                     }
                 }
-                catch(Exception e){issues.Add(Msg.Key("consistency_check_failed",package.Name,e.Message));}
+                catch(Exception e){issues.Add(Msg.Key("consistency_check_failed",package.Name,Msg.Of(e)));}
             }
             return issues;
         }

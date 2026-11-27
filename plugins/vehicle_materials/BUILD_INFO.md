@@ -5,6 +5,14 @@ TesmioLoader plugin (API 4) for WRSR 1.2.0.9 (PE stamp 0x6B05A574), GPL v3. Buil
 includes `src/tesmio_plugin.h` and `my_plugins/tesmio_config.h` (base INI beside the DLL or in
 `plugins\`, personal overlay `user_config\vehicle_materials.ini`). User documentation: README_DE.md / README_EN.md. History newest first.
 
+## 0.4.18 (2026-11-27)
+
+- Package language files: key material_number (label of a list entry, "Material 1") in all 20 languages - the schema named the key, but only the RMM interface had it, so every language showed the English fallback; code unchanged apart from the version string.
+
+## 0.4.17 (2026-11-27)
+
+- The package settings page (`config\languages`) in 18 more languages - bg, cs, es, fr, hu, it, ja, ko, pl, pt, ro, ru, sk, sr, tr, uk, zh-CN, zh-TW - translated for the user and checked (keys, placeholders, `\n`, paths); code unchanged apart from the version string.
+
 ## 0.4.16 (2026-11-27)
 
 - Rebuilt with `/DTSM_RELEASE_VERSION=0.4.6` for TesmioLoader b0.4.6 (launcher 0.4.6 warns about every plugin built for 0.4.5); code unchanged apart from the version string.

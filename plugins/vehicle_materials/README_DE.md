@@ -1,4 +1,4 @@
-# 🚚 Vehicle Materials 0.4.17
+# 🚚 Vehicle Materials 0.4.18
 
 **TesmioLoader-Plugin für zusätzliche Fahrzeugmaterialien**
 
@@ -295,6 +295,7 @@ Das Plugin verändert keine Spieldateien. Die Lager, die es den Fabriken gibt, s
 
 ### Versionskompatibilität
 
+- **0.4.18:** Nur Texte: Die Einträge der Materialliste im Republic Mod Manager heißen jetzt in jeder Sprache richtig (vorher überall „Material 1“, „Material 2“).
 - **0.4.17:** Die Einstellungsseite im Republic Mod Manager gibt es jetzt in 20 Sprachen; im Spiel ändert sich nichts.
 - **0.4.16:** Für TesmioLoader b0.4.6 neu gebaut; sonst unverändert.
 - **0.4.15:** Fehler behoben: eine von Hand gesetzte Zuordnung `4` (Raketenteile) unter `[mapping]` wurde ignoriert. Dazu Anleitung und Workshop-Text auf den aktuellen Stand gebracht.
@@ -337,7 +338,7 @@ Erwartet bei erfolgreichem Start:
 ```
 vehicle_materials  INFO: - [status] Hook active at SOVIET64.exe+0x419EC0
 vehicle_materials  INFO: - [status] Automatic mapping: type1/2=road, type6=ship, type8/10=airplane, type7/9=rocket, other=rail; horse-drawn vehicles take no extra material
-vehicle_materials  INFO: - [status] v0.4.17 ready
+vehicle_materials  INFO: - [status] v0.4.18 ready
 ```
 
 Suche nach:
@@ -410,5 +411,5 @@ A: Nein. Republic Mod Manager bietet die Materialien aus resources.ini mit + an,
 
 ---
 
-**Letzte Aktualisierung:** Vehicle Materials 0.4.17  
+**Letzte Aktualisierung:** Vehicle Materials 0.4.18  
 **Für:** WRSR 1.2.0.9 | TesmioLoader API 4

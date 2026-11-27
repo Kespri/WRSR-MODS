@@ -997,6 +997,19 @@ static class CoreTests
             Check(found.Count==1&&found[0].Section=="cable_works","the unsaved section is found");
             Check(Startup.BuildingsNaming(b,steps,"gravel",pending).Count==0,"the unsaved text replaces the file");
         });
+        // 0.8.19: a message may carry another message as its argument; it stays whole and readable.
+        Test("a message may carry another message as its argument, to any depth (0.8.19)",()=>
+        {
+            string inner=Msg.Key("inner_key","one","two"),outer=Msg.Key("catalog_installed_rejected",inner);
+            Check(Msg.KeyOf(outer)=="catalog_installed_rejected"&&Msg.ArgsOf(outer).Length==1&&Msg.ArgsOf(outer)[0]==inner,"the inner message comes back whole");
+            Check(Msg.ArgsOf(Msg.ArgsOf(outer)[0]).SequenceEqual(new[]{"one","two"}),"its arguments are its own");
+            Check(Msg.Plain(outer)=="catalog_installed_rejected inner_key one | two","Plain reads the inner message as well");
+            string deep=Msg.Key("a",Msg.Key("b",Msg.Key("c","x","y"),"z"));
+            Check(Msg.ArgsOf(Msg.ArgsOf(Msg.ArgsOf(deep)[0])[0]).SequenceEqual(new[]{"x","y"})&&Msg.ArgsOf(Msg.ArgsOf(deep)[0])[1]=="z","three levels");
+            string odd="a\u0005b";Check(Msg.ArgsOf(Msg.Key("k",odd))[0]==odd,"the escape character itself survives");
+            Check(Msg.Of(new RuleException("rule_key","v1",2))==Msg.Key("rule_key","v1",2)&&Msg.Of(new FormatException("plain text"))=="plain text","Msg.Of: the key of a RuleException, the message of any other");
+            Check(Msg.ArgsOf(Msg.Key("old","x","y")).SequenceEqual(new[]{"x","y"}),"plain arguments as before");
+        });
         // 0.8.17: a plugins\resources.ini that Soviet Mod Loader generated is no seed for a fork.
         Test("a fork is not seeded from a list Soviet Mod Loader generated, but from its baseline (0.8.17)",()=>
         {

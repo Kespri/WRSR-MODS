@@ -369,6 +369,8 @@ static class UiTests
                 LauncherOptions.ShowWindow=false; LauncherOptions.WatchSeconds=15; GameVersion.CheckEnabled=true;
                 var view=new UiState{Build=loader,Language="de"};
                 Check(Language.AutoCode(new System.Globalization.CultureInfo("zh-CN"))=="zh-CN"&&Language.AutoCode(new System.Globalization.CultureInfo("zh-SG"))=="zh-CN"&&Language.AutoCode(new System.Globalization.CultureInfo("zh-TW"))=="zh-TW"&&Language.AutoCode(new System.Globalization.CultureInfo("zh-HK"))=="zh-TW"&&Language.AutoCode(new System.Globalization.CultureInfo("pt-BR"))=="pt"&&Language.AutoCode(new System.Globalization.CultureInfo("de-DE"))=="de","Automatic language: Chinese becomes zh-CN or zh-TW by its written form, every other language its two-letter code");
+                string nested=new Language("de").Localize(Msg.Key("catalog_installed_rejected",Msg.Key("startcheck_vehicles_off","Paket","Kabel")));
+                Check(nested.StartsWith("Installiertes Plugin abgewiesen: Paket: Fahrzeugbau",StringComparison.Ordinal)&&nested.Contains("kein Kabel")&&nested.IndexOf('\u0001')<0&&nested.IndexOf('\u0002')<0,"0.8.19: a message inside a message is translated as well ["+nested+"]");
                 string report=null;
                 using(var window=new OptionsWindow(new Language("de"),view,()=>"Republic Mod Manager 0.4.93\nSteam: Ready",new Font("Segoe UI",10),null))
                 {

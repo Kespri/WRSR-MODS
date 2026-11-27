@@ -151,7 +151,7 @@ namespace TesmioAutoload
         {
             if (relative.Length == 0 || !Language.ValidCode(code)) return null;
             try { string path = SafeFiles.Child(root, relative + "\\" + code + ".ini"); return File.Exists(path) ? new Ini(SafeFiles.Text(path)) : null; }
-            catch (Exception e) { Notes.Add(Msg.Key("translation_ignored", e.Message)); return null; }
+            catch (Exception e) { Notes.Add(Msg.Key("translation_ignored", Msg.Of(e))); return null; }
         }
         public Presentation(Package package, Language language, Ini effective = null, IDictionary<string,ResourceRegistry> registries = null)
         {

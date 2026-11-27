@@ -1,4 +1,4 @@
-// Republic Mod Manager 0.8.18: generic manifest/schema driven plugin deployment.
+// Republic Mod Manager 0.8.19: generic manifest/schema driven plugin deployment.
 // Never loads a DLL during discovery and never edits Workshop defaults or loader code.
 // Since 0.9.0 a package needs only [mod] and [hooks] dll; everything Autoload used
 // to declare is derived by convention, and a plugin without a launcher schema gets
@@ -22,11 +22,29 @@ namespace TesmioAutoload
     // tests read them through Plain. Layout: \u0001key\u0002arg\u0002arg...
     public static class Msg
     {
-        public static string Key(string key, params object[] args) { return "\u0001" + key + String.Concat(args.Select(a => "\u0002" + Convert.ToString(a, System.Globalization.CultureInfo.InvariantCulture))); }
+        // 0.8.19: an argument may itself be a message (a reason inside "plugin rejected: {0}"). Its
+        // markers are escaped with \u0005 so that the outer split leaves it whole; ArgsOf restores it,
+        // and Language.Localize translates it like any other argument. Nesting works to any depth.
+        public static string Key(string key, params object[] args) { return "\u0001" + key + String.Concat(args.Select(a => "\u0002" + Escape(Convert.ToString(a, System.Globalization.CultureInfo.InvariantCulture)))); }
         public static bool IsKey(string text) { return text != null && text.StartsWith("\u0001", StringComparison.Ordinal); }
         public static string KeyOf(string text) { if (!IsKey(text)) return ""; int at = text.IndexOf('\u0002'); return at < 0 ? text.Substring(1) : text.Substring(1, at - 1); }
-        public static string[] ArgsOf(string text) { if (!IsKey(text)) return new string[0]; return text.Split('\u0002').Skip(1).ToArray(); }
-        public static string Plain(string text) { if (!IsKey(text)) return text; string[] args = ArgsOf(text); return KeyOf(text) + (args.Length > 0 ? " " + String.Join(" | ", args) : ""); }
+        public static string[] ArgsOf(string text) { if (!IsKey(text)) return new string[0]; return text.Split('\u0002').Skip(1).Select(Unescape).ToArray(); }
+        public static string Plain(string text) { if (!IsKey(text)) return text; string[] args = ArgsOf(text).Select(Plain).ToArray(); return KeyOf(text) + (args.Length > 0 ? " " + String.Join(" | ", args) : ""); }
+        // The message an exception carries: a RuleException names its key and arguments, whatever its
+        // Message says; any other exception gives its Message (often a message itself).
+        public static string Of(Exception e) { var rule = e as RuleException; return rule != null ? Key(rule.TranslationKey, rule.TranslationArguments) : (e == null ? "" : e.Message); }
+        static string Escape(string s) { if (s == null || s.IndexOfAny(new[] { '\u0001', '\u0002', '\u0005' }) < 0) return s; return s.Replace("\u0005", "\u0005e").Replace("\u0001", "\u0005a").Replace("\u0002", "\u0005b"); }
+        static string Unescape(string s)
+        {
+            if (s == null || s.IndexOf('\u0005') < 0) return s;
+            var b = new StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] != '\u0005' || i + 1 >= s.Length) { b.Append(s[i]); continue; }
+                char c = s[++i]; b.Append(c == 'a' ? '\u0001' : c == 'b' ? '\u0002' : c == 'e' ? '\u0005' : c);
+            }
+            return b.ToString();
+        }
     }
 
     public static class SafeFiles

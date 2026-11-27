@@ -48,7 +48,7 @@
 
 #define PLUGIN_INI      "vehicle_materials.ini"
 #define PLUGIN_OVERLAY  "user_config\\vehicle_materials.ini"
-#define PLUGIN_VERSION  "0.4.17"
+#define PLUGIN_VERSION  "0.4.18"
 #define PLUGIN_LOG_NAME "tesmioloader.vehicle_materials.log"
 
 static const size_t MAX_INI_BYTES = 1u * 1024u * 1024u;

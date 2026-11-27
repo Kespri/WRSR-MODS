@@ -29,7 +29,7 @@ textures or models here - those come with the Workshop packages.
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.12 | Grit storages, material priorities and snowplow tanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.6 | Row spacing in the customs house, text wrapping in info windows, list of missing resources in building windows |
 | [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.21 | Temporary changes to building files without touching the originals |
-| [Vehicle Materials](plugins/vehicle_materials) | 0.4.17 | Extra materials for vehicle production |
+| [Vehicle Materials](plugins/vehicle_materials) | 0.4.18 | Extra materials for vehicle production |
 | [Weather Roads](plugins/weather_roads) | 0.3.9 | Road snow, melting and protection after plowing |
 
 These three travel with the Republic Mod Manager package:
@@ -56,7 +56,7 @@ b0.4.6-rmm.1 that the Republic Mod Manager package ships and installs over the u
 
 | Tool | Version | What it does |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.8.18 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.8.19 | Windows program: lists the plugins the loader finds, edits their settings, switches them on and off and checks the start; its Workshop item brings the installer, the loader and the three plugins above |
 
 ## Installing
 

@@ -271,7 +271,7 @@ namespace TesmioAutoload
                 {
                     entry = new CatalogEntry { Root = f.Path, Name = f.Key, Target = f.Key, Key = f.Key, Dll = f.Path, Installed = true, Origin = "loader" };
                     try { Fill(entry, InstalledPlugins.Load(loader, f.Key, schemaRoot)); }
-                    catch (Exception e) { entry.Problem = Msg.Key("catalog_installed_rejected", e.Message); entry.Supported = false; }
+                    catch (Exception e) { entry.Problem = Msg.Key("catalog_installed_rejected", Msg.Of(e)); entry.Supported = false; }
                 }
                 else
                 {
@@ -284,7 +284,7 @@ namespace TesmioAutoload
                         // A package without a version of its own shows what the loader reported.
                         string seen; if (package.ManifestPath.Length == 0 && versions.TryGetValue(f.Key, out seen)) entry.Version = seen;
                     }
-                    catch (Exception e) { Peek(entry, packageRoot); entry.Problem = Msg.Key("catalog_manifest_rejected", e.Message); entry.Supported = false; }
+                    catch (Exception e) { Peek(entry, packageRoot); entry.Problem = Msg.Key("catalog_manifest_rejected", Msg.Of(e)); entry.Supported = false; }
                 }
                 if (f.PathTooLong) { entry.Problem = Msg.Key("catalog_path_too_long", f.Path); }
                 entry.PassedOver.AddRange(f.Shadowed.Select(s => s.Path));
@@ -304,7 +304,7 @@ namespace TesmioAutoload
                         if (Package.FindManifest(child) == null || withDll.Contains(child)) continue;
                         var entry = new CatalogEntry { Root = child, Name = Path.GetFileName(child), Origin = UnderSteamWorkshop(child) ? "steam" : "unknown" };
                         try { SafeFiles.NoLinks(child); Fill(entry, Package.Load(child)); }
-                        catch (Exception e) { Peek(entry, child); entry.Problem = Msg.Key("catalog_manifest_rejected", e.Message); entry.Supported = false; }
+                        catch (Exception e) { Peek(entry, child); entry.Problem = Msg.Key("catalog_manifest_rejected", Msg.Of(e)); entry.Supported = false; }
                         entries.Add(entry);
                     }
                 }
@@ -378,7 +378,7 @@ namespace TesmioAutoload
                 int w, h; Int32.TryParse(ini.Get("ui", "window_width", "0"), out w); Int32.TryParse(ini.Get("ui", "window_height", "0"), out h);
                 state.WindowWidth = w > 0 ? w : 0; state.WindowHeight = h > 0 ? h : 0; state.WindowMaximized = ini.Get("ui", "window_maximized", "0") == "1";
             }
-            catch (Exception e) { readable = false; notes.Add(Msg.Key("view_restore_failed", e.Message)); }
+            catch (Exception e) { readable = false; notes.Add(Msg.Key("view_restore_failed", Msg.Of(e))); }
             return state;
         }
         public void Save(UiState state)

@@ -29,7 +29,7 @@ Texturen und Modelle liegen hier nicht - die kommen mit den Workshop-Paketen.
 | [Technical Service Storage](plugins/technical_service_storage) | 0.3.12 | Streugutlager, Materialprioritäten und Schneepflugtanks |
 | [UI Layout Fixes](plugins/ui_layout_fixes) | 0.3.6 | Zeilenabstand im Zollhaus, Textumbruch in Info-Fenstern, Liste fehlender Ressourcen in Gebäudefenstern |
 | [Vanilla Buildings](plugins/vanilla_buildings) | 0.4.21 | Vorübergehende Änderungen an Gebäudedateien, ohne die Originale anzufassen |
-| [Vehicle Materials](plugins/vehicle_materials) | 0.4.17 | Zusätzliche Materialien für die Fahrzeugproduktion |
+| [Vehicle Materials](plugins/vehicle_materials) | 0.4.18 | Zusätzliche Materialien für die Fahrzeugproduktion |
 | [Weather Roads](plugins/weather_roads) | 0.3.9 | Straßenschnee, Schmelze und Schutz nach dem Räumen |
 
 Diese drei reisen im Paket des Republic Mod Manager mit:
@@ -57,7 +57,7 @@ und über die Original-DLL installiert (gleiche API, gleiche Logzeilen; die Änd
 
 | Werkzeug | Version | Was es macht |
 |---|---|---|
-| [Republic Mod Manager](tools/republic_mod_manager) | 0.8.18 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
+| [Republic Mod Manager](tools/republic_mod_manager) | 0.8.19 | Windows-Programm: listet die Plugins, die der Loader findet, bearbeitet ihre Einstellungen, schaltet sie ein und aus und prüft den Start; sein Workshop-Objekt bringt den Installer, den Loader und die drei Plugins oben mit |
 
 ## Installation
 
